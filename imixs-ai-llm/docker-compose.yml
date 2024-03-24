@@ -1,0 +1,12 @@
+version: "3.6"
+services:
+
+#######################
+# Imixs-AI
+#######################
+  app:
+    image: imixs/imixs-ai
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
