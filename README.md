@@ -13,6 +13,36 @@ We currently support the following Large Language models, but the project can be
 - [Llama 2 7B Chat](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF) from Meta
 
 
+We are using [FastAPI](https://fastapi.tiangolo.com/) to provide a developer friendly Open-API Rest Interface and also a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml)
+
+
+
+
+### Build and Run
+
+To build the Imixs-AI Docker image run:
+
+    $ cd ./imixs-ai-llm
+    $ ./devi build
+
+**Note** that you need to provide an LLM in the `.gguf` format located in the  `/models` directory to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
+
+
+To run the Docker container run:
+
+    $ ./devi start
+
+Now you can access the Rest API via: 
+
+    http://127.0.0.1:8000/docs
+
+<img src="doc/images/rest-api-01.png" />    
+
+### Development
+
+For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
+
+
 ## Imixs-AI-Workflow
 
 The module [imixs-ai-workflow](./imixs-ai-workflow) provides Adapter classes, CDI Beans and Service EJBs to integrate Imixs-AI into the workflow processing life cycle.
