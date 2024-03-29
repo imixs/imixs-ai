@@ -13,8 +13,8 @@ import json
 
 
 class PromptEntity(BaseModel):
-    system_message: str
-    user_message: str
+    instruction: str
+    context: str
    
 ##########################################################
 # This dataclass is used to exchange the prompt data between the rest api and the LLM.
@@ -24,20 +24,21 @@ class PromptEntity(BaseModel):
 ##########################################################
 @dataclass
 class XMLPrompt:
-    system_message: str = field(
+    instruction: str = field(
         metadata={
-            "example": "Du bist ein hilfreicher Java Code Assistent.",
-            "name": "system_message", 
-            "type": "Element"
-        }
-    )
-    user_message: str = field(
-        metadata={
-            "example": "Was ist die Imixs-Workflow engine?",
-            "name": "user_message", 
+            "example": "What is the Imixs-Workflow engine?",
+            "name": "instruction", 
             "type": "Element"
         }
     )    
+    context: str = field(
+        metadata={
+            "example": "You are a helpful code assistant.",
+            "name": "context", 
+            "type": "Element"
+        }
+    )
+
 
     output: str = field(
         metadata={
