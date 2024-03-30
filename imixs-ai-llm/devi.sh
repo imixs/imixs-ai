@@ -31,9 +31,20 @@ if [[ "$(strip_dash $1)" == "build" ]]; then
     docker build . -t imixs/imixs-ai
 fi
 
+if [[ "$(strip_dash $1)" == "build-gpu" ]]; then
+    echo " Build..."
+    docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai
+fi 
+
 if [[ "$(strip_dash $1)" == "dev" ]]; then
     echo " Start Dev Environment..."
     docker compose -f docker-compose-dev.yml up
+fi
+
+
+if [[ "$(strip_dash $1)" == "dev-gpu" ]]; then
+    echo " Start Dev Environment..."
+    docker compose -f docker-compose-dev-gpu.yml up
 fi
 
 
@@ -44,9 +55,11 @@ if [[ $# -eq 0 ]]; then
 
     echo " Run with ./dev.sh -XXX"
     echo " "
-    echo "   -build : build the Docker Image 'imixs-ai'"
-    echo "   -start : starts the Docker Container "
-    echo "   -dev   : starts the Docker Container is Dev Mode"
+    echo "   -build     : build the Docker Image 'imixs-ai'"
+    echo "   -build-gpu : build the Docker Image 'imixs-ai_gpu' with GPU support"
+    echo "   -start     : starts the Docker Container "
+    echo "   -dev       : starts the Docker Container is Dev Mode"
+    echo "   -dev-gpu   : starts the Docker Container is Dev Mode with GPU support"    
     echo "_________________________________________"
     echo " "
 

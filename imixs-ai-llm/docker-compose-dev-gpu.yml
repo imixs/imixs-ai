@@ -1,0 +1,27 @@
+version: "3.6"
+services:
+
+#######################
+# Imixs-AI
+#######################
+  app:
+    image: imixs/imixs-ai_gpu
+
+    command: nvidia-smi
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
+    #tty: true
+
+    volumes: 
+      - ./app:/app
+      - ./models:/models

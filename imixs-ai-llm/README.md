@@ -27,3 +27,8 @@ https://blog.cloudflare.com/workers-ai-update-hello-mistral-7b-de-de
 https://www.promptingguide.ai/models/mixtral
 
 https://docs.mistral.ai/guides/prompting-capabilities/
+
+
+# GPU Support
+
+https://medium.com/@ryan.stewart113/a-simple-guide-to-enabling-cuda-gpu-support-for-llama-cpp-python-on-your-os-or-in-containers-8b5ec1f912a4
