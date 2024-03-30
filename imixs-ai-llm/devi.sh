@@ -23,7 +23,7 @@ strip_dash() {
 
 if [[ "$(strip_dash $1)" == "start" ]]; then
     echo " Start Dev Environment..."
-    docker-compose -f docker-compose.yml up
+    docker compose -f docker-compose.yml up
 fi
 
 if [[ "$(strip_dash $1)" == "build" ]]; then
@@ -33,7 +33,7 @@ fi
 
 if [[ "$(strip_dash $1)" == "dev" ]]; then
     echo " Start Dev Environment..."
-    docker-compose -f docker-compose-dev.yml up
+    docker compose -f docker-compose-dev.yml up
 fi
 
 
