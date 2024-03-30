@@ -33,7 +33,7 @@ fi
 
 if [[ "$(strip_dash $1)" == "build-gpu" ]]; then
     echo " Build..."
-    docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai
+    docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai_gpu
 fi 
 
 if [[ "$(strip_dash $1)" == "dev" ]]; then
