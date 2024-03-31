@@ -24,6 +24,7 @@ model_path = "/models/mistral-7b-instruct-v0.2.Q4_K_S.gguf"
 
 # Create a llama model
 # Find API Reference: https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
+#  n_gpu_layers=30
 model = Llama(
     model_path=model_path,
     temperature=0.1,
@@ -33,8 +34,12 @@ model = Llama(
     seed=-1, 
     n_threads=8,
     verbose=True,
-    echo=False
+    echo=False,
+    n_gpu_layers=30
 )
+
+
+
 print("Init Model...finished.")
 
 #####################
