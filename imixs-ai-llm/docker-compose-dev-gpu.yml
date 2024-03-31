@@ -7,7 +7,7 @@ services:
   app:
     image: imixs/imixs-ai_gpu
 
-    command: nvidia-smi
+    #command: nvidia-smi
     deploy:
       resources:
         reservations:
