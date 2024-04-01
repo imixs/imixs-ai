@@ -19,13 +19,23 @@ RUN apt-get install build-essential
 #    apt-get -y install cuda-toolkit-12-3 
 
 
+#RUN apt-get install -y software-properties-common && \
+#    wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.debsudo && \
+#    dpkg -i cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
+#    cp /var/cuda-repo-debian12-12-4-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
+#    add-apt-repository contribsudo && \
+#    apt-get update && \
+#    apt-get -y install cuda-toolkit-12-4    
+
 RUN apt-get install -y software-properties-common && \
-    wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.debsudo && \
+    wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
     dpkg -i cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
     cp /var/cuda-repo-debian12-12-4-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
-    add-apt-repository contribsudo && \
+    add-apt-repository contrib && \
     apt-get update && \
-    apt-get -y install cuda-toolkit-12-4    
+    apt-get -y install cuda-toolkit-12-4
+
+
 
 ## Install llama-cpp-python with CUDA Support (and jupyterlab)
 RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1 \
