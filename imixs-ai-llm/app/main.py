@@ -59,7 +59,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
         )
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"--- Init Model...finished in {execution_time}  ms")
+        print(f"--- Init Model...finished in {execution_time} sec")
 
 
 
