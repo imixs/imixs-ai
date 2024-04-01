@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y software-properties-common && \
 ## Install llama-cpp-python with CUDA Support (and jupyterlab)
 #RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1
 
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir
+RUN FORCE_CMAKE=1 CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir
+
 
 # Install fastAPI
 RUN pip install fastapi
