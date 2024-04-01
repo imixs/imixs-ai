@@ -8,6 +8,7 @@ from fastapi_xml import XmlBody
 
 from llama_cpp import Llama
 from imixs.core import datamodel
+import time
 
 # Setup FastAPI with the default XMLAPPResponse class
 # 
@@ -41,6 +42,8 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
     # Create a llama model if not yet initialized
     if model is None :
+
+        start_time = time.time()
         print("--- Init Model...")
         model = Llama(
             model_path=model_path,
@@ -54,7 +57,9 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
             echo=False,
             n_gpu_layers=30
         )
-        print("--- Init Model...finished!")
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"--- Init Model...finished in {execution_time}  ms")
 
 
 
