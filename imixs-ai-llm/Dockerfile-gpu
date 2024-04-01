@@ -4,9 +4,11 @@
 FROM python:3.10-bookworm
 #FROM python
 
+# See:  https://medium.com/@ryan.stewart113/a-simple-guide-to-enabling-cuda-gpu-support-for-llama-cpp-python-on-your-os-or-in-containers-8b5ec1f912a4
+# See:  https://medium.com/@ahmedtm/a-simple-guide-to-run-the-llama-model-in-a-docker-container-a3899032995e
 RUN apt-get update
-RUN sudo apt-get install g++
-RUN sudo apt-get install build-essential
+RUN apt-get install g++
+RUN apt-get install build-essential
 ## Install CUDA Toolkit (Includes drivers and SDK needed for building llama-cpp-python with CUDA support)
 RUN apt-get install -y software-properties-common && \
     wget https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda-repo-debian12-12-3-local_12.3.1-545.23.08-1_amd64.deb && \
@@ -17,11 +19,8 @@ RUN apt-get install -y software-properties-common && \
     apt-get -y install cuda-toolkit-12-3 
 
 ## Install llama-cpp-python with CUDA Support (and jupyterlab)
-# RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1
-
-# RUN FORCE_CMAKE=1 CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1 pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir
-
+RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1 \
+    pip install jupyterlab llama-cpp-python --no-cache-dir --force-reinstall --upgrade
 
 # Install fastAPI
 RUN pip install fastapi
