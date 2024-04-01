@@ -37,6 +37,7 @@ model_path = "/models/mistral-7b-instruct-v0.2.Q4_K_S.gguf"
 @app.post("/prompt", response_model=datamodel.XMLPrompt, tags=["Imixs-AI"])
 def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
+    global model
 
     # Create a llama model if not yet initialized
     if model is None :

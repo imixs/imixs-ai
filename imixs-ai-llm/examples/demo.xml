@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XMLPrompt>
+	<instruction>You are a helpfull java developer. Tell me something about Imixs-Workflow.
+	</instruction>
+	<context><![CDATA[]]></context>
+	<output></output>
+</XMLPrompt>

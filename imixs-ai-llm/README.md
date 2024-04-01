@@ -191,4 +191,4 @@ $ cd models
 ## Rund Docker
 
 
-    $ docker run --gpus all -v ./models:/models -p:8000  imixs/imixs-ai_gpu
+    $ docker run --gpus all -v ./models:/models -p 8000:8000  imixs/imixs-ai_gpu
