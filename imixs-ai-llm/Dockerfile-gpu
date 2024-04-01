@@ -1,52 +1,35 @@
-#
-# Docker Image including llama-cpp-python with CUDA support
-#
-FROM python:3.10-bookworm
-#FROM python
+ARG CUDA_IMAGE="12.1.1-devel-ubuntu22.04"
+FROM nvidia/cuda:${CUDA_IMAGE}
 
-# See:  https://medium.com/@ryan.stewart113/a-simple-guide-to-enabling-cuda-gpu-support-for-llama-cpp-python-on-your-os-or-in-containers-8b5ec1f912a4
-# See:  https://medium.com/@ahmedtm/a-simple-guide-to-run-the-llama-model-in-a-docker-container-a3899032995e
-RUN apt-get update
-RUN apt-get install g++
-RUN apt-get install build-essential
-## Install CUDA Toolkit (Includes drivers and SDK needed for building llama-cpp-python with CUDA support)
-#RUN apt-get install -y software-properties-common && \
-#    wget https://developer.download.nvidia.com/compute/cuda/12.3.1/local_installers/cuda-repo-debian12-12-3-local_12.3.1-545.23.08-1_amd64.deb && \
-#    dpkg -i cuda-repo-debian12-12-3-local_12.3.1-545.23.08-1_amd64.deb && \
-#    cp /var/cuda-repo-debian12-12-3-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
-#    add-apt-repository contrib && \
-#    apt-get update && \
-#    apt-get -y install cuda-toolkit-12-3 
+# We need to set the host to 0.0.0.0 to allow outside access
+ENV HOST 0.0.0.0
 
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y git build-essential \
+    python3 python3-pip gcc wget \
+    ocl-icd-opencl-dev opencl-headers clinfo \
+    libclblast-dev libopenblas-dev \
+    && mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
-#RUN apt-get install -y software-properties-common && \
-#    wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.debsudo && \
-#    dpkg -i cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
-#    cp /var/cuda-repo-debian12-12-4-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
-#    add-apt-repository contribsudo && \
-#    apt-get update && \
-#    apt-get -y install cuda-toolkit-12-4    
+#COPY . .
 
-RUN apt-get install -y software-properties-common && \
-    wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
-    dpkg -i cuda-repo-debian12-12-4-local_12.4.0-550.54.14-1_amd64.deb && \
-    cp /var/cuda-repo-debian12-12-4-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
-    add-apt-repository contrib && \
-    apt-get update && \
-    apt-get -y install cuda-toolkit-12-4
+# setting build related env vars
+ENV CUDA_DOCKER_ARCH=all
+ENV LLAMA_CUBLAS=1
 
+# Install depencencies
+RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fastapi uvicorn fastapi-xml
 
-
-## Install llama-cpp-python with CUDA Support (and jupyterlab)
-RUN CUDACXX=/usr/local/cuda-12/bin/nvcc CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=all-major" FORCE_CMAKE=1 \
-    pip install jupyterlab llama-cpp-python --no-cache-dir --force-reinstall --upgrade
+# Install llama-cpp-python (build with cuda)
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
 
 # Install fastAPI
-RUN pip install fastapi
-RUN pip install "uvicorn[standard]"
-RUN pip install fastapi-xml
+#RUN pip install fastapi
+#RUN pip install "uvicorn[standard]"
+#RUN pip install fastapi-xml
 
 COPY ./app /app
 WORKDIR /app
+
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
