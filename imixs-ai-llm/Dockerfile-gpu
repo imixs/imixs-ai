@@ -1,8 +1,9 @@
+# See: https://github.com/abetlen/llama-cpp-python/blob/main/docker/cuda_simple/Dockerfile
 ARG CUDA_IMAGE="12.1.1-devel-ubuntu22.04"
 FROM nvidia/cuda:${CUDA_IMAGE}
 
 # We need to set the host to 0.0.0.0 to allow outside access
-ENV HOST 0.0.0.0
+# ENV HOST 0.0.0.0
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y git build-essential \
@@ -11,17 +12,29 @@ RUN apt-get update && apt-get upgrade -y \
     libclblast-dev libopenblas-dev \
     && mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
-COPY . .
+#COPY . .
 
 # setting build related env vars
 ENV CUDA_DOCKER_ARCH=all
 ENV LLAMA_CUBLAS=1
 
 # Install depencencies
-RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fastapi uvicorn sse-starlette pydantic-settings starlette-context
+RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fastapi uvicorn fastapi-xml
 
 # Install llama-cpp-python (build with cuda)
 RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
 
-# Run the server
-CMD python3 -m llama_cpp.server
+# Install fastAPI
+#RUN pip install fastapi
+#RUN pip install "uvicorn[standard]"
+#RUN pip install fastapi-xml
+
+COPY ./app /app
+WORKDIR /app
+
+# run with:   
+#  docker run --gpus all --cap-add SYS_RESOURCE -e USE_MLOCK=0 -v ./models:/models -p 8000:8000  imixs/imixs-ai_gpu
+#  docker run --gpus=all --cap-add SYS_RESOURCE -e USE_MLOCK=0 -e MODEL=/var/model/mistral-7b-instruct-v0.2.Q4_K_S.gguf -p 8000:8000 -v /home/imixs/imixs-ai/imixs-ai-llm/models/:/var/model -t openblas_simple
+
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

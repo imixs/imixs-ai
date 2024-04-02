@@ -1,0 +1,15 @@
+# See: https://hub.docker.com/r/dustynv/llama_cpp#!
+
+#FROM dustynv/llama_cpp:gguf-r36.2.0
+FROM dustynv/cuda-python:r36.2.0
+
+# Install fastAPI
+RUN pip3 install fastapi
+RUN pip3 install "uvicorn[standard]"
+RUN pip3 install fastapi-xml
+
+COPY ./app /app
+WORKDIR /app
+
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -192,3 +192,21 @@ $ cd models
 
 
     $ docker run --gpus all -v ./models:/models -p 8000:8000  imixs/imixs-ai_gpu
+
+
+
+
+
+# Open Issues
+
+cuda version n/a inside container.
+See: https://stackoverflow.com/questions/63751883/using-gpu-inside-docker-container-cuda-version-n-a-and-torch-cuda-is-availabl
+
+
+# Scheißfehler
+
+
+https://forums.developer.nvidia.com/t/nvprof-error-code-139-but-memcheck-ok/50329/4
+
+--unified-memory-profiling off
+
