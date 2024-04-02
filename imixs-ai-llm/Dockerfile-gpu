@@ -3,9 +3,9 @@
 FROM dustynv/llama_cpp:gguf-r36.2.0
 
 # Install fastAPI
-RUN pip install fastapi
-RUN pip install "uvicorn[standard]"
-RUN pip install fastapi-xml
+RUN pip3 install fastapi
+RUN pip3 install "uvicorn[standard]"
+RUN pip3 install fastapi-xml
 
 COPY ./app /app
 WORKDIR /app
