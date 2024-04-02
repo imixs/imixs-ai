@@ -1,6 +1,7 @@
 # See: https://hub.docker.com/r/dustynv/llama_cpp#!
 
-FROM dustynv/llama_cpp:gguf-r36.2.0
+#FROM dustynv/llama_cpp:gguf-r36.2.0
+FROM dustynv/cuda-python:r36.2.0
 
 # Install fastAPI
 RUN pip3 install fastapi
