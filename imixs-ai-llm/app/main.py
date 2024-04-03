@@ -49,6 +49,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
             model_path=model_path,
             temperature=0.1,
             max_tokens=16,
+            n_ctx=2048,
             verbose=True,
             echo=False
         )

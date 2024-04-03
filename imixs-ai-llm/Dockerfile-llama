@@ -26,7 +26,7 @@ RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fa
 RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
 
 # Starten kann man das scheinbar mit :
-# docker run --gpus=all --cap-add SYS_RESOURCE -e USE_MLOCK=0 -e MODEL=/var/model/mistral-7b-instruct-v0.2.Q4_K_S.gguf -p 8000:8000 -v /home/imixs/imixs-ai/imixs-ai-llm/models/:/var/model -t openblas_simple
+# docker run --gpus=all --cap-add SYS_RESOURCE -e USE_MLOCK=0 -e MODEL=/var/model/mistral-7b-instruct-v0.2.Q4_K_S.gguf -p 8000:8000 -v /home/imixs/imixs-ai/imixs-ai-llm/models/:/var/model -t imixs/imixs-ai_gpu
 
 # Run the server
 CMD python3 -m llama_cpp.server
