@@ -60,7 +60,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
 
     # Model parameters
-    print("--- compute prompt v2a....")
+    print("--- compute prompt....")
     max_tokens = 2000
     prompt = f"""<s>[INST] {data.instruction} [/INST] {data.context} """
     print("start processing prompt:\n\n",prompt,'\n...\n')
@@ -68,8 +68,8 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
                      temperature=0,
                      echo=False
                      )
-    print("-- mir geths noch gut")
-    #data.output = result
+    print(result)
+    data.output = result
     return data;
 
 
@@ -78,13 +78,17 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 @app.get("/simple")
 async def test_get():
 
+    data: datamodel.XMLPrompt
     print("--start simple test --")
     llm = Llama(model_path=model_path, n_gpu_layers=30, n_ctx=3584, n_batch=521, verbose=True)
     # adjust n_gpu_layers as per your GPU and model
     output = llm("Q: Name and explain the planets in the solar system? A: ", max_tokens=2000, stop=["Q:", "\n"], echo=True)
     print(output)
 
-    return {"message": "Hello World"}
+    data: datamodel.XMLPrompt
+
+    data.output = output
+    return data;
 
 
 #@app.post("/simplepost")
