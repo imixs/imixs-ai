@@ -6,7 +6,7 @@ RUN CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS" pip install llama-
 
 RUN pip install fastapi
 RUN pip install "uvicorn[standard]"
-#RUN pip install fastapi-xml
+RUN pip install fastapi-xml
 
 COPY ./app /app
 #COPY ./models/mistral*.gguf /app
