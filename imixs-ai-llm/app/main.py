@@ -60,14 +60,16 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
 
     # Model parameters
-    print("--- compute prompt....")
+    print("--- compute prompt v2....")
     max_tokens = 16
     prompt = f"""<s>[INST] {data.instruction} [/INST] {data.context} """
     print("start processing prompt:\n\n",prompt,'\n...\n')
-    data.output = model(prompt, max_tokens=max_tokens, 
+    result = model(prompt, max_tokens=max_tokens, 
                      temperature=0,
                      echo=False
                      )
+    print("-- mir geths noch gut")
+    data.output = result
     return data;
 
 
