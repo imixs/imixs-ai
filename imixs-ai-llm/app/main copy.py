@@ -49,8 +49,13 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
             model_path=model_path,
             temperature=0.1,
             max_tokens=16,
+            n_ctx=3048,
+            ctx_size=3000,
+            seed=-1, 
+            n_threads=8,
             verbose=True,
-            echo=False
+            echo=False,
+            n_gpu_layers=30
         )
         end_time = time.time()
         execution_time = end_time - start_time
