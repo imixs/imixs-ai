@@ -3,7 +3,7 @@ ARG CUDA_IMAGE="12.1.1-devel-ubuntu22.04"
 FROM nvidia/cuda:${CUDA_IMAGE}
 
 # We need to set the host to 0.0.0.0 to allow outside access
-# ENV HOST 0.0.0.0
+ENV HOST 0.0.0.0
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y git build-essential \
@@ -19,7 +19,7 @@ ENV CUDA_DOCKER_ARCH=all
 ENV LLAMA_CUBLAS=1
 
 # Install depencencies
-RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fastapi uvicorn fastapi-xml
+RUN python3 -m pip install --upgrade pip pytest cmake scikit-build setuptools fastapi uvicorn sse-starlette pydantic-settings starlette-context fastapi-xml
 
 # Install llama-cpp-python (build with cuda)
 RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
