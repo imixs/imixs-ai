@@ -36,6 +36,11 @@ if [[ "$(strip_dash $1)" == "build-gpu" ]]; then
     docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai_gpu
 fi 
 
+if [[ "$(strip_dash $1)" == "build-llama" ]]; then
+    echo " Build (GPU)..."
+    docker build . -f ./Dockerfile-llama -t imixs/imixs-ai_gpu
+fi 
+
 if [[ "$(strip_dash $1)" == "dev" ]]; then
     echo " Start Dev Environment..."
     docker compose -f docker-compose-dev.yml up
