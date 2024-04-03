@@ -78,7 +78,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 @app.get("/simple")
 async def test_get():
 
-    data = XMLPrompt(
+    data = datamodel.XMLPrompt(
         instruction="",
         context="",
         output=""
