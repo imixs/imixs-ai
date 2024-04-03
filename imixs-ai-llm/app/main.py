@@ -47,9 +47,9 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
         print("--- Init Model...")
         model = Llama(
             model_path=model_path,
-            temperature=0.1,
-            max_tokens=16,
-            n_ctx=2048,
+            n_gpu_layers=30, 
+            n_ctx=3584, 
+            n_batch=521, 
             verbose=True,
             echo=False
         )
@@ -61,7 +61,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
     # Model parameters
     print("--- compute prompt v2a....")
-    max_tokens = 16
+    max_tokens = 2000
     prompt = f"""<s>[INST] {data.instruction} [/INST] {data.context} """
     print("start processing prompt:\n\n",prompt,'\n...\n')
     result = model(prompt, max_tokens=max_tokens, 
