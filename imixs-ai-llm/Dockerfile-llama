@@ -13,7 +13,7 @@ RUN apt-get update && apt-get upgrade -y \
     libclblast-dev libopenblas-dev \
     && mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 
-COPY . .
+# COPY . .
 
 # setting build related env vars
 ENV CUDA_DOCKER_ARCH=all
