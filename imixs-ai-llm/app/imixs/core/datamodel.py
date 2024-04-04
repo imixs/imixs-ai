@@ -1,5 +1,5 @@
 """
-The .....
+The data model to send promt data to llama-cpp-python
 
 @author: ralph.soika@imixs.com 
 @version:  1.0 
@@ -38,7 +38,6 @@ class XMLPrompt:
             "type": "Element"
         }
     )
-
 
     output: str = field(
         metadata={
