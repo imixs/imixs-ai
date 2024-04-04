@@ -35,6 +35,8 @@ model_path = "/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 #   <output></output>
 # </XMLPrompt>
 #
+# Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
+
 @app.post("/prompt", response_model=datamodel.XMLPrompt, tags=["Imixs-AI"])
 def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
@@ -51,6 +53,7 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
             n_ctx=3584, 
             n_batch=521, 
             verbose=True,
+            logits_all=True,
             echo=False
         )
         end_time = time.time()

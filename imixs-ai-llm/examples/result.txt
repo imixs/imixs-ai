@@ -1,0 +1,6 @@
+{\n  "invoice_data": {\n    "invoice_number": "DEBRVPM240017345",\n    "invoice_date": "18-Mrz-2024 to 25-Mrz-2024",\n   
+ "total_summary": {\n      "total_in_words": "NINETY AND 0/100 EUR ONLY",\n      "total_amount": "90,00 EUR"\n    }\n  },\n  "payment_information": 
+ {\n    "beneficiary": "MSC Mediterranean Shipping Company S.A.",\n   
+  "iban": ["DE45 2004 0050 0645 5224 00", "DE45 2004 0050 0645 5224 00"], //USD and EUR IBANs\n    "bic": "COBADEFF208",\n  
+    "payment_date": "" // To be filled upon payment\n  },\n  "invoice_positions": [\n    {\n      "description": "IMPORT-HANDLING-FEE",\n      "amount": "50,00 EUR",\n      "unit_price": "50,00 EUR",\n      "total": "50,00 EUR"\n    },\n    {\n      "description": "CONTAINER COMPLIANCE CHARGE",\n      "unit_price": "2,00 EUR",\n      "total": "80,00 EUR" // Calculate total by multiplying unit_price with quantity (not provided)\n    },\n    {\n      "description": "VAT clause",\n      "amount": "90,00 EUR",\n      "unit_price": "90,00 EUR"\n    }\n  ]\n}\n```\nPlease note that the `payment_date` and the quantity for the second invoice position is missing in the provided invoice data, so
+ it is left blank in the example JSON object

@@ -1,0 +1,62 @@
+{
+  "invoice": {
+   "number": "1208",
+   "date": "18-Mar-2024 to 25-Mar-2024",
+   "total": {
+    "currency": "EUR",
+    "amount": "90.00"
+   },
+   "net": {
+    "currency": "EUR",
+    "amount": null
+   }
+  },
+  "payment": {
+   "iban": "DE45 2004 0050 0645 5224 00",
+   "bic": "COBADEFF208",
+   "date": "23-Mar-2024"
+  },
+  "positions": [
+   {
+    "description": "Import-Handling-Fee",
+    "amount": {
+     "currency": "EUR",
+     "amount": "50.00"
+    },
+    "unit_price": null,
+    "total": {
+     "currency": "EUR",
+     "amount": "50.00"
+    }
+   },
+   {
+    "description": "Container Compliance Charge",
+    "amount": {
+     "currency": "EUR",
+     "amount": "40.00"
+    },
+    "unit_price": null,
+    "total": {
+     "currency": "EUR",
+     "amount": "40.00"
+    }
+   },
+   {
+    "description": "VAT",
+    "amount": {
+     "currency": "EUR",
+     "amount": "90.00"
+    },
+    "unit_price": null,
+    "total": {
+     "currency": "EUR",
+     "amount": "90.00"
+    }
+   }
+  ]
+   }
+
+   The invoice data includes the invoice number, date, total, and net amount. The payment information includes the IBAN, BIC, 
+   and payment date. The invoice positions include the description, amount, unit price, and total for each position on the invoice.
+
+  
