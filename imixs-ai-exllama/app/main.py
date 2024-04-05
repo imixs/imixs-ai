@@ -19,7 +19,7 @@ from fastapi_xml import add_openapi_extension
 from fastapi_xml import XmlRoute
 from fastapi_xml import XmlAppResponse
 from fastapi_xml import XmlBody
-
+from imixs.core import datamodel
 
 # 
 # app = FastAPI()
