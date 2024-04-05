@@ -11,14 +11,11 @@ RUN apt-get update && apt-get upgrade -y \
 # cuda_12.1.r12.1/compiler.32688072_0
 # ==> exllamav2-0.0.17+cu121-cp310-cp310-linux_x86_64.whl 
 RUN pip install https://github.com/turboderp/exllamav2/releases/download/v0.0.17/exllamav2-0.0.17+cu121-cp310-cp310-linux_x86_64.whl 
-
-
-
 RUN pip install tokenizers
 
 
 # Install fastAPI and copy app
-#RUN pip install fastapi-xml
+RUN pip install fastapi uvicorn fastapi-xml
 COPY ./app /app
 WORKDIR /app
 

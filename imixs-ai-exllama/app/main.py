@@ -14,55 +14,112 @@ from exllamav2.generator import (
 )
 
 import time
+from fastapi import FastAPI
+from fastapi_xml import add_openapi_extension
+from fastapi_xml import XmlRoute
+from fastapi_xml import XmlAppResponse
+from fastapi_xml import XmlBody
+
+
+# 
+# app = FastAPI()
+app = FastAPI(title="FastAPI::XML", default_response_class=XmlAppResponse)
+app.router.route_class = XmlRoute
+add_openapi_extension(app)
+
+
 
 # Initialize model and cache
-
 #model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
 model_directory =  "/models/Mistral-7B-Instruct-2.5bpw/"
-print("Loading model:1 " + model_directory)
+generator = None
 
-config = ExLlamaV2Config(model_directory)
-print("debug 1")
-model = ExLlamaV2(config)
-print("debug 2")
-cache = ExLlamaV2Cache(model, lazy = True)
 
-cache.current_seq_len = 0
+# Setup FastAPI with the default XMLAPPResponse class
 
-print("debug 3")
-model.load_autosplit(cache)
-print("debug 4")
-tokenizer = ExLlamaV2Tokenizer(config)
 
-# Initialize generator
-print("debug 5")
 
-generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
-print("debug 6")
 
-# Generate some text
+#####################
+# Basis prompt method. This method expects a XMLPrompt dataobject holding the system and user message
+# The output is stored in the tag 'output'.
+#
+# Example: 
+# <XMLPrompt>
+#	<system_message>Du bist ein hilfreicher Java Code Assistent.</system_message>
+#	<user_message>Was ist die Imixs-Workflow engine?</user_message>
+#   <output></output>
+# </XMLPrompt>
+#
+# Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
 
-settings = ExLlamaV2Sampler.Settings()
-settings.temperature = 0.85
-settings.top_k = 50
-settings.top_p = 0.8
-settings.token_repetition_penalty = 1.01
-settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
+@app.post("/prompt", response_model=datamodel.XMLPrompt, tags=["Imixs-AI"])
+def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
-prompt = "Our story begins in the Scottish town of Auchtermuchty, where once"
+    global generator
 
-max_new_tokens = 150
-print("debug 7")
+    # Create a llama model if not yet initialized
+    if generator is None :
 
-generator.warmup()
-time_begin = time.time()
-print("debug 8")
+        start_time = time.time()
+        print("--- Init Model...")
 
-output = generator.generate_simple(prompt, settings, max_new_tokens, seed = 1234)
 
-time_end = time.time()
-time_total = time_end - time_begin
+        print("Loading model:1 " + model_directory)
 
-print(output)
-print()
-print(f"Response generated in {time_total:.2f} seconds, {max_new_tokens} tokens, {max_new_tokens / time_total:.2f} tokens/second")
+        config = ExLlamaV2Config(model_directory)
+        print("debug 1")
+        model = ExLlamaV2(config)
+        print("debug 2")
+        cache = ExLlamaV2Cache(model, lazy = True)
+
+        cache.current_seq_len = 0
+
+        print("debug 3")
+        model.load_autosplit(cache)
+        print("debug 4")
+        tokenizer = ExLlamaV2Tokenizer(config)
+
+        # Initialize generator
+        print("debug 5")
+
+        generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
+        print("debug 6")
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"--- Init Model...finished in {execution_time} sec")
+
+
+
+    # Model parameters
+    print("--- compute prompt....")
+    # Generate some text
+
+    settings = ExLlamaV2Sampler.Settings()
+    settings.temperature = 0.85
+    settings.top_k = 50
+    settings.top_p = 0.8
+    settings.token_repetition_penalty = 1.01
+    settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
+
+    # prompt = "Our story begins in the Scottish town of Auchtermuchty, where once"
+    prompt = f"""<s>[INST] {data.instruction} [/INST] {data.context} """
+
+    max_new_tokens = 150
+    print("debug 7")
+
+    generator.warmup()
+    time_begin = time.time()
+    print("debug 8")
+
+    result = generator.generate_simple(prompt, settings, max_new_tokens, seed = 1234)
+
+    time_end = time.time()
+    time_total = time_end - time_begin
+
+    print(result)
+    print()
+    print(f"Response generated in {time_total:.2f} seconds, {max_new_tokens} tokens, {max_new_tokens / time_total:.2f} tokens/second")
+
+    data.output = result
+    return data;
