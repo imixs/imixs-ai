@@ -5,7 +5,7 @@ services:
 # Imixs-AI
 #######################
   app:
-    image: imixs/imixs/imixs-ai-exllama
+    image: imixs/imixs-ai-exllama
     cap_add:
     - SYS_RESOURCE
     #command: nvidia-smi

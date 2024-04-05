@@ -26,6 +26,7 @@ $ pip install --upgrade huggingface_hub
 To download the Mistral 7B Model from [huggingface.co](https://huggingface.co/alokabhishek/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2): 
 
 ```
+$ source ~/.env/bin/activate
 $ cd models
 $ mkdir Mistral-7B-Instruct-v0.2-5.0-bpw-exl2
 $ cd Mistral-7B-Instruct-v0.2-5.0-bpw-exl2
