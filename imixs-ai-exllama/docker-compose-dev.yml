@@ -19,7 +19,7 @@ services:
 
     environment:
       PYTHONUNBUFFERED: "1"
-      USE_MLOCK: true      
+      #USE_MLOCK: true      
     ports:
       - "8000:8000"
     #tty: true
