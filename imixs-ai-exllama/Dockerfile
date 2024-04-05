@@ -14,7 +14,7 @@ RUN pip install https://github.com/turboderp/exllamav2/releases/download/v0.0.17
 
 
 
-
+RUN pip install tokenizers
 
 
 # Install fastAPI and copy app
@@ -22,4 +22,4 @@ RUN pip install https://github.com/turboderp/exllamav2/releases/download/v0.0.17
 COPY ./app /app
 WORKDIR /app
 
-CMD ["main.py"]
+CMD ["python3", "./main.py"]

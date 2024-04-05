@@ -1,0 +1,29 @@
+version: "3.6"
+services:
+
+#######################
+# Imixs-AI
+#######################
+  app:
+    image: imixs/imixs/imixs-ai-exllama
+    cap_add:
+    - SYS_RESOURCE
+    #command: nvidia-smi
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+      USE_MLOCK: true      
+    ports:
+      - "8000:8000"
+    #tty: true
+
+    volumes: 
+      - ./app:/app
+      - ./models:/models
