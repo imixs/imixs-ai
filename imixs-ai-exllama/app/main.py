@@ -18,7 +18,7 @@ import time
 # Initialize model and cache
 
 model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
-print("Loading model: " + model_directory)
+print("Loading model:1 " + model_directory)
 
 config = ExLlamaV2Config(model_directory)
 print("debug 1")
