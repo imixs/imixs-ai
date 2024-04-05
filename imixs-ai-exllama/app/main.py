@@ -21,14 +21,20 @@ model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
 print("Loading model: " + model_directory)
 
 config = ExLlamaV2Config(model_directory)
+print("debug 1")
 model = ExLlamaV2(config)
+print("debug 2")
 cache = ExLlamaV2Cache(model, lazy = True)
+print("debug 3")
 model.load_autosplit(cache)
+print("debug 4")
 tokenizer = ExLlamaV2Tokenizer(config)
 
 # Initialize generator
+print("debug 5")
 
 generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
+print("debug 6")
 
 # Generate some text
 
@@ -42,9 +48,11 @@ settings.disallow_tokens(tokenizer, [tokenizer.eos_token_id])
 prompt = "Our story begins in the Scottish town of Auchtermuchty, where once"
 
 max_new_tokens = 150
+print("debug 7")
 
 generator.warmup()
 time_begin = time.time()
+print("debug 8")
 
 output = generator.generate_simple(prompt, settings, max_new_tokens, seed = 1234)
 
