@@ -22,4 +22,4 @@ RUN pip install https://github.com/turboderp/exllamav2/releases/download/v0.0.17
 COPY ./app /app
 WORKDIR /app
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["main.py"]
