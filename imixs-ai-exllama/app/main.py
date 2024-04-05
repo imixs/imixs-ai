@@ -21,11 +21,7 @@ from fastapi_xml import XmlAppResponse
 from fastapi_xml import XmlBody
 from imixs.core import datamodel
 
-# 
-# app = FastAPI()
-app = FastAPI(title="FastAPI::XML", default_response_class=XmlAppResponse)
-app.router.route_class = XmlRoute
-add_openapi_extension(app)
+
 
 
 
@@ -33,10 +29,36 @@ add_openapi_extension(app)
 #model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
 model_directory =  "/models/Mistral-7B-Instruct-2.5bpw/"
 generator = None
+start_time = time.time()
+
+print("Init model: " + model_directory)
+
+config = ExLlamaV2Config(model_directory)
+model = ExLlamaV2(config)
+cache = ExLlamaV2Cache(model, lazy = True)
+cache.current_seq_len = 0
+
+print("create cache....")
+model.load_autosplit(cache)
+print("debug 4")
+tokenizer = ExLlamaV2Tokenizer(config)
+
+# Initialize generator
+print("debug 5")
+
+generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
+print("debug 6")
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"--- Init Model...finished in {execution_time} sec")
 
 
 # Setup FastAPI with the default XMLAPPResponse class
-
+# 
+# app = FastAPI()
+app = FastAPI(title="FastAPI::XML", default_response_class=XmlAppResponse)
+app.router.route_class = XmlRoute
+add_openapi_extension(app)
 
 
 
@@ -57,39 +79,7 @@ generator = None
 def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
 
     global generator
-
-    # Create a llama model if not yet initialized
-    if generator is None :
-
-        start_time = time.time()
-        print("--- Init Model...")
-
-
-        print("Loading model:1 " + model_directory)
-
-        config = ExLlamaV2Config(model_directory)
-        print("debug 1")
-        model = ExLlamaV2(config)
-        print("debug 2")
-        cache = ExLlamaV2Cache(model, lazy = True)
-
-        cache.current_seq_len = 0
-
-        print("debug 3")
-        model.load_autosplit(cache)
-        print("debug 4")
-        tokenizer = ExLlamaV2Tokenizer(config)
-
-        # Initialize generator
-        print("debug 5")
-
-        generator = ExLlamaV2BaseGenerator(model, cache, tokenizer)
-        print("debug 6")
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"--- Init Model...finished in {execution_time} sec")
-
-
+    global tokenizer
 
     # Model parameters
     print("--- compute prompt....")
