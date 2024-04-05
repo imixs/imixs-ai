@@ -17,7 +17,8 @@ import time
 
 # Initialize model and cache
 
-model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
+#model_directory =  "/models/Mistral-7B-Instruct-v0.2-5.0-bpw-exl2/"
+model_directory =  "/models/Mistral-7B-Instruct-2.5bpw/"
 print("Loading model:1 " + model_directory)
 
 config = ExLlamaV2Config(model_directory)
@@ -25,6 +26,9 @@ print("debug 1")
 model = ExLlamaV2(config)
 print("debug 2")
 cache = ExLlamaV2Cache(model, lazy = True)
+
+cache.current_seq_len = 0
+
 print("debug 3")
 model.load_autosplit(cache)
 print("debug 4")
