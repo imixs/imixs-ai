@@ -10,6 +10,7 @@ from fastapi_xml import XmlBody
 from llama_cpp import Llama
 from imixs.core import datamodel
 import time
+from dataclasses import dataclass, field
 
 # Setup FastAPI with the default XMLAPPResponse class
 # 
@@ -20,36 +21,39 @@ add_openapi_extension(app)
 
 model = None
 
-model_path = "/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
-#model_path = "/models/mistral-7b-instruct-v0.2.Q4_K_S.gguf"
-
-
+model_path = "/models/"
+model_id= "mistral-7b-instruct-v0.2.Q3_K_M.gguf"
 
 #####################
-# Basis prompt method. This method expects a XMLPrompt dataobject holding the system and user message
+# Basis prompt method. This method expects a PromptData dataobject holding the system and user message
 # The output is stored in the tag 'output'.
 #
 # Example: 
-# <XMLPrompt>
+# <PromptData>
 #	<system_message>Du bist ein hilfreicher Java Code Assistent.</system_message>
 #	<user_message>Was ist die Imixs-Workflow engine?</user_message>
 #   <output></output>
-# </XMLPrompt>
+# </PromptData>
 #
 # Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
-
-@app.post("/prompt", response_model=datamodel.XMLPrompt, tags=["Imixs-AI"])
-def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
+@app.post("/prompt", response_model=datamodel.PromptData, tags=["Imixs-AI"])
+def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
 
     global model
+    global model_id
 
     # Create a llama model if not yet initialized
-    if model is None :
+    if model is None or (data.model_id != '' and data.model_id != model_id):
 
+     
         start_time = time.time()
         print("--- Init Model...")
+
+        if data.model_id != '' :
+            model_id=data.model_id
+        print("-- Model Path = "+model_path+model_id)
         model = Llama(
-            model_path=model_path,
+            model_path=model_path+model_id,
             n_gpu_layers=30, 
             n_ctx=3584, 
             n_batch=521, 
@@ -66,9 +70,8 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
     # Model parameters
     print("--- compute prompt....")
     max_tokens = 2000
-    prompt = f"""<s>[INST] {data.instruction} [/INST] {data.context} """
-    print("start processing prompt:\n\n",prompt,'\n...\n')
-    result = model(prompt, max_tokens=max_tokens, 
+    print("start processing prompt:\n\n",data.prompt,'\n...\n')
+    result = model(data.prompt, max_tokens=max_tokens, 
                      temperature=0,
                      echo=False
                      )
@@ -97,40 +100,5 @@ async def do_switchmodel(model_id: Annotated[str, Path(title="The ID of the mode
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"--- Init Model...finished in {execution_time} sec")
-
-
-
-
-
-@app.get("/simple")
-async def test_get():
-
-    data = datamodel.XMLPrompt(
-        instruction="",
-        context="",
-        output=""
-    )
-
-    print("--start simple test --")
-    llm = Llama(model_path=model_path, n_gpu_layers=30, n_ctx=3584, n_batch=521, verbose=True)
-    # adjust n_gpu_layers as per your GPU and model
-    output = llm("Q: Name and explain the planets in the solar system? A: ", max_tokens=2000, stop=["Q:", "\n"], echo=True)
-    print(output)
-
-    data.output = output
-    return data;
-
-
-#@app.post("/simplepost")
-#async def test_simplepost(prompt: datamodel.PromptEntity):
-#
-#    print("--start simple test --")
-#    llm = Llama(model_path=model_path, n_gpu_layers=30, n_ctx=3584, n_batch=521, verbose=True)
-#    # adjust n_gpu_layers as per your GPU and model
-#    # <s>[INST] You are a helpful Java Developer. [/INST] Explain me the Imixs-Workflow engine.
-#    output = llm(prompt.instruction, max_tokens=2000, stop=["Q:", "\n"], echo=True)
-#    print(output)
-#
-#    return {"message": "Hello World"}
 
 

@@ -6,15 +6,10 @@ The data model to send promt data to llama-cpp-python
 """ 
 # This package provides data classes used to exchange prompt and configuration data.
 #
-from pydantic import BaseModel
 from dataclasses import dataclass, field
 from typing import List
-import json
 
 
-class PromptEntity(BaseModel):
-    instruction: str
-    context: str
    
 ##########################################################
 # This dataclass is used to exchange the prompt data between the rest api and the LLM.
@@ -23,21 +18,22 @@ class PromptEntity(BaseModel):
 # similar to NamedTuples, but with additional features and a familiar class syntax.
 ##########################################################
 @dataclass
-class XMLPrompt:
-    instruction: str = field(
+class PromptData:
+
+    model_id: str = field(
         metadata={
-            "example": "What is the Imixs-Workflow engine?",
-            "name": "instruction", 
+            "name": "model_id", 
             "type": "Element"
         }
     )    
-    context: str = field(
+
+    prompt: str = field(
         metadata={
-            "example": "You are a helpful code assistant.",
-            "name": "context", 
+            "example": "What is the Imixs-Workflow engine?",
+            "name": "prompt", 
             "type": "Element"
         }
-    )
+    )    
 
     output: str = field(
         metadata={
@@ -45,3 +41,5 @@ class XMLPrompt:
             "type": "Element"
         }
     )    
+
+  

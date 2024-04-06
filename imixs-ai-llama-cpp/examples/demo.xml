@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<XMLPrompt>
-	<instruction>You are a helpfull java developer. Tell me something about Imixs-Workflow.
-	</instruction>
-	<context><![CDATA[]]></context>
+<PromptData>
+	<model_id></model_id>
+	<prompt><![CDATA[<s>[INST] 
+		You are a helpfull java developer. Tell me something about Imixs-Workflow.
+	    [/INST]
+		]]></prompt>
 	<output></output>
-</XMLPrompt>
+</PromptData>
