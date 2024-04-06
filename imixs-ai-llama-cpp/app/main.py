@@ -1,5 +1,6 @@
-from typing import Union
-from dataclasses import dataclass, field
+#from typing import Union
+#from dataclasses import dataclass, field
+from typing import Annotated
 from fastapi import FastAPI
 from fastapi_xml import add_openapi_extension
 from fastapi_xml import XmlRoute
