@@ -165,26 +165,27 @@ This should just the nvidia-smi output form above.
 
 # Download Mistral 7B Model
 
-To download the Mistral 7B Model from [huggingface.co](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF): 
 
+To download the models form huggingface.co you should use the huggingface-cli. To install this tool  run:
 
 ```
 $ sudo apt install python3-pip python3.11-venv -y
-$ source .env/bin/activate
-$ source .env/bin/activate
+$ cd
+$ source ~/.env/bin/activate
 $ pip install --upgrade huggingface_hub
+```
+
+To download the Mistral 7B Model from [huggingface.co](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF): 
+
+```
+$ source ~/.env/bin/activate
+$ cd models/
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_S.gguf --local-dir . --local-dir-use-symlinks False
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
+# $ huggingface-cli download OptimizeLLM/Mixtral-8x7B-Instruct-v0.1.q5_k_m Mixtral-8x7B-Instruct-v0.1.q5_k_m.gguf --local-dir . --local-dir-use-symlinks False
 ```
 
-Next make sure the two models are located unter `imixs-ai/imixs-ai-llm/models`
-
-```
-$ cd 
-$ cd imixs-ai/imixs-ai-llm
-$ mkdir models
-$ cd models
-```
+Next make sure all models are located unter `imixs-ai/imixs-ai-llm/models`
 
 
 

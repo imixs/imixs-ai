@@ -76,6 +76,29 @@ def prompt(data: datamodel.XMLPrompt = XmlBody()) -> datamodel.XMLPrompt:
     return data;
 
 
+@app.post("model/{model_id}")
+async def do_switchmodel(model_id: Annotated[str, Path(title="The ID of the model")]):
+    # load new model
+    global model
+    print("--- switch to new Model: " + model_id+"...")
+    model_path=model_id
+    start_time = time.time()
+    print("--- Init Model...")
+    model = Llama(
+        model_path=model_path,
+        n_gpu_layers=30, 
+        n_ctx=3584, 
+        n_batch=521, 
+        verbose=True,
+        logits_all=True,
+        echo=False
+    )
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"--- Init Model...finished in {execution_time} sec")
+
+
+
 
 
 @app.get("/simple")
