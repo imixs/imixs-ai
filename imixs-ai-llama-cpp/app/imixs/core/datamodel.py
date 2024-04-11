@@ -29,7 +29,7 @@ class PromptData:
 
     prompt: str = field(
         metadata={
-            "example": "What is the Imixs-Workflow engine?",
+            "examples": ["What is the Imixs-Workflow engine?"],
             "name": "prompt", 
             "type": "Element"
         }
