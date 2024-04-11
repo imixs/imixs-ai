@@ -22,6 +22,7 @@ class PromptData:
 
     model_id: str = field(
         metadata={
+            "examples": [""],
             "name": "model_id", 
             "type": "Element"
         }
@@ -37,6 +38,7 @@ class PromptData:
 
     output: str = field(
         metadata={
+            "examples": [""],
             "name": "output", 
             "type": "Element"
         }
