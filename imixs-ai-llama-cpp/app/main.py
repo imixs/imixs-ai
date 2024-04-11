@@ -54,11 +54,12 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
         print("-- Model Path = "+model_path+model_id)
         model = Llama(
             model_path=model_path+model_id,
-            n_gpu_layers=30, 
+            # 99
+            n_gpu_layers=99, 
             n_ctx=3584, 
-            n_batch=521, 
-            verbose=True,
-            logits_all=True,
+            #n_batch=521, 
+            #verbose=True,
+            #logits_all=True,
             echo=False
         )
         end_time = time.time()
@@ -69,7 +70,7 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
 
     # Model parameters
     print("--- compute prompt....")
-    max_tokens = 2000
+    max_tokens = 1000
     print("start processing prompt:\n\n",data.prompt,'\n...\n')
     result = model(data.prompt, max_tokens=max_tokens, 
                      temperature=0,

@@ -17,9 +17,9 @@ import org.junit.Test;
  * 
  * @author rsoika
  */
-public class TestMLIntegrationTest {
+public class TestRestAPI {
 
-    private static Logger logger = Logger.getLogger(TestMLIntegrationTest.class.getName());
+    private static Logger logger = Logger.getLogger(TestRestAPI.class.getName());
 
     static String AI_SERVICE_API = "http://llama-cpp.foo.com:8080/";
 
@@ -68,9 +68,9 @@ public class TestMLIntegrationTest {
             // Reading the response
             int responseCode = conn.getResponseCode();
             System.out.println("POST Response Code :: " + responseCode);
-  
+
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                try(BufferedReader br = new BufferedReader(  
+                try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), "utf-8"))) {
                     StringBuilder response = new StringBuilder();
                     String responseLine = null;
@@ -88,32 +88,45 @@ public class TestMLIntegrationTest {
         }
     }
 
-
-
-
-
     @Test
     public void testSimple2() {
         try {
-          
-            // Create the data you want to send
-            sendJSONPrompt( "{\"prompt\": \"Building a website can be done in 3 simple steps:\",\"n_predict\": 128}");
 
-          
+            // Create the data you want to send
+            sendJSONPrompt("{\"prompt\": \"Building a website can be done in 3 simple steps:\",\"n_predict\": 128}");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    /**
+     * Test usage of Imixs-AI PromptBuilder
+     */
+    @Test
+    public void testPromptBuilder() {
+        try {
+            PromptBuilder promptBuilder = new PromptBuilder();
 
+            String jsonString = promptBuilder
+                    .setPredict(129)
+                    .setPrompt("Building a website can be done in 3 simple steps:")
+                    .buildString();
 
+            logger.info("result=" + jsonString);
 
+            sendJSONPrompt(jsonString);
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-/**
- * Helper method sending a JSON prompt 
- * @param jsonInputString
- */
+    /**
+     * Helper method sending a JSON prompt
+     * 
+     * @param jsonInputString
+     */
     public void sendJSONPrompt(String jsonInputString) {
         try {
             URL url = new URL(AI_SERVICE_API + "completion");
@@ -128,7 +141,6 @@ public class TestMLIntegrationTest {
             // Set the request content-type header parameter
             conn.setRequestProperty("Content-Type", "application/json");
 
-         
             // Create an output stream and write the body data
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonInputString.getBytes("utf-8");
@@ -138,9 +150,9 @@ public class TestMLIntegrationTest {
             // Reading the response
             int responseCode = conn.getResponseCode();
             System.out.println("POST Response Code :: " + responseCode);
-  
+
             if (responseCode == HttpURLConnection.HTTP_OK) {
-                try(BufferedReader br = new BufferedReader(  
+                try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), "utf-8"))) {
                     StringBuilder response = new StringBuilder();
                     String responseLine = null;
@@ -157,7 +169,5 @@ public class TestMLIntegrationTest {
             e.printStackTrace();
         }
     }
-
-
 
 }

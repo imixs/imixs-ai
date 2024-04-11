@@ -1,7 +1,27 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<PromptData>
-    <model_id>mistral-7b-instruct-v0.2.Q3_K_M.gguf</model_id>
-    <prompt><![CDATA[
+<s>[INST] Extract the following information from an invoice document:
+
+Invoice Data:
+- Invoice number
+- Invoice date
+- Total summary
+- Total net (if available)
+
+Payment information:
+- IBAN
+- BIC
+- Payment date
+
+Invoice positions:
+- Description of single postion
+- Amount (optional)
+- unit price
+- total
+
+Output the information in a JSON object. Create only the json object without formatting!
+
+[/INST]
+
+    
 Kraxi GmbH
 
 Kraxi GmbH - Flugzeugallee 17 - 12345 Papierfeld - Deutschland
@@ -77,6 +97,4 @@ IBAN DE28700100809999999999
 
 
 
-]]></prompt>
-    <output></output>
-</PromptData>    
+ 
