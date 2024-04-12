@@ -25,14 +25,11 @@ model_path = "/models/"
 model_id= "mistral-7b-instruct-v0.2.Q3_K_M.gguf"
 
 #####################
-# Basis prompt method. This method expects a PromptData dataobject holding the system and user message
-# The output is stored in the tag 'output'.
-#
+# Basis prompt method. This method expects a PromptData dataobject holding the modelid and the prompt  message
 # Example: 
 # <PromptData>
-#	<system_message>Du bist ein hilfreicher Java Code Assistent.</system_message>
-#	<user_message>Was ist die Imixs-Workflow engine?</user_message>
-#   <output></output>
+#	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</system_message>
+#	<prompt>What is the Imixs-Workflow engine?</prompt>
 # </PromptData>
 #
 # Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
@@ -54,12 +51,12 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
         print("-- Model Path = "+model_path+model_id)
         model = Llama(
             model_path=model_path+model_id,
-            # 99
+            # 30, -1
             n_gpu_layers=99, 
             n_ctx=3584, 
             #n_batch=521, 
             #verbose=True,
-            #logits_all=True,
+            logits_all=True,
             echo=False
         )
         end_time = time.time()
@@ -77,7 +74,6 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
                      echo=False
                      )
     print(result)
-    data.output = result
     return data;
 
 

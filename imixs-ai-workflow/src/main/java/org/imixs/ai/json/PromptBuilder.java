@@ -1,4 +1,4 @@
-package org.imixs.ai;
+package org.imixs.ai.json;
 
 import java.io.Writer;
 

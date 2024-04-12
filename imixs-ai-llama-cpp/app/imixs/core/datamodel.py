@@ -34,14 +34,6 @@ class PromptData:
             "name": "prompt", 
             "type": "Element"
         }
-    )    
-
-    output: str = field(
-        metadata={
-            "examples": [""],
-            "name": "output", 
-            "type": "Element"
-        }
-    )    
+    )  
 
   
