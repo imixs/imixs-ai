@@ -1,50 +1,83 @@
+# Imixs-AI LLaMa.cpp
 
-## Performance Issues
+This project provides a Docker based llm server to run open source llama models based on the [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp). The project provides a Rest API endpoint for text completion with a llama prompt.
 
-https://github.com/abetlen/llama-cpp-python/issues/982
+<img src="../doc/images/rest-api-01.png" />   
 
+The [Imixs-AI-Workflow project](../imixs-ai-workflow/) provides a java api to access this API endpoint from a Imixs-Workflow instance. 
 
-
-# Docker Test
-
-    docker run -v ./models:/models ghcr.io/ggerganov/llama.cpp:light -m /models/mistral-7b-instruct-v0.2.Q4_K_M.gguf -p "Wer ist der aktuelle Bundeskanzler von Deutschland?" -n 512
-
-
-# Llama-cpp-pyhton
-
-API: 
-https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
+The implementation is based on [Llama-cpp-pyhton](https://github.com/abetlen/llama-cpp-python). Find details in the official [API documentation](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/).
 
 
-# Prompt Engineering 
+## Download Mistral 7B Model
 
-https://www.promptingguide.ai/models/mistral-7b
+Before you can run the project and examples you need to downloaded a llama model locally on your server. The project expect that all models are located unter `imixs-ai/imixs-ai-llm/models`.  You can download a model form [huggingface.co](https://huggingface.co/) by using  the tool `huggingface-cli`. 
 
-https://community.aws/content/2dFNOnLVQRhyrOrMsloofnW0ckZ/how-to-prompt-mistral-ai-models-and-why
+To install the `huggingface-cli` tool run:
 
-https://blog.cloudflare.com/workers-ai-update-hello-mistral-7b-de-de
+```
+$ sudo apt install python3-pip python3.11-venv -y
+$ cd
+$ source ~/.env/bin/activate
+$ pip install --upgrade huggingface_hub
+```
 
-https://www.promptingguide.ai/models/mixtral
+Now you can download models like the Mistral 7B Model from [huggingface.co](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) - **Note** that there a different quality versions of the model available. In the following example we are downloading 2 model versions: 
 
-https://docs.mistral.ai/guides/prompting-capabilities/
+```
+$ source ~/.env/bin/activate
+$ cd models/
+$ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_S.gguf --local-dir . --local-dir-use-symlinks False
+$ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
+```
+
+**Note:** For this project we assume that all models are located unter `imixs-ai/imixs-ai-llm/models`
+
+
+
+
+# Quick Start with Docker and the llama.cpp Web Server
+
+The [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp) provides Docker images that can be used for a quick test without installing software libraries. You only need to make sure you have downloaded a llama model file in `.gguf` format. The following example shows how to run the llama.cpp web server locally on a CPU only with the `mistral-7b-instruct-v0.2.Q5_K_M.gguf` model: 
+
+```bash
+docker run -p 8080:8080 -v /home/imixs/imixs-ai/imixs-ai-llama-cpp/models:/models ghcr.io/ggerganov/llama.cpp:server -m models/mistral-7b-instruct-v0.2.Q5_K_M.gguf -c 512 --host 0.0.0.0 --port 8080
+```
+
+You can also run the contaner with GPU support with CUDA:
+
+```
+docker run -p 8080:8080 -v /home/imixs/imixs-ai/imixs-ai-llama-cpp/models:/models --gpus all ghcr.io/ggerganov/llama.cpp:server-cuda -m models/mistral-7b-instruct-v0.2.Q5_K_M.gguf -c 512 --host 0.0.0.0 --port 8080 --n-gpu-layers 99
+
+```
+
+You can access a Chat Interface via http://YOUR-SERER:8080/
+
+<img src="../doc/images/llama-cpp-web-server.png" />
+
+## Testing with CURL
+
+Using [curl](https://curl.se/) allows you to test a model quickly: 
+
+```sh
+curl --request POST \
+    --url http://localhost:8080/completion \
+    --header "Content-Type: application/json" \
+    --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
+```
 
 
 # GPU Support
 
-
-
-https://medium.com/@ryan.stewart113/a-simple-guide-to-enabling-cuda-gpu-support-for-llama-cpp-python-on-your-os-or-in-containers-8b5ec1f912a4
+To run llama-cpp with GPU on Linux Debian make sure you installed the NVIDIA driver package. Details about the installation process on debian can be found in [this blog post](https://www.linuxcapable.com/install-nvidia-drivers-on-debian/). Also see the [official install guide ](https://wiki.debian.org/NvidiaGraphicsDrivers#Debian_12_.22Bookworm.22)
 
 
 ## Install NVIDIA Driver on Linux (Debian Bookworm)
 
-To run llama-cpp with GPU on Linux Debian make sure you installed the NVIDIA driver package. Details about the installation process on debian can be found in [this blog post](https://www.linuxcapable.com/install-nvidia-drivers-on-debian/). Also see the [official install guide ](https://wiki.debian.org/NvidiaGraphicsDrivers#Debian_12_.22Bookworm.22)
-
 In the following I install the proprietary NVIDIA Drivers With Cuda Support on Debian Bookworm. There are also open source drivers available, but I did not test this. 
 
 
-
-## 1) Update your APT repositories
+### 1) Update your APT repositories
 
 ```
 $ sudo apt update
@@ -56,7 +89,7 @@ $ sudo apt install software-properties-common -y
 $ sudo add-apt-repository contrib non-free-firmware
 ```
 
-## 2) Import the Nvidia APT Repository
+### 2) Import the Nvidia APT Repository
 
 This repo allows access to additional Nvidia tools like nvida-smi
 
@@ -68,7 +101,7 @@ $ sudo apt update
 ```
 
 
-## 3) Install Nvidia Drivers on Debian via DEFAULT APT Repository
+### 3) Install Nvidia Drivers on Debian via DEFAULT APT Repository
 
 We assume you have a 64-bit system
 
@@ -105,7 +138,7 @@ Finally reboot your system....
 
 **Note:** it may happen that you need a hard reset on your machine. I don't know exactly why but it could be something with driver conflicts. 
 
-## 3) Verify Installation
+### 4) Verify Installation
 
 To verify your installation run `nvidia-smi` which shows you some insights of your environment:
 
@@ -136,7 +169,7 @@ Sun Mar 31 10:46:20 2024
 
 
 
-# Configuring Docker
+## Configuring Docker with GPU Support
 
 To get things done in addition it is necessary to install the   'NVIDIA Container Toolkit'. 
    
@@ -163,51 +196,42 @@ Start a test container:
 This should just the nvidia-smi output form above.
 
 
-# Download Mistral 7B Model
+
+# Rund Docker
+
+To build the Imixs-AI-llama-cpp server run the following Docker command:
+
+    $ docker build . -t imixs/imixs-ai
+
+To build a Docker image with GPU support run:
 
 
-To download the models form huggingface.co you should use the huggingface-cli. To install this tool  run:
+    $ docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai_gpu
 
-```
-$ sudo apt install python3-pip python3.11-venv -y
-$ cd
-$ source ~/.env/bin/activate
-$ pip install --upgrade huggingface_hub
-```
+To start the server run
 
-To download the Mistral 7B Model from [huggingface.co](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF): 
-
-```
-$ source ~/.env/bin/activate
-$ cd models/
-$ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_S.gguf --local-dir . --local-dir-use-symlinks False
-$ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
-# $ huggingface-cli download OptimizeLLM/Mixtral-8x7B-Instruct-v0.1.q5_k_m Mixtral-8x7B-Instruct-v0.1.q5_k_m.gguf --local-dir . --local-dir-use-symlinks False
-```
-
-Next make sure all models are located unter `imixs-ai/imixs-ai-llm/models`
+    $ docker compose -f docker-compose-dev.yml up
 
 
+To start the GPU version run:
 
-## Rund Docker
-
-
-    $ docker run --gpus all -v ./models:/models -p 8000:8000  imixs/imixs-ai_gpu
+    $ docker compose -f docker-compose-dev-gpu.yml up
 
 
+Now you can access the Rest API via: 
+
+    http://127.0.0.1:8000/docs
+
+<img src="../doc/images/rest-api-01.png" />   
 
 
+# Prompt Engineering 
 
-# Open Issues
+General information about prompt engineering can be found here:
 
-cuda version n/a inside container.
-See: https://stackoverflow.com/questions/63751883/using-gpu-inside-docker-container-cuda-version-n-a-and-torch-cuda-is-availabl
-
-
-# Scheißfehler
-
-
-https://forums.developer.nvidia.com/t/nvprof-error-code-139-but-memcheck-ok/50329/4
-
---unified-memory-profiling off
+ - https://www.promptingguide.ai/models/mistral-7b
+ - https://community.aws/content/2dFNOnLVQRhyrOrMsloofnW0ckZ/how-to-prompt-mistral-ai-models-and-why
+ - https://blog.cloudflare.com/workers-ai-update-hello-mistral-7b-de-de
+ - https://www.promptingguide.ai/models/mixtral
+ - https://docs.mistral.ai/guides/prompting-capabilities/
 

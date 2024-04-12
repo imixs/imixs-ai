@@ -1,66 +1,33 @@
 {
-    "content": " \\documentclass{article}\n  \\usepackage[utf8]{inputenc}\n  \\usepackage[T1]{fontenc}\n  \\usepackage[ngerman]{babel}\n  \\usepackage{fixltx2e}\n  \\usepackage{fp}\n  \\usepackage{pgfsign}\n\n  \\usepackage[%\n    %address format:\n    %format=line3,\n    %%left alignment:\n    %align=left,\n    %%%customized format:\n    %customized={\n      %%%remove",
-    "id_slot": 0,
-    "stop": true,
-    "model": "models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",
-    "tokens_predicted": 129,
-    "tokens_evaluated": 452,
-    "generation_settings": {
-        "n_ctx": 512,
-        "n_predict": -1,
-        "model": "models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",
-        "seed": 4294967295,
-        "temperature": 0.800000011920929,
-        "dynatemp_range": 0.0,
-        "dynatemp_exponent": 1.0,
-        "top_k": 40,
-        "top_p": 0.949999988079071,
-        "min_p": 0.05000000074505806,
-        "tfs_z": 1.0,
-        "typical_p": 1.0,
-        "repeat_last_n": 64,
-        "repeat_penalty": 1.0,
-        "presence_penalty": 0.0,
-        "frequency_penalty": 0.0,
-        "penalty_prompt_tokens": [],
-        "use_penalty_prompt_tokens": false,
-        "mirostat": 0,
-        "mirostat_tau": 5.0,
-        "mirostat_eta": 0.10000000149011612,
-        "penalize_nl": false,
-        "stop": [],
-        "n_keep": 0,
-        "n_discard": 0,
-        "ignore_eos": false,
-        "stream": false,
-        "logit_bias": [],
-        "n_probs": 0,
-        "min_keep": 0,
-        "grammar": "",
-        "samplers": [
-            "top_k",
-            "tfs_z",
-            "typical_p",
-            "top_p",
-            "min_p",
-            "temperature"
+    "Invoice": {
+        "number": "MSC123456",
+        "date": "2024-03-25",
+        "totalSummary": "90.00 EUR",
+        "netTotal": null,
+        "paymentInfo": {
+            "iban": "DE45 2004 0050 0645 5224 00",
+            "bic": "COBADEFF208",
+            "paymentDate": null
+        },
+        "positions": [
+            {
+                "description": "Import-handling-fee",
+                "amount": "50.00 EUR",
+                "unitPrice": null,
+                "total": "50.00 EUR"
+            },
+            {
+                "description": "Container compliance charge",
+                "amount": "40.00 EUR",
+                "unitPrice": null,
+                "total": "40.00 EUR"
+            },
+            {
+                "description": "VAT",
+                "amount": "90.00 EUR",
+                "unitPrice": null,
+                "total": "90.00 EUR"
+            }
         ]
-    },
-    "prompt": "<s>[INST] Extract the following information from an invoice document:\n\nInvoice Data:\n- Invoice number\n- Invoice date\n- Total summary\n- Total net (if available)\n\nPayment information:\n- IBAN\n- BIC\n- Payment date\n\nInvoice positions:\n- Description of single postion\n- Amount (optional)\n- unit price\n- total\n\nOutput the information in a JSON object. Create only the json object without formatting!\n\n[/INST]\n\n    \nKraxi GmbH\n\nKraxi GmbH - Flugzeugallee 17 - 12345 Papierfeld - Deutschland\n\nPapierflieger-Vertriebs-GmbH\nHelga Musterfrau\n\nRabattstr. 25\n\n34567 Osterhausen\nDeutschland\n\nRechnungsnummer: 2017-03\n\nPos. Artikelbeschreibung\n1 Superdrachen\n2 Turbo Flyer\n3 Sturzflug-Geier\n4 Eisvogel\n5 Storch\n6 Adler\n\n7 Kostenlose Zugabe\n\nFlugzeugallee 17\n12345 Papierfeld\nDeutschland\n\nTel. (0123) 4567\nFax (0123) 4568\n\ninfo@kraxi.com\nwww.kraxi.com\n\nLiefer- und Rechnungsdatum: 26. Januar 2017\n\nKundennummer: 987-654\nIhre Auftragsnummer: ABC-123\nBetrage in EUR\n\nMenge Preis Betrag\n\n2 20,00 40,00\n\n5 40,00 200,00\n\n1 180,00 180,00\n\n3 50,00 150,00\n\n10 20,00 200,00\n\n1 75,00 75,00\n\n1 0,00 0,00\nRechnungssumme netto 845,00\nzuzüglich 19% MwSt. 160,55\n\nRechnungssumme brutto 1.005,55\n\nZahlbar innerhalb von 30 Tagen netto auf unser Konto. Bitte geben Sie dabei die\nRechnungsnummer an. Skontoabzüge werden nicht akzeptiert.\n\nKraxi GmbH Sitz der Gesellschaft\nGF Paul Kraxi München HRB 999999\n\nUSt-IdNr\nDE123456789\n\nPostbank München\nIBAN DE28700100809999999999\n\n\n\n\n ",
-    "truncated": true,
-    "stopped_eos": false,
-    "stopped_word": false,
-    "stopped_limit": true,
-    "stopping_word": "",
-    "tokens_cached": 325,
-    "timings": {
-        "prompt_n": 452,
-        "prompt_ms": 1054.79,
-        "prompt_per_token_ms": 2.3336061946902653,
-        "prompt_per_second": 428.5213170394107,
-        "predicted_n": 129,
-        "predicted_ms": 4354.085,
-        "predicted_per_token_ms": 33.752596899224805,
-        "predicted_per_second": 29.62734994838181
     }
 }
