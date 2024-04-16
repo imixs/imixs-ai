@@ -76,7 +76,8 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
     print(result)
 
 
-    resultData = datamodel.ResultData(result)
+    #resultData = datamodel.ResultData(result["choices"])
+    resultData = datamodel.ResultData(result["choices"][0]["text"])
     #resultData: datamodel.ResultData
     #resultData.result=result;
     return resultData;
