@@ -52,7 +52,7 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
         model = Llama(
             model_path=model_path+model_id,
             # 30, -1
-            n_gpu_layers=99, 
+            n_gpu_layers=-1, 
             n_ctx=3584, 
             #n_batch=521, 
             #verbose=True,
@@ -76,8 +76,9 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
     print(result)
 
 
-    resultData: datamodel.ResultData
-    resultData.result=result;
+    resultData = datamodel.ResultData(result)
+    #resultData: datamodel.ResultData
+    #resultData.result=result;
     return resultData;
 
 
