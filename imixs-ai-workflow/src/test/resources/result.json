@@ -1,33 +1,55 @@
 {
-    "Invoice": {
-        "number": "MSC123456",
-        "date": "2024-03-25",
-        "totalSummary": "90.00 EUR",
-        "netTotal": null,
-        "paymentInfo": {
-            "iban": "DE45 2004 0050 0645 5224 00",
-            "bic": "COBADEFF208",
-            "paymentDate": null
+    "InvoiceData": {
+        "InvoiceNumber": "ABC-123",
+        "InvoiceDate": "26.01.2017",
+        "Total": 1005.55
+    },
+    "PaymentInfo": {
+        "IBAN": "DE28700100809999999999",
+        "BIC": ""
+    },
+    "InvoicePositions": [
+        {
+            "Description": "Superdrachen",
+            "Amount": 2,
+            "UnitPrice": 20.00,
+            "Total": 40.00
         },
-        "positions": [
-            {
-                "description": "Import-handling-fee",
-                "amount": "50.00 EUR",
-                "unitPrice": null,
-                "total": "50.00 EUR"
-            },
-            {
-                "description": "Container compliance charge",
-                "amount": "40.00 EUR",
-                "unitPrice": null,
-                "total": "40.00 EUR"
-            },
-            {
-                "description": "VAT",
-                "amount": "90.00 EUR",
-                "unitPrice": null,
-                "total": "90.00 EUR"
-            }
-        ]
-    }
+        {
+            "Description": "Turbo Flyer",
+            "Amount": 1,
+            "UnitPrice": 180.00,
+            "Total": 180.00
+        },
+        {
+            "Description": "Sturzflug-Geier",
+            "Amount": 3,
+            "UnitPrice": 50.00,
+            "Total": 150.00
+        },
+        {
+            "Description": "Eisvogel",
+            "Amount": 1,
+            "UnitPrice": 40.00,
+            "Total": 40.00
+        },
+        {
+            "Description": "Storch",
+            "Amount": 1,
+            "UnitPrice": 75.00,
+            "Total": 75.00
+        },
+        {
+            "Description": "Adler",
+            "Amount": 1,
+            "UnitPrice": 0.00,
+            "Total": 0.00
+        },
+        {
+            "Description": "Kostenlose Zugabe",
+            "Amount": 1,
+            "UnitPrice": 0.00,
+            "Total": 0.00
+        }
+    ]
 }

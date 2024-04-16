@@ -74,7 +74,11 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
                      echo=False
                      )
     print(result)
-    return data;
+
+
+    resultData: datamodel.ResultData
+    resultData.result=result;
+    return resultData;
 
 
 @app.post("model/{model_id}")

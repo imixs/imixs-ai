@@ -36,4 +36,12 @@ class PromptData:
         }
     )  
 
-  
+@dataclass
+class ResultData:
+
+    result: str = field(
+        metadata={
+            "name": "result", 
+            "type": "Element"
+        }
+    )    
