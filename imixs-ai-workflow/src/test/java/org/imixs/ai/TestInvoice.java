@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 
+import org.imixs.ai.json.PromptBuilder;
 import org.junit.Before;
 import org.junit.Test;
 

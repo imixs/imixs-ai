@@ -7,11 +7,13 @@ The project is divided into general and model-specific modules and provides Dock
 
 The module [imixs-ai-llm](./imixs-ai-llm) providing a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Lamma CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
 
-We currently support the following Large Language models, but the project can be adapted to many other LLMs:
+This project is developed using the Mistral-7B Instruct model. The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.2.
+
     
 - [Mistral-7B Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
-- [Llama 2 7B Chat](https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF) from Meta
 
+
+We currently support the following Large Language models, but the project can be adapted to many other LLMs:
 
 We are using [FastAPI](https://fastapi.tiangolo.com/) to provide a developer friendly Open-API Rest Interface and also a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml)
 

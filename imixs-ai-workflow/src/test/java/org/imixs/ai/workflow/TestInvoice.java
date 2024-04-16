@@ -1,4 +1,4 @@
-package org.imixs.ai;
+package org.imixs.ai.workflow;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,7 +18,7 @@ public class TestInvoice {
 
     private static Logger logger = Logger.getLogger(TestInvoice.class.getName());
 
-    static String AI_SERVICE_API = "http://llama-cpp.foo.com:8080/";
+    static String AI_SERVICE_API = "http://llama-cpp.foo.com:8000/";
 
     /**
      * The setup method loads t
@@ -38,15 +38,16 @@ public class TestInvoice {
 
         try {
 
-            // Pfad relativ zum Klassenpfad, "testdatei.txt" befindet sich direkt unter
-            // "src/test/resources"
-            String path = this.getClass().getClassLoader().getResource("kraxi-invoice.prompt").getPath();
+            String path = this.getClass().getClassLoader().getResource("kraxi-invoice2.prompt").getPath();
+            // String path =
+            // this.getClass().getClassLoader().getResource("demo-01.prompt").getPath();
 
             String prompt = readFileAsString(path);
 
             logger.info("Prompt=" + prompt);
 
             PromptData promptData = new PromptData()
+                    // .setModel("mistral-7b-instruct-v0.2.Q3_K_M.gguf")
                     .setModel("mistral-7b-instruct-v0.2.Q4_K_M.gguf")
                     .setPrompt(prompt);
 
