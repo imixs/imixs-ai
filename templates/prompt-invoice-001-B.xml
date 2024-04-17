@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PromptData>
+	<model_id>mistral-7b-instruct-v0.2.Q3_K_S.gguf</model_id>
+	<prompt><![CDATA[<s>
+[INST] You are a clerk in a logistics company and your job is to check invoices documents. [/INST]		
+		
+<<CONTEXT>>
+
+</s>		
+[INST] Extract the following information from this invoice document:
+
+Invoice Data:
+- Company name
+- Invoice number
+- Invoice date
+- Gross invoice amount
+- Net invoice amount (if available)
+
+Payment information:
+- IBAN or SWIFT
+- BIC
+- Payment date
+
+
+Output the information in a JSON object. Format date values in ISO 8601 (YYYY-MM-DD).  
+Always outputs amounts as a floating-point number with exactly 2 digits without thousand separators.
+Create only the json object.  Do not provide explanations or notes.
+
+Example JSON Object:
+
+{ 
+	"InvoiceData": { 
+		"Company": "Kraxi GmbH",
+		"InvoiceNumber": "DEBRVPM240017345", 
+		"InvoiceDate": "2024-12-31",
+		"InvoiceAmountGross": 1190.00,
+		"InvoiceAmountNet": 1000.00
+	}, 
+	"PaymentInfo": { 
+		"IBAN": "DE45 2004 0050 0645 5224 00", 
+		"BIC": "COBADEFF208" 
+	}
+}
+ [/INST]
+
+]]></prompt>
+</PromptData>    

@@ -53,7 +53,9 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
             model_path=model_path+model_id,
             # 30, -1
             n_gpu_layers=-1, 
-            n_ctx=3584, 
+            #n_ctx=3584, 
+            #n_ctx=4096, 
+            n_ctx=5120, 
             #n_batch=521, 
             #verbose=True,
             logits_all=True,
