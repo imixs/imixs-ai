@@ -5,7 +5,7 @@ The project is divided into general and model-specific modules and provides Dock
 
 ## Imixs-AI-LLM 
 
-The module [imixs-ai-llm](./imixs-ai-llm) providing a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Lamma CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
+The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) providing a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Lamma CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
 
 This project is developed using the Mistral-7B Instruct model. The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.2.
 
@@ -13,9 +13,18 @@ This project is developed using the Mistral-7B Instruct model. The Mistral-7B-In
 - [Mistral-7B Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
 
 
-We currently support the following Large Language models, but the project can be adapted to many other LLMs:
+We currently tested the following Large Language models, but the project can be adapted to many other LLMs:
 
-We are using [FastAPI](https://fastapi.tiangolo.com/) to provide a developer friendly Open-API Rest Interface and also a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml)
+ - mistral-7b-instruct-v0.2.Q3_K_S.gguf
+ - mistral-7b-instruct-v0.2.Q3_K_M.gguf
+ - mistral-7b-instruct-v0.2.Q4_K_S.gguf **(recommended)**
+ - mistral-7b-instruct-v0.2.Q4_K_M.gguf
+ - mistral-7b-instruct-v0.2.Q5_K_S.gguf
+ - mistral-7b-instruct-v0.2.Q5_K_M.gguf
+
+To find details how to download a model, read the [section imixs-ai-llm](./imixs-ai-llama-cpp/README.md). 
+
+We are also using [FastAPI](https://fastapi.tiangolo.com/) to provide a developer friendly Open-API Rest Interface and also a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml)
 
 
 

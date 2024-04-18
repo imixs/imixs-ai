@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PromptData>
-	<model_id>mistral-7b-instruct-v0.2.Q3_K_S.gguf</model_id>
+	<model_id>mistral-7b-instruct-v0.2.Q4_K_S.gguf</model_id>
 	<prompt><![CDATA[
 		
 <<CONTEXT>>
