@@ -107,21 +107,21 @@ public class LLMAdapter implements SignalAdapter {
         debug = true;
 
         logger.finest("...running api adapter...");
-        ItemCollection mlConfig = null;
+        ItemCollection llmConfig = null;
         // read optional configuration form the model or imixs.properties....
         try {
-            mlConfig = workflowService.evalWorkflowResult(event, "llm-config", workitem, false);
+            llmConfig = workflowService.evalWorkflowResult(event, "llm-config", workitem, false);
 
-            llmAPIEndpoint = parseLLMEndpointByBPMN(mlConfig);
+            llmAPIEndpoint = parseLLMEndpointByBPMN(llmConfig);
 
             // parse optional filename regex pattern...
-            String _FilenamePattern = parseLLMFilePatternByBPMN(mlConfig);
+            String _FilenamePattern = parseLLMFilePatternByBPMN(llmConfig);
             if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
                 llmFilenamePattern = Pattern.compile(_FilenamePattern);
             }
 
         } catch (PluginException e) {
-            logger.warning("Unable to parse item definitions for 'ml-config', verify model - " + e.getMessage());
+            logger.warning("Unable to parse item definitions for 'llm-config', verify model - " + e.getMessage());
         }
 
         // do we have a valid endpoint?

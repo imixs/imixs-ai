@@ -81,6 +81,8 @@ public class LLMService implements Serializable {
     public String postPrompt(String apiEndpoint, String xmlPromptData) {
         try {
 
+            logger.fine("POST...");
+            logger.fine(xmlPromptData);
             if (!apiEndpoint.endsWith("/")) {
                 apiEndpoint = apiEndpoint + "/";
             }

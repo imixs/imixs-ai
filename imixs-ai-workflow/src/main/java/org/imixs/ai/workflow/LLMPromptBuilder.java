@@ -25,6 +25,7 @@ import org.imixs.workflow.exceptions.ProcessingErrorException;
 public class LLMPromptBuilder {
 
     public static final String API_ERROR = "API_ERROR";
+    public static final String PROMPT_CONTEXT = "<<CONTEXT>>";
 
     private static Logger logger = Logger.getLogger(LLMPromptBuilder.class.getName());
 
@@ -78,7 +79,6 @@ public class LLMPromptBuilder {
         if (!ignoreFiles) {
             List<FileData> files = workitem.getFileData();
             if (files != null && files.size() > 0) {
-
                 // aggregate all text attributes form attached files
                 // apply an optional regex for filenames
                 for (FileData file : files) {
@@ -91,7 +91,6 @@ public class LLMPromptBuilder {
                             promptContext = promptContext + _text + " \n\n";
                         }
                     }
-
                 }
             }
         }
@@ -99,10 +98,9 @@ public class LLMPromptBuilder {
         // finally we put the context into the promptTemplate and return the result
         String prompt = promptTemplate;
         validatePromptTemplate(prompt);
+        prompt = prompt.replace(PROMPT_CONTEXT, promptContext);
 
-        prompt = prompt.replace("<<context>>", promptContext);
-
-        return promptContext;
+        return prompt;
 
     }
 
@@ -111,7 +109,7 @@ public class LLMPromptBuilder {
      * 
      */
     private void validatePromptTemplate(String inputString) {
-        String pattern = "<<CONTEXT>>";
+        String pattern = PROMPT_CONTEXT;
         Pattern p = Pattern.compile(Pattern.quote(pattern));
         Matcher m = p.matcher(inputString);
         int count = 0;
