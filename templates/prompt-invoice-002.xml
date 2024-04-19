@@ -15,8 +15,8 @@ Invoice Data:
 - Net invoice amount (if available)
 
 Payment information:
-- IBAN or SWIFT
-- BIC
+- IBAN
+- BIC or SWIFT
 - Payment date
 
 Invoice positions:

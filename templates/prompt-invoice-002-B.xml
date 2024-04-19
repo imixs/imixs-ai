@@ -16,14 +16,12 @@ Invoice Data:
 - Invoice date
 - Gross invoice amount
 - Net invoice amount (if available)
-
-Payment information:
-- IBAN or SWIFT
-- BIC
+- IBAN
+- BIC or SWIFT
 - Payment date
 
-Invoice positions:
-- Description of single postion
+List of Invoice positions:
+- Description of single position
 - quantity (optional)
 - price per unit
 - total price
@@ -41,11 +39,9 @@ Example JSON Object:
 		"InvoiceDate": "2024-12-31",
 		"InvoiceAmountGross": 1190.00,
 		"InvoiceAmountNet": 1000.00
-	}, 
-	"PaymentInfo": { 
 		"IBAN": "DE45 2004 0050 0645 5224 00", 
 		"BIC": "COBADEFF208" 
-	},
+	}, 
 	"InvoicePositions": [
 		{
 			"Description": "ABCDEFG",

@@ -212,20 +212,6 @@
 		</profile>
 	</profiles>
 
-	<dependencyManagement>
-		<dependencies>
-			<!-- WORKFLOW -->
-			<dependency>
-				<groupId>org.imixs.workflow</groupId>
-				<artifactId>imixs-workflow-core</artifactId>
-				<version>${org.imixs.workflow.version}</version>
-				<scope />
-			</dependency>
-			
-		</dependencies>
-
-	</dependencyManagement>
-
 	<dependencies>
 
 		<!-- Jakarta EE -->
@@ -248,6 +234,21 @@
 			<version>3.0.0</version>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- WORKFLOW -->
+		<dependency>
+			<groupId>org.imixs.workflow</groupId>
+			<artifactId>imixs-workflow-core</artifactId>
+			<version>${org.imixs.workflow.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.imixs.workflow</groupId>
+			<artifactId>imixs-workflow-engine</artifactId>
+			<version>${org.imixs.workflow.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
 
 		<!-- Microprofile -->
 		<dependency>
