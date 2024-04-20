@@ -35,6 +35,8 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.json.JSONParser;
+import org.imixs.ai.xml.XMLParser;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.WorkflowService;
@@ -136,14 +138,29 @@ public class LLMAdapter implements SignalAdapter {
 
         // if we have a prompt we call the llm api endpoint
         if (!llmPrompt.isEmpty()) {
-            String result = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
-            workitem.setItemValue("ai.result", result);
+            String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
+            workitem.appendItemValue("ai.result", xmlResult);
+
+            // resolve ai.result....
+            resolveAIResult(workitem, xmlResult);
 
         } else {
-            logger.finest("......no ml content found to be analysed for " + workitem.getUniqueID());
+            logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
         }
 
         return workitem;
+    }
+
+    /**
+     * This method resolves the item values in the last ai.result
+     * 
+     * @param workitem
+     */
+    private void resolveAIResult(ItemCollection workitem, String xmlResultString) {
+        // xml resolve
+        String resultString = XMLParser.parseResultTag(xmlResultString);
+        // apply the json structure to the worktiem
+        JSONParser.applyJSONObject(resultString, workitem);
     }
 
     /**
