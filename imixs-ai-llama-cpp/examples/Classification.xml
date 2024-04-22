@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<PromptData>
-    <model_id>mistral-7b-instruct-v0.2.Q3_K_S.gguf</model_id>
+<PromptDefinition>
+    <model>mistral-7b-instruct-v0.2.Q3_K_S.gguf</model>
     <prompt><![CDATA[
 You are a bank customer service bot. Your task is to assess customer intent and categorize customer inquiry into one of the following predefined categories:
 
@@ -33,4 +33,4 @@ Category: customer service
 Inquiry: I am inquiring about the availability of your cards in the EU, as I am a resident of France and am interested in using your cards. 
 [/INST]     
 		]]></prompt>
-</PromptData>
+</PromptDefinition>

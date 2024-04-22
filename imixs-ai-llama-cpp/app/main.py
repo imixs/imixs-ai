@@ -25,32 +25,31 @@ model_path = "/models/"
 model_id= "mistral-7b-instruct-v0.2.Q3_K_M.gguf"
 
 #####################
-# Basis prompt method. This method expects a PromptData dataobject holding the modelid and the prompt  message
+# Basis prompt method. This method expects a PromptDefinition dataobject holding the modelid and the prompt  message
 # Example: 
-# <PromptData>
-#	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</system_message>
+# <PromptDefinition>
+#	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</model>
 #	<prompt>What is the Imixs-Workflow engine?</prompt>
-# </PromptData>
+# </PromptDefinition>
 #
 # Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
-@app.post("/prompt", response_model=datamodel.PromptData, tags=["Imixs-AI"])
-def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
+@app.post("/prompt", response_model=datamodel.PromptDefinition, tags=["Imixs-AI"])
+def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefinition:
 
+    global llm
     global model
-    global model_id
 
     # Create a llama model if not yet initialized
-    if model is None or (data.model_id != '' and data.model_id != model_id):
+    if model is None or (data.model != '' and data.model != model):
 
-     
         start_time = time.time()
         print("--- Init Model...")
 
-        if data.model_id != '' :
-            model_id=data.model_id
-        print("-- Model Path = "+model_path+model_id)
-        model = Llama(
-            model_path=model_path+model_id,
+        if data.model != '' :
+            model=data.model
+        print("-- Model Path = "+model_path+model)
+        llm = Llama(
+            model_path=model_path+model,
             # 30, -1
             n_gpu_layers=-1, 
             #n_ctx=3584, 
@@ -71,26 +70,22 @@ def prompt(data: datamodel.PromptData = XmlBody()) -> datamodel.PromptData:
     print("--- compute prompt....")
     max_tokens = 1000
     print("start processing prompt:\n\n",data.prompt,'\n...\n')
-    result = model(data.prompt, max_tokens=max_tokens, 
+    result = llm(data.prompt, max_tokens=max_tokens, 
                      temperature=0,
                      echo=False
                      )
     print(result)
 
-
-    #resultData = datamodel.ResultData(result["choices"])
     resultData = datamodel.ResultData(result["choices"][0]["text"])
-    #resultData: datamodel.ResultData
-    #resultData.result=result;
     return resultData;
 
 
-@app.post("model/{model_id}")
+@app.post("model/{model}")
 async def do_switchmodel(model_id: Annotated[str, Path(title="The ID of the model")]):
     # load new model
     global model
-    print("--- switch to new Model: " + model_id+"...")
-    model_path=model_id
+    print("--- switch to new Model: " + model+"...")
+    model_path=model
     start_time = time.time()
     print("--- Init Model...")
     model = Llama(

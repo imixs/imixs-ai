@@ -17,8 +17,8 @@ We currently tested the following Large Language models, but the project can be 
 
  - mistral-7b-instruct-v0.2.Q3_K_S.gguf
  - mistral-7b-instruct-v0.2.Q3_K_M.gguf
- - mistral-7b-instruct-v0.2.Q4_K_S.gguf **(recommended)**
- - mistral-7b-instruct-v0.2.Q4_K_M.gguf
+ - mistral-7b-instruct-v0.2.Q4_K_S.gguf 
+ - mistral-7b-instruct-v0.2.Q4_K_M.gguf **(recommended)**
  - mistral-7b-instruct-v0.2.Q5_K_S.gguf
  - mistral-7b-instruct-v0.2.Q5_K_M.gguf
 

@@ -13,14 +13,16 @@ from typing import List
    
 ##########################################################
 # This dataclass is used to exchange the prompt data between the rest api and the LLM.
+#
+# The PromptDefinition defines the model name and the prompt. 
 # 
 # The class uses the dataclass decorator (introduced in Python 3.7) that allows an easy definition of classes that only store data, 
 # similar to NamedTuples, but with additional features and a familiar class syntax.
 ##########################################################
 @dataclass
-class PromptData:
+class PromptDefinition:
 
-    model_id: str = field(
+    model: str = field(
         metadata={
             "examples": [""],
             "name": "model_id", 
