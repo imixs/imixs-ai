@@ -74,12 +74,12 @@ public class TestApplyJsonString {
     @Test
     public void testApplyJSONObject() {
         try {
-            String path = this.getClass().getClassLoader().getResource("result-01.json").getPath();
+            String path = this.getClass().getClassLoader().getResource("example-result-01.json").getPath();
 
             String testString = new String(Files.readAllBytes(Paths.get(path)));
 
             ItemCollection workitem = new ItemCollection();
-            JSONParser.applyJSONObject(testString, workitem);
+            LLMJSONParser.applyJSONObject(testString, workitem);
 
             Assert.assertEquals("Foo & Co. KG", workitem.getItemValueString("company.name"));
 

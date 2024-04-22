@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 
-import org.imixs.ai.json.PromptBuilder;
+import org.imixs.ai.json.LLMPromptBuilder;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -51,7 +51,7 @@ public class TestInvoice {
             String prompt = readFileAsString(path);
 
             logger.info("Prompt=" + prompt);
-            PromptBuilder promptBuilder = new PromptBuilder();
+            LLMPromptBuilder promptBuilder = new LLMPromptBuilder();
 
             String jsonString = promptBuilder
                     .setPredict(3129)

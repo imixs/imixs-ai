@@ -35,14 +35,15 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.imixs.ai.json.JSONParser;
-import org.imixs.ai.xml.XMLParser;
+import org.imixs.ai.json.LLMJSONParser;
+import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 import org.imixs.workflow.exceptions.ProcessingErrorException;
+import org.imixs.workflow.util.XMLParser;
 
 import jakarta.inject.Inject;
 
@@ -59,7 +60,7 @@ import jakarta.inject.Inject;
  * 
  * <pre>
  * {@code
-        <llm-config>
+        <llm-config name="PROMPT">
             <endpoint>https://localhost:8111/</endpoint>
         
         </llm-config>
@@ -76,6 +77,7 @@ public class LLMAdapter implements SignalAdapter {
 
     public static final String ML_ENTITY = "entity";
     public static final String API_ERROR = "API_ERROR";
+    public static final String LLM_PROMPT = "PROMPT";
 
     public static final int API_EVENT_SUCCESS = 110;
     public static final int API_EVENT_FAILURE = 90;
@@ -97,7 +99,32 @@ public class LLMAdapter implements SignalAdapter {
     private LLMService llmService;
 
     /**
-     * This method posts a text from an attachment to the Imixs-AI Analyse service
+     * Default Constructor
+     */
+    public LLMAdapter() {
+        super();
+    }
+
+    /**
+     * CDI Constructor to inject WorkflowService
+     * 
+     * @param workflowService
+     */
+    @Inject
+    public LLMAdapter(WorkflowService workflowService) {
+        super();
+        this.workflowService = workflowService;
+    }
+
+    public void setWorkflowService(WorkflowService workflowService) {
+        this.workflowService = workflowService;
+    }
+
+    /**
+     * This method parses the LLM Event definitions.
+     * 
+     * For each PROMPT the method posts a context data (e.g text from an attachment)
+     * to the Imixs-AI Analyse service
      * endpoint
      */
     public ItemCollection execute(ItemCollection workitem, ItemCollection event) throws AdapterException {
@@ -113,39 +140,66 @@ public class LLMAdapter implements SignalAdapter {
         // read optional configuration form the model or imixs.properties....
         try {
             llmConfig = workflowService.evalWorkflowResult(event, "llm-config", workitem, false);
-
-            llmAPIEndpoint = parseLLMEndpointByBPMN(llmConfig);
-
-            // parse optional filename regex pattern...
-            String _FilenamePattern = parseLLMFilePatternByBPMN(llmConfig);
-            if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
-                llmFilenamePattern = Pattern.compile(_FilenamePattern);
+            if (llmConfig == null) {
+                // no configuration found!
+                throw new AdapterException(LLMAdapter.class.getSimpleName(), API_ERROR,
+                        "Missing llm-config definition in Event!");
             }
 
+            // extract the create subprocess definitions...
+            List<String> llmPromptDefinitions = llmConfig.getItemValue(LLM_PROMPT);
+            if (llmPromptDefinitions == null || llmPromptDefinitions.size() == 0) {
+                // no PROMPT definition found
+                throw new AdapterException(LLMAdapter.class.getSimpleName(), API_ERROR,
+                        "Missing llm-config PROMPT definition in Event!");
+            }
+
+            /**
+             * Iterate over each PROMPT definition and process the prompt
+             */
+            for (String promptDefinitionXML : llmPromptDefinitions) {
+
+                if (promptDefinitionXML.trim().isEmpty()) {
+                    // no definition
+                    continue;
+                }
+                // evaluate the prompt definition (XML format expected here!)
+                ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
+                if (promptDefinition != null) {
+                    llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+
+                    // parse optional filename regex pattern...
+                    String _FilenamePattern = parseLLMFilePatternByBPMN(promptDefinition);
+                    if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
+                        llmFilenamePattern = Pattern.compile(_FilenamePattern);
+                    }
+
+                    // do we have a valid endpoint?
+                    if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
+                        throw new ProcessingErrorException(LLMAdapter.class.getSimpleName(), API_ERROR,
+                                "imixs-ai llm service endpoint is empty!");
+                    }
+
+                    String promptTemplate = readPromptTemplate(event);
+                    // build the llm context from the current workitem to be used in the prompt....
+                    String llmPrompt = new LLMPromptBuilder(promptTemplate, workitem, null, false, llmFilenamePattern)
+                            .build();
+
+                    // if we have a prompt we call the llm api endpoint
+                    if (!llmPrompt.isEmpty()) {
+                        String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
+                        workitem.appendItemValue("ai.result", xmlResult);
+
+                        // resolve ai.result....
+                        resolveAIResult(workitem, xmlResult);
+
+                    } else {
+                        logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
+                    }
+                }
+            }
         } catch (PluginException e) {
             logger.warning("Unable to parse item definitions for 'llm-config', verify model - " + e.getMessage());
-        }
-
-        // do we have a valid endpoint?
-        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-            throw new ProcessingErrorException(LLMAdapter.class.getSimpleName(), API_ERROR,
-                    "imixs-ai llm service endpoint is empty!");
-        }
-
-        String promptTemplate = readPromptTemplate(event);
-        // build the llm context from the current workitem to be used in the prompt....
-        String llmPrompt = new LLMPromptBuilder(promptTemplate, workitem, null, false, llmFilenamePattern).build();
-
-        // if we have a prompt we call the llm api endpoint
-        if (!llmPrompt.isEmpty()) {
-            String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
-            workitem.appendItemValue("ai.result", xmlResult);
-
-            // resolve ai.result....
-            resolveAIResult(workitem, xmlResult);
-
-        } else {
-            logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
         }
 
         return workitem;
@@ -158,9 +212,9 @@ public class LLMAdapter implements SignalAdapter {
      */
     private void resolveAIResult(ItemCollection workitem, String xmlResultString) {
         // xml resolve
-        String resultString = XMLParser.parseResultTag(xmlResultString);
+        String resultString = LLMXMLParser.parseResultTag(xmlResultString);
         // apply the json structure to the worktiem
-        JSONParser.applyJSONObject(resultString, workitem);
+        LLMJSONParser.applyJSONObject(resultString, workitem);
     }
 
     /**
@@ -189,37 +243,37 @@ public class LLMAdapter implements SignalAdapter {
      * This helper method parses the ml api endpoint either provided by a model
      * definition or a imixs.property or an environment variable
      * 
-     * @param mlConfig
+     * @param llmPrompt
      * @return
      */
-    private String parseLLMEndpointByBPMN(ItemCollection mlConfig) {
+    private String parseLLMEndpointByBPMN(ItemCollection llmPrompt) {
         boolean debug = logger.isLoggable(Level.FINE);
         debug = true;
-        String mlAPIEndpoint = null;
+        String llmAPIEndpoint = null;
 
         // test if the model provides a MLEndpoint. If not, the adapter uses the
         // mlDefaultAPIEndpoint
-        mlAPIEndpoint = null;
-        if (mlConfig != null) {
-            mlAPIEndpoint = mlConfig.getItemValueString("endpoint");
+        llmAPIEndpoint = null;
+        if (llmPrompt != null) {
+            llmAPIEndpoint = llmPrompt.getItemValueString("endpoint");
         }
 
         // switch to default api endpoint?
-        if (mlAPIEndpoint == null || mlAPIEndpoint.isEmpty()) {
+        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
             // set defautl api endpoint if defined
             if (mlDefaultAPIEndpoint.isPresent() && !mlDefaultAPIEndpoint.get().isEmpty()) {
-                mlAPIEndpoint = mlDefaultAPIEndpoint.get();
+                llmAPIEndpoint = mlDefaultAPIEndpoint.get();
             }
         }
         if (debug) {
-            logger.info("......ml api endpoint " + mlAPIEndpoint);
+            logger.info("......llm api endpoint " + llmAPIEndpoint);
         }
 
-        if (!mlAPIEndpoint.endsWith("/")) {
-            mlAPIEndpoint = mlAPIEndpoint + "/";
+        if (!llmAPIEndpoint.endsWith("/")) {
+            llmAPIEndpoint = llmAPIEndpoint + "/";
         }
 
-        return mlAPIEndpoint;
+        return llmAPIEndpoint;
 
     }
 

@@ -1,4 +1,80 @@
 # Imixs-AI-Workflow
 
-The Imixs-AI Workflow provides a Imixs extension to interact with the Imxis-AI-llama-cpp server.
+The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJBs to integrate the Imixs-AI framework into the workflow processing life cycle.
+
+ - **LLMAdapter**<br/>The Workflow Adapter class 'LLMAdapter' is used within the processing life cycle on a workflow instance to execute a LLM prompt. The adapter builds the prompt based on a given Prompt Template and evaluates the result object.  <br/>
+
+ - **LLM-Definition** <br/>A data structure holding the information of a single LLM service endpoint  <br/>
+
+ - **LLM-Service** <br/>A service EJB interacting with a Imixs-AI service endpoint  <br/>
+
+ - **LLM-Controller** <br/> The CDI bean 'LLMController' is used for user interaction like data input, data verification and data confirmation.   <br/>
+
+## The LLMAdapter
+
+The adapter *'org.imixs.llm.workflow.LLMAdapter'* is used to send a prompt to the MML Service endpoint. The LLMAdaper automatically builds the prompt based on a prompt-template and stores the result into the corresponding workitem.  
+
+### Configuration by Properties
+
+The LLMAdapter can be configured by the following imixs.properties 
+
+ - *llm.service.endpoint* - defines the serivce endpoint of tha Imixs-AI service
+
+The parameters can be set in the imixs.properties or as environment variables:
+
+	LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
+
+These parameters can be overwritten by the model. 
+
+### Configuration by the Model
+
+The main prompt configuration of the LLMAdapter is done through the model by defining a workflow result item named '*llm-config*'.
+
+<img src="../doc/images/imixs-llm-adapter-config.png" />
+
+See the following example:
+    
+```xml
+<llm-config name="PROMPT">
+ <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+</llm-config>
+```
+
+
+**Note:** The llm-config name `PROMPT` is mandatory. It defines the prompt definition and the service endpoint.
+
+
+### The Prompt Definition
+
+The prompt definition can be defined by a BPMN Data item containing the prompt template. The Prompt Template is defined by a XML document containing the model ID and teh prompt. See the following example:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+    <PromptData>
+        <model_id>mistral-7b-instruct-v0.2.Q4_K_M.gguf</model_id>
+        <prompt><![CDATA[<s>
+    [INST] You are a clerk in a logistics company and you job is to check invoices documents. [/INST]		
+            
+    <<CONTEXT>>
+
+    </s>
+    [INST] Extract the language the invoice is written in and the company name.
+
+    Output the information in a JSON object. 
+    Create only the json object. Do not provide explanations or notes.
+
+    Example JSON Object:
+
+    { 
+        "language": "German",
+        "company.name": "Kraxi GmbH",
+    }
+    [/INST]
+
+    ]]>
+    </prompt>
+</PromptData>  
+```
+
+**Note:** The prompt layout itself is defined by the Large Language Model and can diversify for each LLM.
 

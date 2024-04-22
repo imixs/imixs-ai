@@ -61,8 +61,8 @@ import jakarta.json.JsonValue;
 }</pre>
  * 
  */
-public class JSONParser {
-    private static Logger logger = Logger.getLogger(JSONParser.class.getName());
+public class LLMJSONParser {
+    private static Logger logger = Logger.getLogger(LLMJSONParser.class.getName());
 
     /**
      * Static one liner method to parse a JSON String into a JsonObject

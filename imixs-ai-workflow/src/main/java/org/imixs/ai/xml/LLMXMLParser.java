@@ -26,8 +26,8 @@ import org.w3c.dom.NodeList;
 }</pre>
  * 
  */
-public class XMLParser {
-    private static Logger logger = Logger.getLogger(XMLParser.class.getName());
+public class LLMXMLParser {
+    private static Logger logger = Logger.getLogger(LLMXMLParser.class.getName());
 
     /**
      * Static one liner method to parse the result tag of a Imixs-AI XML String

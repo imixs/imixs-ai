@@ -7,7 +7,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.logging.Logger;
 
-import org.imixs.ai.json.PromptBuilder;
+import org.imixs.ai.json.LLMPromptBuilder;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -107,7 +107,7 @@ public class TestRestAPI {
     @Test
     public void testPromptBuilder() {
         try {
-            PromptBuilder promptBuilder = new PromptBuilder();
+            LLMPromptBuilder promptBuilder = new LLMPromptBuilder();
 
             String jsonString = promptBuilder
                     .setPredict(129)

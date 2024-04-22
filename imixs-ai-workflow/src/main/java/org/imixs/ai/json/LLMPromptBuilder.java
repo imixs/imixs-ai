@@ -10,7 +10,7 @@ import jakarta.json.JsonObjectBuilder;
  * The Imxis-ai Prompt Builder is a helper class to build a JSON string for an
  * Open-AI Rest API Prompt
  */
-public class PromptBuilder {
+public class LLMPromptBuilder {
 
     private String prompt;
     private int predict = 128;
@@ -21,7 +21,7 @@ public class PromptBuilder {
         return prompt;
     }
 
-    public PromptBuilder setPrompt(String prompt) {
+    public LLMPromptBuilder setPrompt(String prompt) {
         this.prompt = prompt;
         return this;
     }
@@ -30,7 +30,7 @@ public class PromptBuilder {
         return predict;
     }
 
-    public PromptBuilder setPredict(int predict) {
+    public LLMPromptBuilder setPredict(int predict) {
         this.predict = predict;
         return this;
     }
