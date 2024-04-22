@@ -1,12 +1,30 @@
 # Imixs-AI LLaMa.cpp
 
-This project provides a Docker based llm server to run open source llama models based on the [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp). The project provides a Rest API endpoint for text completion with a llama prompt.
+The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) provides a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Llama CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
+
+The project includes a Docker image providing a developer friendly Open-API Rest Interface:
+
 
 <img src="../doc/images/rest-api-01.png" />   
 
-The [Imixs-AI-Workflow project](../imixs-ai-workflow/) provides a java api to access this API endpoint from a Imixs-Workflow instance. 
+## Supported LLMs
 
-The implementation is based on [Llama-cpp-pyhton](https://github.com/abetlen/llama-cpp-python). Find details in the official [API documentation](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/).
+This project is developed using the Mistral-7B Instruct model. But you can run the project with any other LLM supported by Llama.cpp. The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.2.
+
+- [Mistral-7B Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
+
+We currently tested the following Large Language models, but the project can be adapted to many other LLMs:
+
+ - mistral-7b-instruct-v0.2.Q3_K_S.gguf
+ - mistral-7b-instruct-v0.2.Q3_K_M.gguf
+ - mistral-7b-instruct-v0.2.Q4_K_S.gguf 
+ - mistral-7b-instruct-v0.2.Q4_K_M.gguf **(recommended)**
+ - mistral-7b-instruct-v0.2.Q5_K_S.gguf
+ - mistral-7b-instruct-v0.2.Q5_K_M.gguf
+
+
+The implementation is based on [Llama-cpp-python](https://github.com/abetlen/llama-cpp-python) and [FastAPI](https://fastapi.tiangolo.com/). Find details in the official [API documentation](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). The Rest API provides  a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml) to exchange complex prompt templates. 
+
 
 
 ## Download Mistral 7B Model
@@ -34,6 +52,38 @@ $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-ins
 **Note:** For this project we assume that all models are located unter `imixs-ai/imixs-ai-llm/models`
 
 
+## Build and Run
+
+To build the Imixs-AI Docker image run:
+
+    $ cd ./imixs-ai-llm
+    $ ./devi build
+
+To build a Docker image with GPU support run:
+
+    $ ./devi build-gpu
+
+
+To start the server run
+
+    $ docker compose -f docker-compose-dev.yml up
+
+
+To start the GPU version run:
+
+    $ docker compose -f docker-compose-dev-gpu.yml up
+
+
+Now you can access the Rest API via: 
+
+    http://127.0.0.1:8000/docs
+
+**Note:** You need to provide a LLM in the `.gguf` format located in the directory `/models`  to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
+
+
+### Developer Support
+
+For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
 
 
 # Quick Start with Docker and the llama.cpp Web Server
@@ -196,33 +246,6 @@ Start a test container:
 This should just the nvidia-smi output form above.
 
 
-
-# Rund Docker
-
-To build the Imixs-AI-llama-cpp server run the following Docker command:
-
-    $ docker build . -t imixs/imixs-ai
-
-To build a Docker image with GPU support run:
-
-
-    $ docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai_gpu
-
-To start the server run
-
-    $ docker compose -f docker-compose-dev.yml up
-
-
-To start the GPU version run:
-
-    $ docker compose -f docker-compose-dev-gpu.yml up
-
-
-Now you can access the Rest API via: 
-
-    http://127.0.0.1:8000/docs
-
-<img src="../doc/images/rest-api-01.png" />   
 
 
 # Prompt Engineering 
