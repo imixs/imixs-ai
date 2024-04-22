@@ -8,8 +8,6 @@ The data model to send promt data to llama-cpp-python
 #
 from dataclasses import dataclass, field
 from typing import List
-
-
    
 ##########################################################
 # This dataclass is used to exchange the prompt data between the rest api and the LLM.
@@ -25,7 +23,7 @@ class PromptDefinition:
     model: str = field(
         metadata={
             "examples": [""],
-            "name": "model_id", 
+            "name": "model", 
             "type": "Element"
         }
     )    
