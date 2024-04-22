@@ -1,8 +1,25 @@
 # Imixs-AI Project
 
-The Imixs-AI Project provides a AI for business applications based on [Imixs-Workflow](https://www.imixs.org).  The project operates on Large Language Models (LLMs) and provides a generic Rest API to interact with. Imixs-AI is model-independent and can be operated with different LLMs. 
-The project is divided into general and model-specific modules and provides Docker images to run the modules in a container environment. 
+Imixs-AI seamlessly integrates  Large Language Models (LLMs)  into the processing live cycle of the [Imixs-Workflow Engine](https://www.imixs.org).
+The project provides adapter classes to facilitate the interaction with a generic AI-Service endpoint. Imixs-AI is model-independent and can operate on different LLMs. 
+This is a powerful and flexible way to integrate modern LLMs into any kind of business processes.
 
+The project is divided into a generic Adapter Service providing a Rest API to interact with different LLMs and a Workflow Integration module providing plug-ins and adapters to interact with a LLM.
+
+Imixs-AI is completely model-based and integrates via the BPMN 2.0 standard. This means that no programming skills are required when interacting with an LLM.
+
+
+
+<img width="800" src="./doc/images/architecture.png" />
+
+
+general and model-specific modules and provides Docker images to run the modules in a container environment. 
+
+
+
+
+
+provides a AI for business applications based on [Imixs-Workflow](https://www.imixs.org).  The project operates on Large Language Models (LLMs) and 
 ## Imixs-AI-LLM 
 
 The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) providing a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Lamma CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
