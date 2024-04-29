@@ -139,6 +139,7 @@ public class LLMAdapter implements SignalAdapter {
         ItemCollection llmConfig = null;
         // read optional configuration form the model or imixs.properties....
         try {
+
             llmConfig = workflowService.evalWorkflowResult(event, "llm-config", workitem, false);
             if (llmConfig == null) {
                 // no configuration found!
@@ -184,8 +185,11 @@ public class LLMAdapter implements SignalAdapter {
 
                     String promptTemplate = readPromptTemplate(event);
                     // build the llm context from the current workitem to be used in the prompt....
-                    String llmPrompt = new LLMPromptBuilder(promptTemplate, workitem, null, false, llmFilenamePattern)
+                    String llmPrompt = new LLMPromptBuilder(promptTemplate, workitem, false, llmFilenamePattern)
                             .build();
+
+                    // Adapt text!
+                    llmPrompt = workflowService.adaptText(llmPrompt, workitem);
 
                     // if we have a prompt we call the llm api endpoint
                     if (!llmPrompt.isEmpty()) {

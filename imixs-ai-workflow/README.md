@@ -38,7 +38,7 @@ See the following example:
 <llm-config name="PROMPT">
  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
  <result-item>....</result-item>
- <result-adapter>....</result-adapter>
+ <result-event>....</result-event>
 </llm-config>
 ```
 
@@ -49,7 +49,7 @@ Properties:
 | --------------- | ------ | --------------------------------------------------------------------- |
 | `endpoint`      |  URL   | Rest API endpoint for the llama-cpp server                            |
 | `result-item`   | Text   | Item name to store the result returned by the LLM Server              |
-| `result-adapter`| Text   | Optional Class name to process the result returned by the LLM Server  |
+| `result-event`  | Text   | Optional event identifier to process the result returned by the LLM Server  |
 
 
 **Note:** The llm-config name `PROMPT` is mandatory. It defines the prompt definition and the service endpoint.

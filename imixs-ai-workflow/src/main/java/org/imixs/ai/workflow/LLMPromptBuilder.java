@@ -29,7 +29,6 @@ public class LLMPromptBuilder {
 
     private static Logger logger = Logger.getLogger(LLMPromptBuilder.class.getName());
 
-    private List<String> itemNames = null;
     private boolean ignoreFiles = false;
     private Pattern filenamePattern = null;
     private ItemCollection workitem = null;
@@ -41,12 +40,11 @@ public class LLMPromptBuilder {
      * @param itemNames
      * @param ignoreFiles
      */
-    public LLMPromptBuilder(String promptTemplate, ItemCollection workitem, List<String> itemNames,
+    public LLMPromptBuilder(String promptTemplate, ItemCollection workitem,
             boolean ignoreFiles,
             Pattern mlFilenamePattern) {
         super();
         this.workitem = workitem;
-        this.itemNames = itemNames;
         this.ignoreFiles = ignoreFiles;
         this.filenamePattern = mlFilenamePattern;
         this.promptTemplate = promptTemplate;
@@ -61,22 +59,13 @@ public class LLMPromptBuilder {
      * @return - text content
      */
     public String build() {
-        String promptContext = "";
 
-        // first build content form provided items...
-        if (itemNames != null && itemNames.size() > 0) {
-            for (String itemName : itemNames) {
-                promptContext = promptContext + itemName + ": \n";
-                List<String> values = workitem.getItemValueList(itemName, String.class);
-                for (String value : values) {
-                    promptContext = promptContext + value + "\n";
-                }
-            }
-            promptContext = promptContext + "\n\n";
-        }
+        String prompt = promptTemplate;
+        validatePromptTemplate(prompt);
 
-        // now we add the filedata ...
-        if (!ignoreFiles) {
+        // test if we have a <<context>> and insert the file data...
+        if (!ignoreFiles && promptTemplate.contains(PROMPT_CONTEXT)) {
+            String promptContext = "";
             List<FileData> files = workitem.getFileData();
             if (files != null && files.size() > 0) {
                 // aggregate all text attributes form attached files
@@ -93,13 +82,11 @@ public class LLMPromptBuilder {
                     }
                 }
             }
+            // finally put the context into the promptTemplate
+            prompt = prompt.replace(PROMPT_CONTEXT, promptContext);
         }
 
-        // finally we put the context into the promptTemplate and return the result
-        String prompt = promptTemplate;
-        validatePromptTemplate(prompt);
-        prompt = prompt.replace(PROMPT_CONTEXT, promptContext);
-
+        // return the result
         return prompt;
 
     }
@@ -117,10 +104,6 @@ public class LLMPromptBuilder {
             count++;
         }
 
-        if (count == 0) {
-            throw new ProcessingErrorException(LLMPromptBuilder.class.getSimpleName(), API_ERROR,
-                    "invalid prompt-template - missing <<context>> placeholder!");
-        }
         if (count > 1) {
             throw new ProcessingErrorException(LLMPromptBuilder.class.getSimpleName(), API_ERROR,
                     "invalid prompt-template - more than one <<context>> placeholder found!");
