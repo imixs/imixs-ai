@@ -37,8 +37,16 @@ See the following example:
 ```xml
 <llm-config name="PROMPT">
  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+ <result-item>....</result-item>
+ <result-adapter>....</result-adapter>
 </llm-config>
 ```
+
+| Property 		| Type   | Description                               					     	 |
+|---------------|--------|-----------|-----------------------------------------------------------|
+| endpoint      |  URL   | Rest API endpoint for the llama-cpp server                            |
+| result-item   | Text   | Item name to store the result returned by the LLM Server              |
+| result-adapter| Text   | Optional Class name to process the result returned by the LLM Server  |
 
 
 **Note:** The llm-config name `PROMPT` is mandatory. It defines the prompt definition and the service endpoint.
@@ -78,3 +86,13 @@ The prompt definition can be defined by a BPMN Data item containing the prompt t
 
 **Note:** The prompt layout itself is defined by the Large Language Model and can diversify for each LLM.
 
+
+
+
+## The Result-Adapter
+
+To process the result returned by the LLM in an individual way you can specify a optional result-adapter-class. This class is expected as a CDI bean which is triggered by CDI events send from the LLMWorkflow Service during prompt processing
+
+The Events are defined by the classes:
+
+ - **LLMEntityResultEvent** -  a CDI event fired by the LLMWorkflow. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
