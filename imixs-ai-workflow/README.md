@@ -44,11 +44,12 @@ See the following example:
 
 Properties: 
 
-| Property 		| Type   | Description                               					     	 |
-|---------------|--------|-----------|-----------------------------------------------------------|
-| endpoint      |  URL   | Rest API endpoint for the llama-cpp server                            |
-| result-item   | Text   | Item name to store the result returned by the LLM Server              |
-| result-adapter| Text   | Optional Class name to process the result returned by the LLM Server  |
+
+| Property 	      | Type   | Description                               					     	   |
+| --------------- | ------ | --------------------------------------------------------------------- |
+| `endpoint`      |  URL   | Rest API endpoint for the llama-cpp server                            |
+| `result-item`   | Text   | Item name to store the result returned by the LLM Server              |
+| `result-adapter`| Text   | Optional Class name to process the result returned by the LLM Server  |
 
 
 **Note:** The llm-config name `PROMPT` is mandatory. It defines the prompt definition and the service endpoint.
@@ -91,10 +92,39 @@ The prompt definition can be defined by a BPMN Data item containing the prompt t
 
 
 
-## The Result-Adapter
+## The Result-Events
 
 To process the result returned by the LLM in an individual way you can specify a optional result-adapter-class. This class is expected as a CDI bean which is triggered by CDI events send from the LLMWorkflow Service during prompt processing
 
 The Events are defined by the classes:
 
- - **LLMEntityResultEvent** -  a CDI event fired by the LLMWorkflow. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
+ - **LLMResultEvent** -  a CDI event fired by the LLMWorkflow. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
+
+ Depending on the event type a CDI bean can react on a LLMResultEvent or ignore it.
+
+Example of a definition 
+
+```xml
+<llm-config name="PROMPT">
+  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+  <result-event>JSON</result-event>
+</llm-config>
+```
+
+The configuration will trigger a LLMResultEvent with the event type 'JSON'. A CDI Bean can react on this event type:
+
+```java
+  ...
+    public void onEvent(@Observes LLMResultEvent event) {
+        if (event.getWorkitem() == null) {
+            return;
+        }
+        if ("JSON".equals(event.getEventType())) {
+            String jsonString = event.getPromptResult();
+            .....
+        }
+    }
+  ...
+```
+
+

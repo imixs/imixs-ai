@@ -79,7 +79,7 @@ public class TestApplyJsonString {
             String testString = new String(Files.readAllBytes(Paths.get(path)));
 
             ItemCollection workitem = new ItemCollection();
-            LLMJSONParser.applyJSONObject(testString, workitem);
+            LLMResultJSONAdapter.applyJSONObject(testString, workitem);
 
             Assert.assertEquals("Foo & Co. KG", workitem.getItemValueString("company.name"));
 

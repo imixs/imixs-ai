@@ -11,8 +11,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.imixs.ai.adapter.LLMResultEvent;
 import org.imixs.workflow.ItemCollection;
 
+import jakarta.enterprise.event.Observes;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonNumber;
@@ -22,10 +24,17 @@ import jakarta.json.JsonString;
 import jakarta.json.JsonValue;
 
 /**
- * This is a JSON Parser class to simplify the parsing of a Imixs-AI result
- * object.
- * 
- * For example a result object may look like this:
+ * The LLMResultJSONAdapter is a CDI bean that can be used to parse an LLM
+ * prompt result as a JSON String. The bean transforms the structure into items
+ * of a workitem.
+ * <p>
+ * This observer Bean is triggered automatically by the LLMService after
+ * processing a PROMT and feierring a `LLMResultEvent`.
+ * <p>
+ * The LLMResultJSONAdapter only reacts on the LLMResultEvent in case the the
+ * event type==='JSON'
+ * <p>
+ * Example of a result object:
  * 
  * <pre>
   {@code
@@ -61,8 +70,32 @@ import jakarta.json.JsonValue;
 }</pre>
  * 
  */
-public class LLMJSONParser {
-    private static Logger logger = Logger.getLogger(LLMJSONParser.class.getName());
+public class LLMResultJSONAdapter {
+    private static Logger logger = Logger.getLogger(LLMResultJSONAdapter.class.getName());
+
+    public void onEvent(@Observes LLMResultEvent event) {
+        if (event.getWorkitem() == null) {
+            return;
+        }
+
+        // we only adapt the result in case the eventType===JSON
+        if ("JSON".equals(event.getEventType())) {
+            // get result string
+            String jsonString = event.getPromptResult();
+            applyJSONObject(jsonString, event.getWorkitem());
+        }
+    }
+
+    /**
+     * Applies the values of a Imixs-AI result JSON string to a given workitem.
+     *
+     * @param resultObject
+     * @param workitem
+     */
+    public static void applyJSONObject(final String jsonString, ItemCollection workitem) {
+        JsonObject jsonObject = parseString(jsonString);
+        applyJSONObject(jsonObject, workitem);
+    }
 
     /**
      * Static one liner method to parse a JSON String into a JsonObject
@@ -70,7 +103,7 @@ public class LLMJSONParser {
      * @param jsonString
      * @return
      */
-    public static JsonObject parseString(final String jsonString) {
+    private static JsonObject parseString(final String jsonString) {
         // fix wrong formats....
         String fixedJsonString = correctJSON(jsonString);
         // Create a StringReader for the JSON string
@@ -81,17 +114,6 @@ public class LLMJSONParser {
             JsonObject jsonObject = jsonReader.readObject();
             return jsonObject;
         }
-    }
-
-    /**
-     * Applies the values of a Imixs-AI result JSON string to a given workitem.
-     * 
-     * @param resultObject
-     * @param workitem
-     */
-    public static void applyJSONObject(final String jsonString, ItemCollection workitem) {
-        JsonObject jsonObject = parseString(jsonString);
-        applyJSONObject(jsonObject, workitem);
     }
 
     /**

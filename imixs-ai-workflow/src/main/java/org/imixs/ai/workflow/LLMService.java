@@ -9,14 +9,16 @@ import java.net.URL;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.imixs.ai.adapter.LLMResultEvent;
+import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.engine.ModelService;
 import org.imixs.workflow.engine.WorkflowService;
 
 import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 
 /**
@@ -34,8 +36,9 @@ public class LLMService implements Serializable {
     private static final long serialVersionUID = 1L;
     private static Logger logger = Logger.getLogger(LLMService.class.getName());
 
-    public static final String ITEM_ML_ENDPOINT = "ml.endpoint";
-    public static final String ITEM_ML_MODEL = "ml.model";
+    public static final String ITEM_AI_RESULT = "ai.result";
+    public static final String LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
+    public static final String LLM_MODEL = "llm.model";
 
     @Inject
     protected ModelService modelService;
@@ -43,8 +46,11 @@ public class LLMService implements Serializable {
     @Inject
     protected WorkflowService workflowService;
 
+    // @Inject
+    // protected EventLogService eventLogService;
+
     @Inject
-    protected EventLogService eventLogService;
+    private Event<LLMResultEvent> llmResultEventObservers = null;
 
     /**
      * This method returns a string with all the text content of all documents
@@ -114,7 +120,7 @@ public class LLMService implements Serializable {
                     StringBuilder responseBody = new StringBuilder();
                     String responseLine = null;
                     while ((responseLine = br.readLine()) != null) {
-                        responseBody.append(responseLine.trim());
+                        responseBody.append(responseLine.trim() + "\n");
                     }
 
                     String response = responseBody.toString();
@@ -134,4 +140,38 @@ public class LLMService implements Serializable {
         return "";
     }
 
+    /**
+     * This method processes the item values in a LLM Result string
+     * 
+     * The parameter 'resultItemName' defines the item to store the result string.
+     * This param can be empty.
+     * 
+     * The parameter 'mode' defines a resolver method.
+     * 
+     * @param workitem        - the workitem holding the last AI result (stored in a
+     *                        value
+     *                        list)
+     * @param resultItemName  - the item name to store the llm text result
+     * @param resultEventType - optional event type send to all CDI Event observers
+     *                        for the LLMResultEvent
+     */
+    public void processLLMResult(ItemCollection workitem, String resultItemName,
+            String resultEventType) {
+
+        List<String> aiResultList = workitem.getItemValueList(ITEM_AI_RESULT, String.class);
+        String lastAIResult = aiResultList.get(aiResultList.size() - 1);
+        // xml resolve
+        String promptResult = LLMXMLParser.parseResultTag(lastAIResult);
+
+        if (resultItemName != null && !resultItemName.isEmpty()) {
+            workitem.setItemValue(resultItemName, promptResult);
+        }
+
+        // fire entityTextEvents so that an adapter can resolve the result
+        if (resultEventType != null && !resultEventType.isEmpty()) {
+            LLMResultEvent llmResultEvent = new LLMResultEvent(promptResult, resultEventType, workitem);
+            llmResultEventObservers.fire(llmResultEvent);
+        }
+
+    }
 }

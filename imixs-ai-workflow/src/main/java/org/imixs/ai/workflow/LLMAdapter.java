@@ -35,8 +35,6 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.imixs.ai.json.LLMJSONParser;
-import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.WorkflowService;
@@ -85,11 +83,11 @@ public class LLMAdapter implements SignalAdapter {
     private static Logger logger = Logger.getLogger(LLMAdapter.class.getName());
 
     @Inject
-    @ConfigProperty(name = LLMConfig.LLM_SERVICE_ENDPOINT)
+    @ConfigProperty(name = LLMService.LLM_SERVICE_ENDPOINT)
     Optional<String> mlDefaultAPIEndpoint;
 
     @Inject
-    @ConfigProperty(name = LLMConfig.LLM_MODEL, defaultValue = "imixs-model")
+    @ConfigProperty(name = LLMService.LLM_MODEL, defaultValue = "imixs-model")
     String mlDefaultModel;
 
     @Inject
@@ -129,6 +127,8 @@ public class LLMAdapter implements SignalAdapter {
      */
     public ItemCollection execute(ItemCollection workitem, ItemCollection event) throws AdapterException {
         String llmAPIEndpoint = null;
+        String llmAPIResultEvent = null;
+        String llmAPIResultItem = null;
 
         // String mlQuality = null;
         Pattern llmFilenamePattern = null;
@@ -167,6 +167,8 @@ public class LLMAdapter implements SignalAdapter {
                 ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
                 if (promptDefinition != null) {
                     llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+                    llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
+                    llmAPIResultItem = promptDefinition.getItemValueString("result-item");
 
                     // parse optional filename regex pattern...
                     String _FilenamePattern = parseLLMFilePatternByBPMN(promptDefinition);
@@ -188,10 +190,9 @@ public class LLMAdapter implements SignalAdapter {
                     // if we have a prompt we call the llm api endpoint
                     if (!llmPrompt.isEmpty()) {
                         String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
-                        workitem.appendItemValue("ai.result", xmlResult);
-
-                        // resolve ai.result....
-                        resolveAIResult(workitem, xmlResult);
+                        workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
+                        // process the ai.result....
+                        llmService.processLLMResult(workitem, llmAPIResultItem, llmAPIResultEvent);
 
                     } else {
                         logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
@@ -203,18 +204,6 @@ public class LLMAdapter implements SignalAdapter {
         }
 
         return workitem;
-    }
-
-    /**
-     * This method resolves the item values in the last ai.result
-     * 
-     * @param workitem
-     */
-    private void resolveAIResult(ItemCollection workitem, String xmlResultString) {
-        // xml resolve
-        String resultString = LLMXMLParser.parseResultTag(xmlResultString);
-        // apply the json structure to the worktiem
-        LLMJSONParser.applyJSONObject(resultString, workitem);
     }
 
     /**
