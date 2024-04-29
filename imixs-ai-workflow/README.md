@@ -42,6 +42,8 @@ See the following example:
 </llm-config>
 ```
 
+Properties: 
+
 | Property 		| Type   | Description                               					     	 |
 |---------------|--------|-----------|-----------------------------------------------------------|
 | endpoint      |  URL   | Rest API endpoint for the llama-cpp server                            |
