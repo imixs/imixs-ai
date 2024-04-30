@@ -14,7 +14,7 @@ The project is divided into a generic Adapter Service providing a Rest API to in
 The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) provides a model agnostic Rest API which acts as an *Anti Corruption Layer* between an LLM and the Imixs-Workflow Engine. Imixs-AI-LLM is based on the [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp) and is designed to run LLMs in a Docker container. The project provides a Rest API endpoint for text completion with a llama prompt.
 
 <img src="./doc/images/rest-api-01.png" />
-
+ 
 
 ## Imixs-AI-Workflow
 
