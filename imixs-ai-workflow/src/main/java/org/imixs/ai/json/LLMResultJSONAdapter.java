@@ -5,7 +5,10 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -154,10 +157,12 @@ public class LLMResultJSONAdapter {
      * @param jsonArray
      * @param workitem
      */
+    @SuppressWarnings("rawtypes")
     private static void resolveJSONArray(String itemName, JsonArray jsonArray, ItemCollection workitem) {
 
         // clear old value
         workitem.removeItem(itemName);
+        ArrayList<ItemCollection> childItems = new ArrayList<ItemCollection>();
         // Iterate over the elements of the array
         for (JsonValue element : jsonArray) {
             // Process each element based on its type
@@ -179,6 +184,11 @@ public class LLMResultJSONAdapter {
                     break;
                 case OBJECT:
                     // Handle objects if needed
+                    ItemCollection childItemCol = new ItemCollection();
+                    JsonObject childObject = (JsonObject) element;
+                    applyJSONObject(childObject, childItemCol);
+                    childItems.add(childItemCol);
+
                     break;
                 case ARRAY:
                     logger.warning(itemName + ": Array in Array is not supported");
@@ -187,6 +197,16 @@ public class LLMResultJSONAdapter {
                     logger.warning(itemName + ": Unknown value type");
                     break;
             }
+        }
+
+        // Test if we have child Item structure....
+        if (childItems != null && childItems.size() > 0) {
+            List<Map> mapOrderItems = new ArrayList<Map>();
+            // iterate over all order items..
+            for (ItemCollection orderItem : childItems) {
+                mapOrderItems.add(orderItem.getAllItems());
+            }
+            workitem.replaceItemValue(itemName, mapOrderItems);
         }
     }
 
