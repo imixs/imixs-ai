@@ -17,13 +17,14 @@ import jakarta.inject.Inject;
  * 
  * <itemvalue>$workflowgroup</itemvalue>
  * 
+ * The supported text adapters are depending on the installation of the
+ * Imixs-Worklfow instance.
+ * 
+ * @see https://www.imixs.org/doc/engine/adapttext.html
  * @author rsoika
  *
  */
-public class LLMItemTextBuilder {
-
-    public static final String API_ERROR = "API_ERROR";
-    public static final String PROMPT_CONTEXT = "<<CONTEXT>>";
+public class LLMIAdaptTextBuilder {
 
     private static Logger logger = Logger.getLogger(LLMFileContextBuilder.class.getName());
 
