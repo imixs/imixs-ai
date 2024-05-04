@@ -271,30 +271,4 @@ public class LLMAdapter implements SignalAdapter {
 
     }
 
-    /**
-     * This helper method parses the ml model name either provided by a model
-     * definition or a imixs.property or an environment variable
-     *
-     * @param mlConfig
-     * @return
-     */
-    // private String parseLLMFilePatternByBPMN(ItemCollection mlConfig) {
-    // boolean debug = logger.isLoggable(Level.FINE);
-    // debug = true;
-    // String filePattern = null;
-
-    // // test if the model provides a MLModel name. If not, the adapter uses the
-    // // mlDefaultAPIEndpoint
-    // if (mlConfig != null) {
-    // filePattern = mlConfig.getItemValueString("filename.pattern");
-    // }
-
-    // if (debug) {
-    // logger.info("......llm file.pattern = " + filePattern);
-    // }
-
-    // return filePattern;
-
-    // }
-
 }

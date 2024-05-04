@@ -37,6 +37,7 @@ See the following example:
 ```xml
 <llm-config name="PROMPT">
  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+
  <result-item>....</result-item>
  <result-event>....</result-event>
 </llm-config>
@@ -66,7 +67,8 @@ The prompt definition can be defined by a BPMN Data item containing the prompt t
         <prompt><![CDATA[<s>
     [INST] You are a clerk in a logistics company and you job is to check invoices documents. [/INST]		
             
-    <<CONTEXT>>
+   
+    <filecontent>^.+\.([pP][dD][fF])$</filecontent>
 
     </s>
     [INST] Extract the language the invoice is written in and the company name.
@@ -89,7 +91,42 @@ The prompt definition can be defined by a BPMN Data item containing the prompt t
 
 **Note:** The prompt layout itself is defined by the Large Language Model and can diversify for each LLM.
 
+## The Build-Events
 
+Before a prompt is send to the llama-cpp service endpoint, the prompt-template is processed by Imixs-AI by so called PromptBuilder classes. These are CDI beans reacting on the `LLMPromptEvent` and are responsible to adapt the content of a prompt-template with content provided by the current workitem. There are some standard PromptBuilder classes that can be used out of the box:
+
+### LLMIAdaptTextBuilder
+
+The `LLMIAdaptTextBuilder` can be used to adapt all kind of text elements supported by the [Imixs-Workflow Adapt Text Feature](https://www.imixs.org/doc/engine/adapttext.html). For example you add item values to any part of the prompt-template
+
+    <itemvalue>invoice.summary</itemvalue>
+
+to place the 'invoice.summary' item into the template,
+
+
+    <username>$editor</username>
+
+to place the userid of the current editor into the template. 
+
+Find more about Text adapters:
+
+ - [Imixs-Workflow Adapt Text](https://www.imixs.org/doc/engine/adapttext.html)
+ - [Imixs-Office-Workflow Text Adapter](https://doc.office-workflow.com/textadapter/index.html)
+
+
+### LLMFileContextBuilder
+
+The `LLMFileContextBuilder` is used to place the content of files attached to the current workitem into the prompt-template. The Builder  scans for all files matching a given filename or regular expression and adds the file content into the prompt-template. For example: 
+
+    <FILECONTEXT>example.txt</FILECONTEXT>
+
+will place the content of the attached file `example.txt' into the prompt-template, or
+
+    <FILECONTEXT>^.+\.([pP][dD][fF])$</FILECONTEXT>
+
+will place the content of all PDF files into the prompt-template. 
+
+You can place the `<FILECONTEXT>` tag multiple times into one prompt-template.
 
 
 ## The Result-Events

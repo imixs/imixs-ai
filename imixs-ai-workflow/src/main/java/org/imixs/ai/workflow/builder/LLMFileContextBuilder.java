@@ -8,7 +8,6 @@ import java.util.regex.Pattern;
 import org.imixs.ai.workflow.LLMPromptEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.exceptions.ProcessingErrorException;
 
 import jakarta.enterprise.event.Observes;
 
@@ -23,65 +22,50 @@ import jakarta.enterprise.event.Observes;
 public class LLMFileContextBuilder {
 
     public static final String API_ERROR = "API_ERROR";
-    public static final String PROMPT_CONTEXT = "<<CONTEXT>>";
+    public static final String FILE_CONTENT_REGEX = "(?i)<filecontext>(.*?)</filecontext>";
 
     private static Logger logger = Logger.getLogger(LLMFileContextBuilder.class.getName());
-
-    private Pattern filenamePattern = null;
 
     public void onEvent(@Observes LLMPromptEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }
 
-        String prompt = event.getPromptTemplate();
-        validatePromptTemplate(prompt);
+        // test if we have a <filecontent> tags and insert the matching file data...
+        Pattern pattern = Pattern.compile(FILE_CONTENT_REGEX);
+        Matcher matcher = pattern.matcher(event.getPromptTemplate());
+        StringBuffer prompt = new StringBuffer();
+        while (matcher.find()) {
+            String fileContext = "";
 
-        // test if we have a <<context>> and insert the file data...
-        if (prompt.contains(PROMPT_CONTEXT)) {
-            String promptContext = "";
+            // Extract the file pattern inside <filecontent> tag
+            String fileNameRegex = matcher.group(1);
+            Pattern filenamePattern = Pattern.compile(fileNameRegex);
+
+            // test for all files attached to this workitem....
             List<FileData> files = event.getWorkitem().getFileData();
             if (files != null && files.size() > 0) {
                 // aggregate all text attributes form attached files
-                // apply an optional regex for filenames
+                // apply only files matching the filename pattern
                 for (FileData file : files) {
-                    // test if the filename matches the pattern or the pattern is null
                     if (filenamePattern == null || filenamePattern.matcher(file.getName()).find()) {
-                        logger.info("...analyzing content of '" + file.getName() + "'.....");
+                        logger.finest("...adding content of '" + file.getName() + "'.....");
                         ItemCollection metadata = new ItemCollection(file.getAttributes());
                         String _text = metadata.getItemValueString("text");
                         if (!_text.isEmpty()) {
-                            promptContext = promptContext + _text + " \n\n";
+                            fileContext = fileContext + _text + " \n\n";
                         }
                     }
                 }
             }
-            // finally put the context into the promptTemplate
-            prompt = prompt.replace(PROMPT_CONTEXT, promptContext);
+            // replace the regex with the fileContext String...
+            matcher.appendReplacement(prompt, fileContext);
         }
 
-        // update the prompt tempalte
-        event.setPromptTemplate(prompt);
+        // finally update the prompt template
+        matcher.appendTail(prompt); // append prompt
+        event.setPromptTemplate(prompt.toString());
 
     }
 
-    /**
-     * Validate the prompt template
-     * 
-     */
-    private void validatePromptTemplate(String inputString) {
-        String pattern = PROMPT_CONTEXT;
-        Pattern p = Pattern.compile(Pattern.quote(pattern));
-        Matcher m = p.matcher(inputString);
-        int count = 0;
-        while (m.find()) {
-            count++;
-        }
-
-        if (count > 1) {
-            throw new ProcessingErrorException(LLMFileContextBuilder.class.getSimpleName(), API_ERROR,
-                    "invalid prompt-template - more than one <<context>> placeholder found!");
-        }
-
-    }
 }

@@ -63,8 +63,8 @@ public class LLMPromptEvent {
         return promptTemplate;
     }
 
-    public void setPromptTemplate(String promptResult) {
-        this.promptTemplate = promptResult;
+    public void setPromptTemplate(String promptTemplate) {
+        this.promptTemplate = promptTemplate;
     }
 
 }
