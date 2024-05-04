@@ -26,18 +26,20 @@
  *      Ralph Soika - Software Developer
  */
 
-package org.imixs.ai.adapter;
+package org.imixs.ai.workflow;
 
 import org.imixs.workflow.ItemCollection;
 
 /**
- * The LLMResultEvent is fired by the LLM Adapter after a prompt was processed.
+ * The LLMResultEvent is fired by the {@link org.imixs.ai.workflow.LLMService}
+ * after a prompt was processed.
  * A CDI bean can observe this event to adapt the AI result stored in the item
  * 'ai.result'.
  * 
  * 
  * @author Ralph Soika
  * @version 1.0
+ * @see org.imixs.ai.workflow.LLMService
  * @see org.imixs.workflow.engine.WorkflowService
  */
 public class LLMResultEvent {

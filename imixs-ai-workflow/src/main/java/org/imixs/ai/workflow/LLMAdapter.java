@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.workflow.ItemCollection;
@@ -130,8 +129,6 @@ public class LLMAdapter implements SignalAdapter {
         String llmAPIResultEvent = null;
         String llmAPIResultItem = null;
 
-        // String mlQuality = null;
-        Pattern llmFilenamePattern = null;
         boolean debug = logger.isLoggable(Level.FINE);
         debug = true;
 
@@ -148,7 +145,7 @@ public class LLMAdapter implements SignalAdapter {
             }
 
             // extract the create subprocess definitions...
-            List<String> llmPromptDefinitions = llmConfig.getItemValue(LLM_PROMPT);
+            List<String> llmPromptDefinitions = llmConfig.getItemValueList(LLM_PROMPT, String.class);
             if (llmPromptDefinitions == null || llmPromptDefinitions.size() == 0) {
                 // no PROMPT definition found
                 throw new AdapterException(LLMAdapter.class.getSimpleName(), API_ERROR,
@@ -172,10 +169,10 @@ public class LLMAdapter implements SignalAdapter {
                     llmAPIResultItem = promptDefinition.getItemValueString("result-item");
 
                     // parse optional filename regex pattern...
-                    String _FilenamePattern = parseLLMFilePatternByBPMN(promptDefinition);
-                    if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
-                        llmFilenamePattern = Pattern.compile(_FilenamePattern);
-                    }
+                    // String _FilenamePattern = parseLLMFilePatternByBPMN(promptDefinition);
+                    // if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
+                    // llmFilenamePattern = Pattern.compile(_FilenamePattern);
+                    // }
 
                     // do we have a valid endpoint?
                     if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
@@ -184,19 +181,23 @@ public class LLMAdapter implements SignalAdapter {
                     }
 
                     String promptTemplate = readPromptTemplate(event);
-                    // build the llm context from the current workitem to be used in the prompt....
-                    String llmPrompt = new LLMPromptBuilder(promptTemplate, workitem, false, llmFilenamePattern)
-                            .build();
+                    String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
 
-                    // Adapt text!
-                    llmPrompt = workflowService.adaptText(llmPrompt, workitem);
+                    // // build the llm context from the current workitem to be used in the
+                    // prompt....
+                    // String llmPrompt = new LLMFileContextBuilder(promptTemplate, workitem, false,
+                    // llmFilenamePattern)
+                    // .build();
+
+                    // // Adapt text!
+                    // llmPrompt = workflowService.adaptText(llmPrompt, workitem);
 
                     // if we have a prompt we call the llm api endpoint
                     if (!llmPrompt.isEmpty()) {
                         String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
                         workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
                         // process the ai.result....
-                        llmService.processLLMResult(workitem, llmAPIResultItem, llmAPIResultEvent);
+                        llmService.processPromptResult(workitem, llmAPIResultItem, llmAPIResultEvent);
 
                     } else {
                         logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
@@ -277,23 +278,23 @@ public class LLMAdapter implements SignalAdapter {
      * @param mlConfig
      * @return
      */
-    private String parseLLMFilePatternByBPMN(ItemCollection mlConfig) {
-        boolean debug = logger.isLoggable(Level.FINE);
-        debug = true;
-        String filePattern = null;
+    // private String parseLLMFilePatternByBPMN(ItemCollection mlConfig) {
+    // boolean debug = logger.isLoggable(Level.FINE);
+    // debug = true;
+    // String filePattern = null;
 
-        // test if the model provides a MLModel name. If not, the adapter uses the
-        // mlDefaultAPIEndpoint
-        if (mlConfig != null) {
-            filePattern = mlConfig.getItemValueString("filename.pattern");
-        }
+    // // test if the model provides a MLModel name. If not, the adapter uses the
+    // // mlDefaultAPIEndpoint
+    // if (mlConfig != null) {
+    // filePattern = mlConfig.getItemValueString("filename.pattern");
+    // }
 
-        if (debug) {
-            logger.info("......llm file.pattern = " + filePattern);
-        }
+    // if (debug) {
+    // logger.info("......llm file.pattern = " + filePattern);
+    // }
 
-        return filePattern;
+    // return filePattern;
 
-    }
+    // }
 
 }

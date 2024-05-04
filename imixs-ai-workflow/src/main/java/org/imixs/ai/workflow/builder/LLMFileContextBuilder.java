@@ -1,72 +1,46 @@
-package org.imixs.ai.workflow;
+package org.imixs.ai.workflow.builder;
 
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.imixs.ai.workflow.LLMPromptEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.ProcessingErrorException;
 
+import jakarta.enterprise.event.Observes;
+
 /**
- * This builder class builds a prompt from the data stored in a workitem.
- * 
- * The prompt is based on a promptTempalte and a text-context that is part of
- * the final prompt. The builder class generates the context based on a
- * combination of item values and file content.
- * 
- * The promptTemplate is always a XML text with the full data to be send to the
- * Imixs-AI endpoint. The template must provide a <<context>> place holder
+ * The LLMFileContextBuilder adds a file content stored in a workitem into the
+ * prompt template.
+ * The template must provide a <<context>> place holder
  * 
  * @author rsoika
  *
  */
-public class LLMPromptBuilder {
+public class LLMFileContextBuilder {
 
     public static final String API_ERROR = "API_ERROR";
     public static final String PROMPT_CONTEXT = "<<CONTEXT>>";
 
-    private static Logger logger = Logger.getLogger(LLMPromptBuilder.class.getName());
+    private static Logger logger = Logger.getLogger(LLMFileContextBuilder.class.getName());
 
-    private boolean ignoreFiles = false;
     private Pattern filenamePattern = null;
-    private ItemCollection workitem = null;
-    String promptTemplate = null;
 
-    /**
-     * Construct a new Builder instance to build a ML content
-     * 
-     * @param itemNames
-     * @param ignoreFiles
-     */
-    public LLMPromptBuilder(String promptTemplate, ItemCollection workitem,
-            boolean ignoreFiles,
-            Pattern mlFilenamePattern) {
-        super();
-        this.workitem = workitem;
-        this.ignoreFiles = ignoreFiles;
-        this.filenamePattern = mlFilenamePattern;
-        this.promptTemplate = promptTemplate;
-    }
+    public void onEvent(@Observes LLMPromptEvent event) {
+        if (event.getWorkitem() == null) {
+            return;
+        }
 
-    /**
-     * This method builds a new text content based on a given workiem. The method
-     * build the content form the ml-content items and the file attachments.
-     * <p>
-     * File attachments can be ignored setting the flag 'ignorefiles'.
-     * 
-     * @return - text content
-     */
-    public String build() {
-
-        String prompt = promptTemplate;
+        String prompt = event.getPromptTemplate();
         validatePromptTemplate(prompt);
 
         // test if we have a <<context>> and insert the file data...
-        if (!ignoreFiles && promptTemplate.contains(PROMPT_CONTEXT)) {
+        if (prompt.contains(PROMPT_CONTEXT)) {
             String promptContext = "";
-            List<FileData> files = workitem.getFileData();
+            List<FileData> files = event.getWorkitem().getFileData();
             if (files != null && files.size() > 0) {
                 // aggregate all text attributes form attached files
                 // apply an optional regex for filenames
@@ -86,8 +60,8 @@ public class LLMPromptBuilder {
             prompt = prompt.replace(PROMPT_CONTEXT, promptContext);
         }
 
-        // return the result
-        return prompt;
+        // update the prompt tempalte
+        event.setPromptTemplate(prompt);
 
     }
 
@@ -105,7 +79,7 @@ public class LLMPromptBuilder {
         }
 
         if (count > 1) {
-            throw new ProcessingErrorException(LLMPromptBuilder.class.getSimpleName(), API_ERROR,
+            throw new ProcessingErrorException(LLMFileContextBuilder.class.getSimpleName(), API_ERROR,
                     "invalid prompt-template - more than one <<context>> placeholder found!");
         }
 

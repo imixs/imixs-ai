@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.imixs.ai.adapter.LLMResultEvent;
+import org.imixs.ai.workflow.LLMResultEvent;
 import org.imixs.workflow.ItemCollection;
 
 import jakarta.enterprise.event.Observes;

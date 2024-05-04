@@ -9,7 +9,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.logging.Logger;
 
-import org.imixs.ai.adapter.LLMResultEvent;
 import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
@@ -46,8 +45,8 @@ public class LLMService implements Serializable {
     @Inject
     protected WorkflowService workflowService;
 
-    // @Inject
-    // protected EventLogService eventLogService;
+    @Inject
+    private Event<LLMPromptEvent> llmPromptEventObservers = null;
 
     @Inject
     private Event<LLMResultEvent> llmResultEventObservers = null;
@@ -78,7 +77,24 @@ public class LLMService implements Serializable {
     }
 
     /**
-     * Helper method posts a XML prompt object to a Imixs-AI llm service
+     * This method fires a prompt event to all registered PrompEvent Observer
+     * classes. This allows adaptors to customize the prompt.
+     * 
+     * @param workitem
+     * @param resultItemName
+     * @param resultEventType
+     */
+    public String buildPrompt(String promptTemplate, ItemCollection workitem) {
+
+        LLMPromptEvent llmPromptEvent = new LLMPromptEvent(promptTemplate, workitem);
+        llmPromptEventObservers.fire(llmPromptEvent);
+
+        return llmPromptEvent.getPromptTemplate();
+
+    }
+
+    /**
+     * This method posts a XML prompt object to a Imixs-AI llm service
      * 
      * The method returns the response body.
      * 
@@ -141,7 +157,8 @@ public class LLMService implements Serializable {
     }
 
     /**
-     * This method processes the item values in a LLM Result string
+     * This method processes a prompt result. The method expects a workitem
+     * including the item 'ai.result' providing the LLM result string.
      * 
      * The parameter 'resultItemName' defines the item to store the result string.
      * This param can be empty.
@@ -155,7 +172,7 @@ public class LLMService implements Serializable {
      * @param resultEventType - optional event type send to all CDI Event observers
      *                        for the LLMResultEvent
      */
-    public void processLLMResult(ItemCollection workitem, String resultItemName,
+    public void processPromptResult(ItemCollection workitem, String resultItemName,
             String resultEventType) {
 
         List<String> aiResultList = workitem.getItemValueList(ITEM_AI_RESULT, String.class);
@@ -174,4 +191,5 @@ public class LLMService implements Serializable {
         }
 
     }
+
 }
