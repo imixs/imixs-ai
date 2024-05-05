@@ -31,14 +31,16 @@ public class LLMFileContextBuilder {
             return;
         }
 
+        String prompt = event.getPromptTemplate();
         // test if we have a <filecontent> tags and insert the matching file data...
         Pattern pattern = Pattern.compile(FILE_CONTENT_REGEX);
-        Matcher matcher = pattern.matcher(event.getPromptTemplate());
-        StringBuffer prompt = new StringBuffer();
+        Matcher matcher = pattern.matcher(prompt);
+
         while (matcher.find()) {
             String fileContext = "";
 
             // Extract the file pattern inside <filecontent> tag
+            String fullTag = matcher.group(0);
             String fileNameRegex = matcher.group(1);
             Pattern filenamePattern = Pattern.compile(fileNameRegex);
 
@@ -59,11 +61,14 @@ public class LLMFileContextBuilder {
                 }
             }
             // replace the regex with the fileContext String...
-            matcher.appendReplacement(prompt, fileContext);
+            // int conextPos = prompt.indexOf(fullTag);
+            prompt = prompt.replace(fullTag, fileContext);
+            matcher = pattern.matcher(prompt);
+            // matcher.appendReplacement(prompt, fileContext);
         }
 
         // finally update the prompt template
-        matcher.appendTail(prompt); // append prompt
+        // matcher.appendTail(prompt); // append prompt
         event.setPromptTemplate(prompt.toString());
 
     }

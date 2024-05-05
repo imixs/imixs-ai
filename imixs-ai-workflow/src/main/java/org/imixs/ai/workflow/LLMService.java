@@ -89,6 +89,7 @@ public class LLMService implements Serializable {
         LLMPromptEvent llmPromptEvent = new LLMPromptEvent(promptTemplate, workitem);
         llmPromptEventObservers.fire(llmPromptEvent);
         logger.finest(llmPromptEvent.getPromptTemplate());
+
         return llmPromptEvent.getPromptTemplate();
     }
 
