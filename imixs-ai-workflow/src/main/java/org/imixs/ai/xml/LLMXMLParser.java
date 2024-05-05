@@ -48,14 +48,6 @@ public class LLMXMLParser {
             if (resultNodes.getLength() > 0) {
                 String resultContent = resultNodes.item(0).getTextContent();
 
-                // in some cases the result stirng starts with "```json"
-                if (resultContent.startsWith("```json")) {
-                    resultContent = resultContent.substring(7);
-                }
-                if (resultContent.endsWith("```")) {
-                    resultContent = resultContent.substring(0, resultContent.length() - 3);
-                }
-
                 return resultContent;
             } else {
                 logger.warning("<result> tag not found.");

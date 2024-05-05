@@ -287,6 +287,18 @@ public class LLMResultJSONAdapter {
      * @return
      */
     public static String correctJSON(String jsonString) {
+
+        // in some cases the result stirng starts with "```json"
+        if (jsonString.startsWith("```json")) {
+            jsonString = jsonString.substring(7);
+        }
+        if (jsonString.endsWith("```")) {
+            jsonString = jsonString.substring(0, jsonString.length() - 3);
+        }
+
+        // fix N/A
+        jsonString = jsonString.replace("N/A", "0.0");
+
         // Define a regular expression pattern to match incorrectly formatted numbers
         // Pattern pattern = Pattern.compile("(\\d+),(\\d+\\.\\d+)");
         Pattern pattern = Pattern.compile("(\\d{1,3}(?:,\\d{3})*),(\\d+\\.\\d+)");
