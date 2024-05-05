@@ -2,7 +2,7 @@ FROM python:3.10-bookworm
 #FROM python
 
 #RUN pip install llama-cpp-python
-RUN CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS" pip install llama-cpp-python
+RUN CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS" pip install --upgrade llama-cpp-python
 
 RUN pip install fastapi
 RUN pip install "uvicorn[standard]"

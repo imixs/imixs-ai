@@ -12,7 +12,7 @@ ENV LLAMA_CUBLAS=1
 
 # Install llama-cpp-python (build with cuda)
 RUN python3 -m pip install --upgrade pip pytest cmake fastapi uvicorn
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install --upgrade llama-cpp-python
 
 # Install fastAPI and copy app
 RUN pip install fastapi-xml
