@@ -80,6 +80,46 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
     return resultData;
 
 
+
+
+
+#####################
+# Extended prompt method supporting embeddings
+# Example: 
+# <PromptDefinition>
+#	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</model>
+#	<prompt>What is the Imixs-Workflow engine?</prompt>
+#   <embeddings><embeddings>
+# </PromptDefinition>
+#
+# Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
+@app.post("/prompt-embeddings", response_model=datamodel.PromptDefinitionEmbeddings, tags=["Imixs-AI"])
+def prompt(data: datamodel.PromptDefinitionEmbeddings = XmlBody()) -> datamodel.PromptDefinitionEmbeddings:
+
+    global llm
+    global model
+
+
+
+    # Model parameters
+    print("--- hello prompt....")
+   
+   
+
+    resultData = datamodel.ResultData("huhu")
+    return resultData;
+
+
+
+
+
+
+
+
+
+
+
+
 @app.post("model/{model}")
 async def do_switchmodel(model_id: Annotated[str, Path(title="The ID of the model")]):
     # load new model

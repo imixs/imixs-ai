@@ -36,6 +36,41 @@ class PromptDefinition:
         }
     )  
 
+###########################
+# Extended prompt class to support embeddings 
+###########################
+@dataclass
+class PromptDefinitionEmbeddings:
+
+    model: str = field(
+        metadata={
+            "examples": [""],
+            "name": "model", 
+            "type": "Element"
+        }
+    )    
+
+    prompt: str = field(
+        metadata={
+            "examples": ["What is the Imixs-Workflow engine?"],
+            "name": "prompt", 
+            "type": "Element"
+        }
+    )
+
+    embeddings: List[str] = field(
+        default_factory=list,
+        metadata={
+            "examples": ["embedding1", "embedding2"],
+            "name": "embeddings",
+            "type": "Element"
+        }
+    )
+
+
+###########################
+# Result class holding the result of a prompt processing
+###########################
 @dataclass
 class ResultData:
 
