@@ -22,7 +22,7 @@ class PromptDefinition:
 
     model: str = field(
         metadata={
-            "examples": [""],
+            "examples": ["mistral-7b-instruct-v0.2.Q3_K_S.gguf"],
             "name": "model", 
             "type": "Element"
         }
@@ -42,7 +42,7 @@ class PromptDefinition:
 
 @dataclass
 class EmbeddingData:
-    result: str = field(
+    embeddingData: str = field(
         metadata={
             "name": "embeddingData",
             "type": "Element"
@@ -54,7 +54,7 @@ class PromptDefinitionEmbeddings:
 
     model: str = field(
         metadata={
-            "examples": [""],
+            "examples": ["mistral-7b-instruct-v0.2.Q3_K_S.gguf"],
             "name": "model", 
             "type": "Element"
         }
