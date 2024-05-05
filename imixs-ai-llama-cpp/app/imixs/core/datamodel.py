@@ -39,6 +39,16 @@ class PromptDefinition:
 ###########################
 # Extended prompt class to support embeddings 
 ###########################
+
+@dataclass
+class EmbeddingData:
+    result: str = field(
+        metadata={
+            "name": "embeddingData",
+            "type": "Element"
+        }
+    )
+
 @dataclass
 class PromptDefinitionEmbeddings:
 
@@ -58,15 +68,14 @@ class PromptDefinitionEmbeddings:
         }
     )
 
-    embeddings: List[str] = field(
+    embeddings: List[EmbeddingData] = field(
         default_factory=list,
         metadata={
-            "examples": ["embedding1", "embedding2"],
             "name": "embeddings",
             "type": "Element"
         }
     )
-
+    
 
 ###########################
 # Result class holding the result of a prompt processing
