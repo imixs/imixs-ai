@@ -41,15 +41,6 @@ class PromptDefinition:
 ###########################
 
 @dataclass
-class EmbeddingData:
-    embeddingData: str = field(
-        metadata={
-            "name": "embeddingData",
-            "type": "Element"
-        }
-    )
-
-@dataclass
 class PromptDefinitionEmbeddings:
 
     model: str = field(
@@ -68,10 +59,10 @@ class PromptDefinitionEmbeddings:
         }
     )
 
-    embeddings: List[EmbeddingData] = field(
-        default_factory=list,
+    embeddings: str = field(
         metadata={
-            "name": "embeddings",
+            "examples": ["A #### B #### C"],
+            "name": "embeddings", 
             "type": "Element"
         }
     )

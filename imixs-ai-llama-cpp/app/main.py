@@ -95,27 +95,54 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
 # Note: Option 'logits_all=True' is important here because of bug: https://github.com/abetlen/llama-cpp-python/issues/1326
 @app.post("/prompt-embeddings", response_model=datamodel.PromptDefinitionEmbeddings, tags=["Imixs-AI"])
 def prompt(data: datamodel.PromptDefinitionEmbeddings = XmlBody()) -> datamodel.PromptDefinitionEmbeddings:
-
+    
     global llm
     global model
+
+    # Create a llama model if not yet initialized
+    if model is None or (data.model != '' and data.model != model):
+
+        start_time = time.time()
+        print("--- Init Model...")
+
+        if data.model != '' :
+            model=data.model
+        print("-- Model Path = "+model_path+model)
+        llm = Llama(
+            model_path=model_path+model,
+            # 30, -1
+            n_gpu_layers=-1, 
+            #n_ctx=3584, 
+            #n_ctx=4096, 
+            n_ctx=5120, 
+            #n_batch=521, 
+            #verbose=True,
+            logits_all=True,
+            echo=False,
+            embedding=True
+        )
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"--- Init Model...finished in {execution_time} sec")
 
 
 
     # Model parameters
-    print("--- hello prompt....")
-   
-   
+    print("--- compute prompt....")
+    max_tokens = 1000
 
-    resultData = datamodel.ResultData("huhu")
+    print("--- add embeddings...")
+    embeddings = llm.create_embedding(["Whats your name?", "My Name is Anna!"])
+
+    print("start processing prompt:\n\n",data.prompt,'\n...\n')
+    result = llm(data.prompt, max_tokens=max_tokens, 
+                     temperature=0,
+                     echo=False
+                     )
+    print(result)
+
+    resultData = datamodel.ResultData(result["choices"][0]["text"])
     return resultData;
-
-
-
-
-
-
-
-
 
 
 
