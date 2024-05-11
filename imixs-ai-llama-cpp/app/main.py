@@ -68,6 +68,13 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
 
     # Model parameters
     print("--- compute prompt....")
+
+    # Open prompt to  file in write mode ('w')
+    with open('prompt-input.txt', 'w') as f:
+        # Write a string to the file
+        f.write(data.prompt)
+
+
     max_tokens = 1000
     print("start processing prompt:\n\n",data.prompt,'\n...\n')
     result = llm(data.prompt, max_tokens=max_tokens, 
