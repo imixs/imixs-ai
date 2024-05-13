@@ -41,10 +41,7 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
 
     # Create a llama model if not yet initialized
     if model is None or (data.model != '' and data.model != model):
-
-        start_time = time.time()
         print("--- Init Model...")
-
         if data.model != '' :
             model=data.model
         print("-- Model Path = "+model_path+model)
@@ -60,10 +57,6 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
             logits_all=True,
             echo=False
         )
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"--- Init Model...finished in {execution_time} sec")
-
 
 
     # Model parameters
@@ -75,7 +68,7 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
         f.write(data.prompt)
 
 
-    max_tokens = 1000
+    max_tokens = 4096
     print("start processing prompt:\n\n",data.prompt,'\n...\n')
     result = llm(data.prompt, max_tokens=max_tokens, 
                      temperature=0,
