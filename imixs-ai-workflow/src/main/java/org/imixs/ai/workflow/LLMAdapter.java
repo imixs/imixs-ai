@@ -53,17 +53,39 @@ import jakarta.inject.Inject;
  * <p>
  * The Adapter can be configured by a event entity.
  * <p>
- * Example:
+ * Example llm-config Prompt:
  * 
  * <pre>
  * {@code
         <llm-config name="PROMPT">
             <endpoint>https://localhost:8111/</endpoint>
-        
+            <result-item>invoice.summary</result-item>
+            <result-event>JSON</result-event>
         </llm-config>
  * }
  * </pre>
  * 
+ * The Endpoint defines the Rest API endpoint of the LMA server and the
+ * result-item defines the item to store the result.
+ * Optional also result-events can be defined to handle more complex business
+ * rules.
+ * <p>
+ * Optional an llm-config SUGGEST configuration can be proivded.
+ * 
+ * <pre>
+ * {@code
+        <llm-config name="SUGGEST">
+            <items>invoice.number</items>
+            <mode>ON|OFF</mode>
+        </llm-config>
+ * }
+ * </pre>
+ * 
+ * The field 'items' contains a list of item names. This list will be
+ * stored in the item "ai.suggest.items". An UI can use this information for
+ * additional input support (e.g. a suggest list)
+ * The field 'mode' provides a suggest mode for a UI component. The information
+ * is stored in the item 'ai.suggest.mode'
  * 
  * @author Ralph Soika
  * @version 1.0
@@ -75,6 +97,7 @@ public class LLMAdapter implements SignalAdapter {
     public static final String ML_ENTITY = "entity";
     public static final String API_ERROR = "API_ERROR";
     public static final String LLM_PROMPT = "PROMPT";
+    public static final String LLM_SUGGEST = "SUGGEST";
 
     public static final int API_EVENT_SUCCESS = 110;
     public static final int API_EVENT_FAILURE = 90;
@@ -144,66 +167,67 @@ public class LLMAdapter implements SignalAdapter {
                         "Missing llm-config definition in Event!");
             }
 
-            // extract the create subprocess definitions...
-            List<String> llmPromptDefinitions = llmConfig.getItemValueList(LLM_PROMPT, String.class);
-            if (llmPromptDefinitions == null || llmPromptDefinitions.size() == 0) {
-                // no PROMPT definition found
-                throw new AdapterException(LLMAdapter.class.getSimpleName(), API_ERROR,
-                        "Missing llm-config PROMPT definition in Event!");
-            }
-
             /**
              * Iterate over each PROMPT definition and process the prompt
              */
-            for (String promptDefinitionXML : llmPromptDefinitions) {
-
-                if (promptDefinitionXML.trim().isEmpty()) {
-                    // no definition
-                    continue;
-                }
-                // evaluate the prompt definition (XML format expected here!)
-                ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
-                if (promptDefinition != null) {
-                    llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
-                    llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
-                    llmAPIResultItem = promptDefinition.getItemValueString("result-item");
-
-                    // parse optional filename regex pattern...
-                    // String _FilenamePattern = parseLLMFilePatternByBPMN(promptDefinition);
-                    // if (_FilenamePattern != null && !_FilenamePattern.isEmpty()) {
-                    // llmFilenamePattern = Pattern.compile(_FilenamePattern);
-                    // }
-
-                    // do we have a valid endpoint?
-                    if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                        throw new ProcessingErrorException(LLMAdapter.class.getSimpleName(), API_ERROR,
-                                "imixs-ai llm service endpoint is empty!");
+            List<String> llmPromptDefinitions = llmConfig.getItemValueList(LLM_PROMPT, String.class);
+            if (llmPromptDefinitions != null) {
+                for (String promptDefinitionXML : llmPromptDefinitions) {
+                    if (promptDefinitionXML.trim().isEmpty()) {
+                        // no definition
+                        continue;
                     }
+                    // evaluate the prompt definition (XML format expected here!)
+                    ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
+                    if (promptDefinition != null) {
+                        llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+                        llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
+                        llmAPIResultItem = promptDefinition.getItemValueString("result-item");
 
-                    String promptTemplate = readPromptTemplate(event);
-                    String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+                        // do we have a valid endpoint?
+                        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
+                            throw new ProcessingErrorException(LLMAdapter.class.getSimpleName(), API_ERROR,
+                                    "imixs-ai llm service endpoint is empty!");
+                        }
 
-                    // // build the llm context from the current workitem to be used in the
-                    // prompt....
-                    // String llmPrompt = new LLMFileContextBuilder(promptTemplate, workitem, false,
-                    // llmFilenamePattern)
-                    // .build();
-
-                    // // Adapt text!
-                    // llmPrompt = workflowService.adaptText(llmPrompt, workitem);
-
-                    // if we have a prompt we call the llm api endpoint
-                    if (!llmPrompt.isEmpty()) {
-                        String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
-                        workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
-                        // process the ai.result....
-                        llmService.processPromptResult(workitem, llmAPIResultItem, llmAPIResultEvent);
-
-                    } else {
-                        logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
+                        // Build the prompt template....
+                        String promptTemplate = readPromptTemplate(event);
+                        String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+                        // if we have a prompt we call the llm api endpoint
+                        if (!llmPrompt.isEmpty()) {
+                            String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
+                            workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
+                            // process the ai.result....
+                            llmService.processPromptResult(workitem, llmAPIResultItem, llmAPIResultEvent);
+                        } else {
+                            logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
+                        }
                     }
                 }
             }
+
+            // verify if we also have an optional SUGGEST configuration (only one definition
+            // is supported!)
+            String llmSuggestDefinitionXML = llmConfig.getItemValueString(LLM_SUGGEST);
+            if (!llmSuggestDefinitionXML.isEmpty()) {
+                // evaluate the suggest definition (XML format expected here!)
+                ItemCollection suggestDefinition = XMLParser.parseItemStructure(llmSuggestDefinitionXML);
+                String llmSuggestItems = suggestDefinition.getItemValueString("items");
+                String llmSuggestMode = suggestDefinition.getItemValueString("mode");
+                // do we have a suggest-mode?
+                if (llmSuggestMode.equalsIgnoreCase("ON") || llmSuggestMode.equalsIgnoreCase("OFF")) {
+                    workitem.setItemValue(LLMService.ITEM_SUGGEST_MODE, llmSuggestMode.toUpperCase());
+                } else {
+                    workitem.setItemValue(LLMService.ITEM_SUGGEST_MODE, "OFF");
+                }
+                // do we have a suggest-item list?
+                String[] suggestItemList = llmSuggestItems.split(",");
+                workitem.removeItem(LLMService.ITEM_SUGGEST_ITEMS);
+                for (String item : suggestItemList) {
+                    workitem.appendItemValue(LLMService.ITEM_SUGGEST_ITEMS, item.trim());
+                }
+            }
+
         } catch (PluginException e) {
             logger.warning("Unable to parse item definitions for 'llm-config', verify model - " + e.getMessage());
         }
@@ -218,6 +242,7 @@ public class LLMAdapter implements SignalAdapter {
      * @param event
      * @return
      */
+    @SuppressWarnings("unchecked")
     private String readPromptTemplate(ItemCollection event) {
         List<?> dataObjects = event.getItemValue("dataObjects");
 
@@ -227,7 +252,7 @@ public class LLMAdapter implements SignalAdapter {
 
         // tage teh first data object....
         List<String> data = (List<String>) dataObjects.get(0);
-        String name = "" + data.get(0);
+        // String name = "" + data.get(0);
         String prompt = "" + data.get(1);
         return prompt;
 

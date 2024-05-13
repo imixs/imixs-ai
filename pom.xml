@@ -13,7 +13,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<org.imixs.workflow.version>6.0.4-SNAPSHOT</org.imixs.workflow.version>
+		<org.imixs.workflow.version>6.0.4</org.imixs.workflow.version>
 		<org.imixs.melman.version>1.0.19</org.imixs.melman.version>
 		<org.imixs.mock.version>6.0.0</org.imixs.mock.version>
 		<jakarta.version>10.0.0</jakarta.version>
@@ -213,8 +213,34 @@
 		</profile>
 	</profiles>
 
-	<dependencies>
 
+	<dependencyManagement>
+		<dependencies>
+			<!-- WORKFLOW -->
+			<dependency>
+				<groupId>org.imixs.workflow</groupId>
+				<artifactId>imixs-workflow-core</artifactId>
+				<version>${org.imixs.workflow.version}</version>
+				<scope />
+			</dependency>
+			<dependency>
+				<groupId>org.imixs.workflow</groupId>
+				<artifactId>imixs-workflow-engine</artifactId>
+				<version>${org.imixs.workflow.version}</version>
+				<scope>provided</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.imixs.workflow</groupId>
+				<artifactId>imixs-workflow-faces</artifactId>
+				<version>${org.imixs.workflow.version}</version>
+				<scope>provided</scope>
+			</dependency>
+		</dependencies>
+
+	</dependencyManagement>
+
+
+	<dependencies>
 		<!-- Jakarta EE -->
 		<dependency>
 			<groupId>jakarta.platform</groupId>

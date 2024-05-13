@@ -36,6 +36,10 @@ public class LLMService implements Serializable {
     private static Logger logger = Logger.getLogger(LLMService.class.getName());
 
     public static final String ITEM_AI_RESULT = "ai.result";
+    public static final String ITEM_AI_RESULT_ITEM = "ai.result.item";
+    public static final String ITEM_SUGGEST_ITEMS = "ai.suggest.items";
+    public static final String ITEM_SUGGEST_MODE = "ai.suggest.mode";
+
     public static final String LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
     public static final String LLM_MODEL = "llm.model";
 
@@ -182,6 +186,7 @@ public class LLMService implements Serializable {
 
         if (resultItemName != null && !resultItemName.isEmpty()) {
             workitem.setItemValue(resultItemName, promptResult);
+            workitem.setItemValue(ITEM_AI_RESULT_ITEM, resultItemName);
         }
 
         // fire entityTextEvents so that an adapter can resolve the result

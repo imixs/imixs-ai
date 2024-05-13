@@ -165,3 +165,18 @@ The configuration will trigger a LLMResultEvent with the event type 'JSON'. A CD
 ```
 
 
+# Suggest Items
+
+The llm-config can contain an optional suggest configuration providing a item list and a suggest mode.
+    
+```xml
+<llm-config name="SUGGEST"> 
+   <items>invoice.number,cdtr.name</items>
+   <mode>ON|OFF</mode>
+</llm-config>
+```
+
+The field 'items' contains a list of item names. This list will be  stored in the item `ai.suggest.items`. 
+An UI can use this information for additional input support (e.g. a suggest list)
+The field 'mode' provides a suggest mode for a UI component. The information is stored in the item `ai.suggest.mode`
+

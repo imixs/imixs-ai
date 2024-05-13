@@ -288,13 +288,6 @@ public class LLMResultJSONAdapter {
      */
     public static String correctJSON(String jsonString) {
 
-        // in some cases the result stirng starts with "```json"
-        // if (jsonString.startsWith("```json")) {
-        // jsonString = jsonString.substring(7);
-        // }
-        // if (jsonString.endsWith("```")) {
-        // jsonString = jsonString.substring(0, jsonString.length() - 3);
-        // }
         // remove all characters before the first '{' and after the last '}'
         int startIndex = jsonString.indexOf('{');
         int endIndex = jsonString.lastIndexOf('}');
