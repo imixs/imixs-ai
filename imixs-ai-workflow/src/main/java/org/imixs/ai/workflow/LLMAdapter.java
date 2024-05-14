@@ -195,6 +195,8 @@ public class LLMAdapter implements SignalAdapter {
                         String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                         // if we have a prompt we call the llm api endpoint
                         if (!llmPrompt.isEmpty()) {
+
+                            logger.info("===> Total Prompt Length = " + llmPrompt.length());
                             String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
                             workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
                             // process the ai.result....
