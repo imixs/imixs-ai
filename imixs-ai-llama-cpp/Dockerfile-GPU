@@ -1,3 +1,8 @@
+
+#######################################
+# Imixs-AI
+# llama-cpp image with GPU and CUDA support
+#######################################
 # See: https://github.com/abetlen/llama-cpp-python/blob/main/docker/cuda_simple/Dockerfile
 ARG CUDA_IMAGE="12.1.1-devel-ubuntu22.04"
 FROM nvidia/cuda:${CUDA_IMAGE}
@@ -10,7 +15,7 @@ RUN apt-get update && apt-get upgrade -y \
 ENV CUDA_DOCKER_ARCH=all
 ENV LLAMA_CUBLAS=1
 
-# Install llama-cpp-python (build with cuda)
+# Install llama-cpp-python (build with cuda support)
 RUN python3 -m pip install --upgrade pip pytest cmake fastapi uvicorn
 RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install --upgrade llama-cpp-python
 

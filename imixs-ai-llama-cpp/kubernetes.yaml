@@ -1,0 +1,45 @@
+###################################################
+# Imixs-AI Kubernetes Deployment
+# Take care to provide a persistance volume named 'imixs-ai-models'
+###################################################
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: imixs-ai-llama-cpp-gpu
+  labels: 
+    app: imixs-ai-llama-cpp-gpu
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imixs-ai-llama-cpp-gpu
+  template:
+    metadata:
+      labels:
+        app: imixs-ai-llama-cpp-gpu
+    spec:
+      containers:
+      - name: imixs-ai-llama-cpp-gpu
+        image: imixs/imixs-ai-llama-cpp-gpu:latest
+        imagePullPolicy: Always
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"        
+        - name: USE_MLOCK
+          value: "true"   
+        ports: 
+          - name: web
+            containerPort: 8000
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+        volumeMounts:
+        - mountPath: /models
+          name: imixs-ai-models
+      restartPolicy: Always
+      volumes:
+      - name: imixs-ai-models
+        persistentVolumeClaim:
+          claimName: imixs-ai-models

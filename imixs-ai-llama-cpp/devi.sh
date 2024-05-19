@@ -26,20 +26,16 @@ if [[ "$(strip_dash $1)" == "start" ]]; then
     docker compose -f docker-compose.yml up
 fi
 
-if [[ "$(strip_dash $1)" == "build" ]]; then
-    echo " Build..."
-    docker build . -t imixs/imixs-ai
+if [[ "$(strip_dash $1)" == "build-cpu" ]]; then
+    echo " Build (CPU)..."
+    docker build . -f ./Dockerfile-CPU -t imixs/imixs-ai-llama-cpp-cpu
 fi
 
 if [[ "$(strip_dash $1)" == "build-gpu" ]]; then
     echo " Build (GPU)..."
-    docker build . -f ./Dockerfile-gpu -t imixs/imixs-ai_gpu
+    docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
 fi 
 
-if [[ "$(strip_dash $1)" == "build-llama" ]]; then
-    echo " Build (GPU)..."
-    docker build . -f ./Dockerfile-llama -t imixs/imixs-ai_gpu
-fi 
 
 if [[ "$(strip_dash $1)" == "dev" ]]; then
     echo " Start Dev Environment..."
@@ -60,11 +56,11 @@ if [[ $# -eq 0 ]]; then
 
     echo " Run with ./dev.sh -XXX"
     echo " "
-    echo "   -build     : build the Docker Image 'imixs-ai'"
-    echo "   -build-gpu : build the Docker Image 'imixs-ai_gpu' with GPU support"
+    echo "   -build-cpu : build the Docker Image for CPU only uspport 'imixs-ai-llama-cpp-cpu'"
+    echo "   -build-gpu : build the Docker Image with GPU support 'imixs-ai-llama-cpp-gpu'"
     echo "   -start     : starts the Docker Container "
-    echo "   -dev       : starts the Docker Container is Dev Mode"
-    echo "   -dev-gpu   : starts the Docker Container is Dev Mode with GPU support"    
+    echo "   -dev       : starts the Docker Container with CPU only support in Dev Mode"
+    echo "   -dev-gpu   : starts the Docker Container with GPU support in Dev Mode"    
     echo "_________________________________________"
     echo " "
 

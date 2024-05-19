@@ -5,7 +5,7 @@ services:
 # Imixs-AI
 #######################
   app:
-    image: imixs/imixs-ai_gpu
+    image: imixs/imixs-ai-llama-cpp-gpu
     cap_add:
     - SYS_RESOURCE
     #command: nvidia-smi

@@ -5,7 +5,7 @@ services:
 # Imixs-AI
 #######################
   app:
-    image: imixs/imixs-ai
+    image: imixs/imixs-ai-llama-cpp-cpu
     environment:
       PYTHONUNBUFFERED: "1"
     ports:

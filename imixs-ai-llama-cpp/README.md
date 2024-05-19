@@ -2,8 +2,10 @@
 
 The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) provides a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Llama CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
 
-The project includes a Docker image providing a developer friendly Open-API Rest Interface:
+The project provides different Docker image with an Open-API Rest Interface:
 
+ - imixs/imixs-ai-llama-cpp-cpu Imixs-AI llama-cpp for CPU only
+ - imixs/imixs-ai-llama-cpp-gpu Imixs-AI llama-cpp with GPU/CUDA support
 
 <img src="../doc/images/rest-api-01.png" />   
 
@@ -30,20 +32,17 @@ The implementation is based on [Llama-cpp-python](https://github.com/abetlen/lla
 ## Download Mistral 7B Model
 
 Before you can run the project and examples you need to downloaded a llama model locally on your server. The project expect that all models are located unter `imixs-ai/imixs-ai-llm/models`.  You can download a model form [huggingface.co](https://huggingface.co/) by using  the tool `huggingface-cli`. 
-
+ex
 To install the `huggingface-cli` tool run:
 
 ```
 $ sudo apt install python3-pip python3.11-venv -y
-$ cd
-$ source ~/.env/bin/activate
 $ pip install --upgrade huggingface_hub
 ```
 
 Now you can download models like the Mistral 7B Model from [huggingface.co](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) - **Note** that there a different quality versions of the model available. In the following example we are downloading 2 model versions: 
 
 ```
-$ source ~/.env/bin/activate
 $ cd models/
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_S.gguf --local-dir . --local-dir-use-symlinks False
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
@@ -54,10 +53,12 @@ $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-ins
 
 ## Build and Run
 
-To build the Imixs-AI Docker image run:
+Imixs-AI provides images with and without GPU support. 
+
+To build the Imixs-AI Docker image for CPUs only run:
 
     $ cd ./imixs-ai-llm
-    $ ./devi build
+    $ ./devi build-cpu
 
 To build a Docker image with GPU support run:
 
@@ -79,6 +80,16 @@ Now you can access the Rest API via:
     http://127.0.0.1:8000/docs
 
 **Note:** You need to provide a LLM in the `.gguf` format located in the directory `/models`  to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
+
+
+
+### Docker Hub
+
+To push the latest image to a repository run:
+ 
+    $ docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
+	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
+
 
 
 ### Developer Support
@@ -124,7 +135,7 @@ To run llama-cpp with GPU on Linux Debian make sure you installed the NVIDIA dri
 
 ## Install NVIDIA Driver on Linux (Debian Bookworm)
 
-In the following I install the proprietary NVIDIA Drivers With Cuda Support on Debian Bookworm. There are also open source drivers available, but I did not test this. 
+In the following I install the proprietary NVIDIA Drivers with Cuda Support on Debian Bookworm. There are also open source drivers available, but I did not test this. 
 
 
 ### 1) Update your APT repositories
@@ -217,8 +228,6 @@ Sun Mar 31 10:46:20 2024
 ```
 
 
-
-
 ## Configuring Docker with GPU Support
 
 To get things done in addition it is necessary to install the   'NVIDIA Container Toolkit'. 
@@ -246,6 +255,49 @@ Start a test container:
 This should just the nvidia-smi output form above.
 
 
+
+# Kubernetes
+
+To add GPU support for kuberentes use the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html).
+
+## Install Helm
+
+To install you need the cli tool Helm. If not yet installed run:
+
+```
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 \
+    && chmod 700 get_helm.sh \
+    && ./get_helm.sh
+```
+
+Next add the NVIDA Helm repository
+
+```
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia \
+    && helm repo update
+```
+
+
+## Label Worker Nodes 
+
+This operator adds GPU support to all worker nodes. To exclude a worker node this node have to be labeled with `feature.node.kubernetes.io/pci-10de.present=false`. You can check the current labels of your nodes with:
+
+    $ kubectl get nodes --show-labels=true
+
+To add the exclusion label for a specify node run:
+
+    $ kubectl label nodes $NODE nvidia.com/gpu.deploy.operands=false
+
+Where `$NODE` is the name of the worker node to be labeled. 
+
+## Install The GPU Operator
+
+There are different szenarios how to install the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html). In this scenario we assume that the NVIDA Driver and Cuda Driver are already installed on the machine. 
+
+    helm install --wait --generate-name \
+        -n gpu-operator --create-namespace \
+        nvidia/gpu-operator 
+        
 
 
 # Prompt Engineering 
