@@ -294,10 +294,24 @@ Where `$NODE` is the name of the worker node to be labeled.
 
 There are different szenarios how to install the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html). In this scenario we assume that the NVIDA Driver and Cuda Driver are already installed on the machine. 
 
+
     helm install --wait --generate-name \
         -n gpu-operator --create-namespace \
         nvidia/gpu-operator 
         
+If you have the NVIDA Driver already installed on your worker node you can run without installing driver by the operator:
+
+```
+helm install --wait --generate-name \
+     -n gpu-operator --create-namespace \
+     nvidia/gpu-operator \
+     --set driver.enabled=false
+```
+
+If something goes wrong you can delete the operator with:
+
+    $ helm delete -n gpu-operator $(helm list -n gpu-operator | grep gpu-operator | awk '{print $1}')
+
 
 
 # Prompt Engineering 
