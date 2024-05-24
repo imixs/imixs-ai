@@ -8,6 +8,7 @@ The data model to send promt data to llama-cpp-python
 #
 from dataclasses import dataclass, field
 from typing import List
+from typing import Optional
    
 ##########################################################
 # This dataclass is used to exchange the prompt data between the rest api and the LLM.
@@ -22,35 +23,25 @@ class PromptDefinition:
 
     model: str = field(
         metadata={
-            "examples": ["mistral-7b-instruct-v0.2.Q3_K_S.gguf"],
+            "examples": ["mistral-7b-instruct-v0.2.Q3_K_M.gguf"],
             "name": "model", 
             "type": "Element"
         }
     )    
-
-    prompt: str = field(
+    model_options: str = field(
         metadata={
-            "examples": ["What is the Imixs-Workflow engine?"],
-            "name": "prompt", 
+            "examples": ["{}"],
+            "name": "model_options", 
             "type": "Element"
         }
     )  
-
-###########################
-# Extended prompt class to support embeddings 
-###########################
-
-@dataclass
-class PromptDefinitionEmbeddings:
-
-    model: str = field(
+    prompt_options: str = field(
         metadata={
-            "examples": ["mistral-7b-instruct-v0.2.Q3_K_S.gguf"],
-            "name": "model", 
+            "examples": ["{}"],
+            "name": "prompt_options", 
             "type": "Element"
         }
-    )    
-
+    )      
     prompt: str = field(
         metadata={
             "examples": ["What is the Imixs-Workflow engine?"],
@@ -59,13 +50,6 @@ class PromptDefinitionEmbeddings:
         }
     )
 
-    embeddings: str = field(
-        metadata={
-            "examples": ["A #### B #### C"],
-            "name": "embeddings", 
-            "type": "Element"
-        }
-    )
     
 
 ###########################

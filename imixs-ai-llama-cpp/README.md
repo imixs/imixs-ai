@@ -29,7 +29,7 @@ The implementation is based on [Llama-cpp-python](https://github.com/abetlen/lla
 
 
 
-## Download Mistral 7B Model
+# Download Mistral 7B Model
 
 Before you can run the project and examples you need to downloaded a llama model locally on your server. The project expect that all models are located unter `imixs-ai/imixs-ai-llm/models`.  You can download a model form [huggingface.co](https://huggingface.co/) by using  the tool `huggingface-cli`. 
 ex
@@ -51,50 +51,27 @@ $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-ins
 **Note:** For this project we assume that all models are located unter `imixs-ai/imixs-ai-llm/models`
 
 
-## Build and Run
 
-Imixs-AI provides images with and without GPU support. 
+# The Prompt Template
 
-To build the Imixs-AI Docker image for CPUs only run:
-
-    $ cd ./imixs-ai-llm
-    $ ./devi build-cpu
-
-To build a Docker image with GPU support run:
-
-    $ ./devi build-gpu
+Imixs-AI expects a so called prompt template including the model-path, the prompt and optional option parameters defined in the [Llama-cpp API](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). 
 
 
-To start the server run
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<PromptDefinition>
+	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</model>
+	<model_options>{"n_ctx": 1024, "n_batch": 521}</model_options>
+	<prompt_options>{"max_tokens": 128}</prompt_options>
+	<prompt><![CDATA[What is the Imixs-Workflow engine?]]></prompt>
+</PromptDefinition>
+```
 
-    $ docker compose -f docker-compose-dev.yml up
+**Note:** The prompt is wrapped in a CDATA tag, as the prompt may include special characters. 
 
-
-To start the GPU version run:
-
-    $ docker compose -f docker-compose-dev-gpu.yml up
-
-
-Now you can access the Rest API via: 
-
-    http://127.0.0.1:8000/docs
-
-**Note:** You need to provide a LLM in the `.gguf` format located in the directory `/models`  to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
+For the possible model and prompt options please refer to the the [Llama-cpp API](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). 
 
 
-
-### Docker Hub
-
-To push the latest image to a repository run:
- 
-    $ docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
-	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
-
-
-
-### Developer Support
-
-For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
 
 
 # Quick Start with Docker and the llama.cpp Web Server
@@ -126,6 +103,54 @@ curl --request POST \
     --header "Content-Type: application/json" \
     --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
 ```
+
+
+
+# Build and Run
+
+Imixs-AI provides images with and without GPU support. 
+
+To build the Imixs-AI Docker image for CPUs only run:
+
+    $ cd ./imixs-ai-llama-cpp
+    $ ./devi build-cpu
+
+To build a Docker image with GPU support run:
+
+    $ ./devi build-gpu
+
+
+To start the server run
+
+    $ docker compose -f docker-compose-dev.yml up
+
+
+To start the GPU version run:
+
+    $ docker compose -f docker-compose-dev-gpu.yml up
+
+
+Now you can access the Rest API via: 
+
+    http://127.0.0.1:8000/docs
+
+**Note:** You need to provide a LLM in the `.gguf` format located in the directory `/models`  to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
+
+
+
+## Docker Hub
+
+To push the latest image to a repository run:
+ 
+    $ docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
+	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
+
+
+
+## Developer Support
+
+For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
+
 
 
 # GPU Support
@@ -256,11 +281,11 @@ This should just the nvidia-smi output form above.
 
 
 
-# Kubernetes
+## Kubernetes
 
 To add GPU support for kuberentes use the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html).
 
-## Install Helm
+### Install Helm
 
 To install you need the cli tool Helm. If not yet installed run:
 
@@ -278,7 +303,7 @@ helm repo add nvidia https://helm.ngc.nvidia.com/nvidia \
 ```
 
 
-## Label Worker Nodes 
+### Label Worker Nodes 
 
 This operator adds GPU support to all worker nodes. To exclude a worker node this node have to be labeled with `feature.node.kubernetes.io/pci-10de.present=false`. You can check the current labels of your nodes with:
 
@@ -290,7 +315,7 @@ To add the exclusion label for a specify node run:
 
 Where `$NODE` is the name of the worker node to be labeled. 
 
-## Install The GPU Operator
+### Install The GPU Operator
 
 There are different szenarios how to install the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html). In this scenario we assume that the NVIDA Driver and Cuda Driver are already installed on the machine. 
 
@@ -311,6 +336,9 @@ helm install --wait --generate-name \
 If something goes wrong you can delete the operator with:
 
     $ helm delete -n gpu-operator $(helm list -n gpu-operator | grep gpu-operator | awk '{print $1}')
+
+
+
 
 
 
