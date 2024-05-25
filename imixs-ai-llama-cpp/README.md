@@ -138,19 +138,17 @@ Now you can access the Rest API via:
 
 
 
+## Developer Support
+
+For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
+
+
 ## Docker Hub
 
 To push the latest image to a repository run:
  
     $ docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
 	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
-
-
-
-## Developer Support
-
-For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
-
 
 
 # GPU Support
