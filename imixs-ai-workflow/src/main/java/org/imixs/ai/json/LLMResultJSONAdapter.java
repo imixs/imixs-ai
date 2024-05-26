@@ -82,7 +82,7 @@ public class LLMResultJSONAdapter {
         }
 
         // we only adapt the result in case the eventType===JSON
-        if ("JSON".equals(event.getEventType())) {
+        if ("JSON".equalsIgnoreCase(event.getEventType())) {
             // get result string
             String jsonString = event.getPromptResult();
             applyJSONObject(jsonString, event.getWorkitem());
