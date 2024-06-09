@@ -9,11 +9,17 @@ import java.net.URL;
 import java.util.List;
 import java.util.logging.Logger;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
 import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ModelService;
 import org.imixs.workflow.engine.WorkflowService;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
@@ -81,8 +87,11 @@ public class LLMService implements Serializable {
     }
 
     /**
-     * This method fires a prompt event to all registered PrompEvent Observer
+     * This method stores the meta data form a prompt template and fires a prompt
+     * event to all registered PromptEvent Observer
      * classes. This allows adaptors to customize the prompt.
+     * 
+     * 
      * 
      * @param workitem
      * @param resultItemName
@@ -90,6 +99,38 @@ public class LLMService implements Serializable {
      */
     public String buildPrompt(String promptTemplate, ItemCollection workitem) {
 
+        // Extract Meta Information from XML....
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+
+            // extract model
+            NodeList modelNodes = doc.getElementsByTagName("model");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.model", modelNode.getTextContent());
+            }
+
+            // model_options
+            modelNodes = doc.getElementsByTagName("model_options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.model_options", modelNode.getTextContent());
+            }
+
+            // prompt_options
+            modelNodes = doc.getElementsByTagName("prompt_options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
+            }
+
+        } catch (Exception e) {
+            logger.warning("Unable to extract meta data from prompt template: " + e.getMessage());
+        }
+
+        // Fire Prompt Event...
         LLMPromptEvent llmPromptEvent = new LLMPromptEvent(promptTemplate, workitem);
         llmPromptEventObservers.fire(llmPromptEvent);
         logger.finest(llmPromptEvent.getPromptTemplate());

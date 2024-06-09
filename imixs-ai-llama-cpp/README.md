@@ -46,6 +46,7 @@ Now you can download models like the Mistral 7B Model from [huggingface.co](http
 $ cd models/
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_S.gguf --local-dir . --local-dir-use-symlinks False
 $ huggingface-cli download TheBloke/Mistral-7B-Instruct-v0.2-GGUF mistral-7b-instruct-v0.2.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
+$ huggingface-cli download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF Meta-Llama-3-8B-Instruct.Q4_K_M.gguf --local-dir . --local-dir-use-symlinks False
 ```
 
 **Note:** For this project we assume that all models are located unter `imixs-ai/imixs-ai-llm/models`
@@ -143,12 +144,13 @@ Now you can access the Rest API via:
 For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
 
 
-## Docker Hub
+## Docker Hub - Build and Push
 
 To push the latest image to a repository run:
  
-    $ docker build . -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu
+    $ docker build --pull --no-cache -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu .
 	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
+
 
 
 # GPU Support
