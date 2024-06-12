@@ -6,12 +6,16 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.xml.LLMXMLParser;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
@@ -48,6 +52,17 @@ public class LLMService implements Serializable {
 
     public static final String LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
     public static final String LLM_MODEL = "llm.model";
+
+    public static final String ENV_LLM_SERVICE_ENDPOINT_USER = "LLM_SERVICE_ENDPOINT_USER";
+    public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "LLM_SERVICE_ENDPOINT_PASSWORD";
+
+    @Inject
+    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_USER)
+    Optional<String> serviceEndpointUser;
+
+    @Inject
+    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_PASSWORD)
+    Optional<String> serviceEndpointPassword;
 
     @Inject
     protected ModelService modelService;
@@ -143,6 +158,10 @@ public class LLMService implements Serializable {
      * 
      * The method returns the response body.
      * 
+     * The method optional test if the environment variables
+     * LLM_SERVICE_ENDPOINT_USER and LLM_SERVICE_ENDPOINT_PASSWORD are set. In this
+     * case a BASIC Authentication is used for the connection to the LLMService.
+     * 
      * @param xmlPromptData
      */
     public String postPrompt(String apiEndpoint, String xmlPromptData) {
@@ -155,6 +174,15 @@ public class LLMService implements Serializable {
             }
             URL url = new URL(apiEndpoint + "prompt");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+
+            // Set Basic Authentication?
+            if (serviceEndpointUser.isPresent() && !serviceEndpointUser.get().isEmpty()
+                    && serviceEndpointPassword.isPresent() && !serviceEndpointPassword.get().isEmpty()) {
+                String auth = serviceEndpointUser.get() + ":" + serviceEndpointPassword.get();
+                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+                String authHeaderValue = "Basic " + new String(encodedAuth);
+                conn.setRequestProperty("Authorization", authHeaderValue);
+            }
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");

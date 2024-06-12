@@ -49,7 +49,7 @@ def prompt(data: datamodel.PromptDefinition = XmlBody()) -> datamodel.PromptDefi
 
 
     # Convert the prompt_options...
-    print(data.prompt_options)
+    #print(data.prompt_options)
     prompt_options = json.loads(data.prompt_options)
     
     print("      prompt_options=\n",prompt_options,'\n')
