@@ -14,11 +14,13 @@ RUN apt-get update && apt-get upgrade -y \
 # setting build related env vars
 ENV CUDA_DOCKER_ARCH=all
 ENV LLAMA_CUBLAS=1
+#ENV LLAMA_CUDA_FORCE_MMQ=1 
 
 # Install llama-cpp-python (build with cuda support)
 RUN python3 -m pip install --upgrade pip pytest cmake fastapi uvicorn
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install --upgrade llama-cpp-python
-
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install --no-cache-dir --upgrade llama-cpp-python
+#RUN CMAKE_ARGS="-DLLAMA_CUDA=on" pip install --no-cache-dir --upgrade llama-cpp-python
+                 
 # Install fastAPI and copy app
 RUN pip install fastapi-xml
 COPY ./app /app

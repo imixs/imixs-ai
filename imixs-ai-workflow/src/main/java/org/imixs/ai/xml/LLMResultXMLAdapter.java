@@ -80,6 +80,7 @@ public class LLMResultXMLAdapter {
             String xmlString = event.getPromptResult();
 
             logger.info("Prompt Result= " + xmlString);
+            xmlString = cleanXML(xmlString);
             ItemCollection xmlItemCol = new ItemCollection();
             parseXML(xmlString, xmlItemCol);
             // now replace all collected values
@@ -88,6 +89,26 @@ public class LLMResultXMLAdapter {
                 event.getWorkitem().setItemValue(name, xmlItemCol.getItemValue(name));
             }
         }
+    }
+
+    /**
+     * This helper method removes non-xml data before and after the first and last
+     * xml tag.
+     * 
+     * @param input
+     * @return
+     */
+    public static String cleanXML(String input) {
+        // This pattern matches from the first opening XML tag to the last closing XML
+        // tag
+        Pattern pattern = Pattern.compile("<[^>]+>.*</[^>]+>", Pattern.DOTALL);
+        Matcher matcher = pattern.matcher(input);
+
+        if (matcher.find()) {
+            return matcher.group();
+        }
+
+        return null; // Return null if no XML content is found
     }
 
     /**

@@ -13,7 +13,10 @@ The project provides different Docker image with an Open-API Rest Interface:
 
 This project is developed using the Mistral-7B Instruct model. But you can run the project with any other LLM supported by Llama.cpp. The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-7B-v0.2.
 
-- [Mistral-7B Instruct](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
+- [Mistral-7B Instruct 0.2](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
+- [Mistral-7B Instruct 0.3](https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF) from [Mistral AI](https://mistral.ai)
+
+
 
 We currently tested the following Large Language models, but the project can be adapted to many other LLMs:
 
@@ -23,7 +26,7 @@ We currently tested the following Large Language models, but the project can be 
  - mistral-7b-instruct-v0.2.Q4_K_M.gguf **(recommended)**
  - mistral-7b-instruct-v0.2.Q5_K_S.gguf
  - mistral-7b-instruct-v0.2.Q5_K_M.gguf
-
+ - Mistral-7B-Instruct-v0.3.Q8_0.gguf
 
 The implementation is based on [Llama-cpp-python](https://github.com/abetlen/llama-cpp-python) and [FastAPI](https://fastapi.tiangolo.com/). Find details in the official [API documentation](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). The Rest API provides  a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml) to exchange complex prompt templates. 
 
