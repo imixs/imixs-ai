@@ -2,7 +2,7 @@ package org.imixs.ai.workflow.builder;
 
 import java.util.logging.Logger;
 
-import org.imixs.ai.workflow.LLMPromptEvent;
+import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.PluginException;
 
@@ -10,7 +10,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
- * The LLMItemTextBuilder addapts text item values into the
+ * The ImixsAIAdaptTextBuilder adapts text item values into the
  * prompt template.
  * 
  * The template must provide corresponding Text Adapter Tags e.g.
@@ -24,14 +24,14 @@ import jakarta.inject.Inject;
  * @author rsoika
  *
  */
-public class LLMIAdaptTextBuilder {
+public class ImixsAIAdaptTextBuilder {
 
-    private static Logger logger = Logger.getLogger(LLMFileContextBuilder.class.getName());
+    private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
 
     @Inject
     private WorkflowService workflowService;
 
-    public void onEvent(@Observes LLMPromptEvent event) {
+    public void onEvent(@Observes ImixsAIPromptEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }

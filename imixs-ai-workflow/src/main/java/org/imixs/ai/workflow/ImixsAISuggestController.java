@@ -27,10 +27,10 @@ import jakarta.inject.Named;
  */
 @Named("llmSuggestController")
 @ConversationScoped
-public class LLMSuggestController implements Serializable {
+public class ImixsAISuggestController implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    private static Logger logger = Logger.getLogger(LLMSuggestController.class.getName());
+    private static Logger logger = Logger.getLogger(ImixsAISuggestController.class.getName());
 
     public static List<String> STOP_PHRASE_LIST = Arrays.asList("\n", "  ", ", ", ". ", ".\n");
 
@@ -128,7 +128,7 @@ public class LLMSuggestController implements Serializable {
 
         // the text to search for is stored by the LLMService in the item with the name
         // 'ai.result.item'
-        String suggestItem = workflowController.getWorkitem().getItemValueString(LLMService.ITEM_AI_RESULT_ITEM);
+        String suggestItem = workflowController.getWorkitem().getItemValueString(OpenAIAPIService.ITEM_AI_RESULT_ITEM);
         String text = workflowController.getWorkitem().getItemValueString(suggestItem);
         if (text != null) {
             searchResult = findMatches(phrase, text);

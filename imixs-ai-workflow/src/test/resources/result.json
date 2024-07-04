@@ -1,55 +1,66 @@
 {
-    "InvoiceData": {
-        "InvoiceNumber": "ABC-123",
-        "InvoiceDate": "26.01.2017",
-        "Total": 1005.55
+    "content": "<invoice>\n  <invoice.language>German</invoice.language>\n  <cdtr.name>Hapag-Lloyd AG</cdtr.name>\n</invoice>",
+    "id_slot": 0,
+    "stop": true,
+    "model": "/models/mistral-7b-instruct-v0.2.Q4_K_S.gguf",
+    "tokens_predicted": 47,
+    "tokens_evaluated": 414,
+    "generation_settings": {
+        "n_ctx": 512,
+        "n_predict": -1,
+        "model": "/models/mistral-7b-instruct-v0.2.Q4_K_S.gguf",
+        "seed": 4294967295,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 40,
+        "top_p": 0.949999988079071,
+        "min_p": 0.05000000074505806,
+        "tfs_z": 1.0,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "penalty_prompt_tokens": [],
+        "use_penalty_prompt_tokens": false,
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "penalize_nl": false,
+        "stop": [],
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": false,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "samplers": [
+            "top_k",
+            "tfs_z",
+            "typical_p",
+            "top_p",
+            "min_p",
+            "temperature"
+        ]
     },
-    "PaymentInfo": {
-        "IBAN": "DE28700100809999999999",
-        "BIC": ""
-    },
-    "InvoicePositions": [
-        {
-            "Description": "Superdrachen",
-            "Amount": 2,
-            "UnitPrice": 20.00,
-            "Total": 40.00
-        },
-        {
-            "Description": "Turbo Flyer",
-            "Amount": 1,
-            "UnitPrice": 180.00,
-            "Total": 180.00
-        },
-        {
-            "Description": "Sturzflug-Geier",
-            "Amount": 3,
-            "UnitPrice": 50.00,
-            "Total": 150.00
-        },
-        {
-            "Description": "Eisvogel",
-            "Amount": 1,
-            "UnitPrice": 40.00,
-            "Total": 40.00
-        },
-        {
-            "Description": "Storch",
-            "Amount": 1,
-            "UnitPrice": 75.00,
-            "Total": 75.00
-        },
-        {
-            "Description": "Adler",
-            "Amount": 1,
-            "UnitPrice": 0.00,
-            "Total": 0.00
-        },
-        {
-            "Description": "Kostenlose Zugabe",
-            "Amount": 1,
-            "UnitPrice": 0.00,
-            "Total": 0.00
-        }
-    ]
+    "prompt": "[INST] You are a clerk at \"alpha trans Luft- und Seefrachtspedition GmbH & Co. KG\" - a logistics company. Your task is to check incoming invoices.  [/INST]\n\nINVP0201-015ED - PdfA4\n\n€€ Hapag-Lloyd\n\nORIGINAL\nHapag-Lloyd AG - Area Germany - 20079 Hamburg, Deutschland\nALPHA TRANS LUFT- UND HAPAG-LLOYD AG\nSEEFRACHTSPEDITION GMBH & CO. KG AREA GERMANY & CENTRAL EUROPE\nBRANDENBURGER STR. 2 D-20079 HAMBURG\nD-40880 RATINGEN\nSEITE 1/2\n\nRECHNUNG NR.: 2051970533 27.03.2024\nKUNDEN-NR.: 50789170 MWST NR.: DE174811897\nSHIPMENT 25857737 FCL/FCL\nPRAGUE EXPRESS 2351W/623846 ABFAHRT 27.02.2024\n\nANKUNFT 02.04.2024\nVON KATTUPALLI NACH ROTTERDAM\nADMIN.FEE / ISF 60,00 EUR 1 BIL 60,00 EUR\n001 CONT. 40' X 8'6\" GENERAL PURPOSE CONT.\nTGHU 5194945\nMARINEFUEL RECOVER 550,00 USD 1 CTR 518,07 EUR\nEU EMISS.ALLOWANCE 62,00 USD 1 CTR 58,40 EUR\nOPERAT.COSTRECOVER 1500,00 USD 1 CTR 1412,91 EUR\nTMNL SECURITY DEST 30,00 EUR 1 CTR 30,00 EUR\nTERM.HANDL.DESTIN. 240,00 EUR 1 CTR 240,00 EUR\nEQUIPM.MAINTEN. FEE 30,00 EUR 1 CTR 30,00 EUR\nFREIGHT 1450,00 USD 1 CTR 1365,81 EUR\nNETTO 3.715,19 EUR\nMWST Al 3.715,19 0,00 % 0,00 EUR\n\nAl: DIE LEISTUNG IST STEUERFREI\n\nBRUTTO 3.715,19 EUR\n\nSUMME PER TARIFWAEHRUNG\n360,00 EUR\n3.562,00 USD\n\nWECHSELKURSE\n1 USD = 0,941939 EUR\n\nZAHLUNGSFAELLIGKEIT: 03.04.2024\n\nTHE INVOICE IS PAYABLE IN THE INDICATED CURRENCY OF THE FINAL INVOICE\nAMOUNT\n\nTHE PAYMENT BASE DATE OF THE INVOICE ALWAYS REFERS TO THE CREATION\n\nHapag-Lloyd Aktiengesellschaft - Ballindamm 25 - 20095 Hamburg - www.hapag-lloyd.com - Vorsitzender des Aufsichtsrats: Michael Behrendt\n\nVorstand: Rolf Habben Jansen (Vorsitzender), Donya-Florence Amer, Dheeraj Bhatia, Mark Frese, Dr. Maximilian Rothkopf - Sitz: Hamburg, Handelsregister: Amtsgericht\nHamburg HRB 97937 USt-IdNr.: DE813960018 Bankverbindungen: Commerzbank AG - Hamburg - BLZ 200 800 00 - Kto. 915661600 - IBAN: DE82 2008 0000 0915 6616 00\nBIC Code DRESDEFF 200 Deutsche Bank AG - Hamburg - BLZ 200 700 00 Kto. 0305045 IBAN: DE63 2007 0000 0030 5045 00 - BIC Code DEUTDEHH\n\nAlle von der Hapag-Lloyd AG durchgeführten Transporte unterliegen unseren Allgemeinen Transportbedingungen ( General Conditions of Transport ), die auf Nachfrage\nerhältlich sind, es sei denn, für den Transport wurde ein Konnossement oder Sea Waybill ausgestellt.\n\nAl\n\nAl\nAl\nAl\nAl\nAl\nAl\nAl\n\n\nINVP0201-015ED - PdfA4\n\n€€ Hapag-Lloyd\n\nORIGINAL\n\nSEITE 2 / 2\nRECHNUNG NR.: 2051970533\n\nDATE.\n\nTHIS INVOICE HAS BEEN DEBITED TO YOUR ACCOUNT AS PER INSTRUCTIONS\nRECEIVED.\n\nUNLESS QUERIED WITHIN 14 DAYS AS PER INSTRUCTIONS ON OUR LOCAL\nGERMANY & CENTRAL EUROPE WEBSITE, THIS INVOICE WILL BE CONSIDERED AS\nCORRECT AND DULY PAYABLE.\n\nPLEASE USE THIS LINK:\n\nhttps: //www.hapag-lloyd.com/solutions/dispute-form/#/?language=en\n\nSWB-NR. HLCUMA3240239819\nSHIPMENT 25857737\n430 CARTONS\n5.522 KGM 44,160 MTQ\nCONTAINER TGHU 5194945\nM/N: LEATHER SHOES FOR MEN\nBUGATTI SHOES CINS 01 - 430 SB NO: 7548084 DTD:15.02.2024\n\nHS CODE: 6403999690\nNET WT:3351.12 KGS\n\nHapag-Lloyd Aktiengesellschaft - Ballindamm 25 - 20095 Hamburg - www.hapag-lloyd.com - Vorsitzender des Aufsichtsrats: Michael Behrendt\n\nVorstand: Rolf Habben Jansen (Vorsitzender), Donya-Florence Amer, Dheeraj Bhatia, Mark Frese, Dr. Maximilian Rothkopf - Sitz: Hamburg, Handelsregister: Amtsgericht\nHamburg HRB 97937 USt-IdNr.: DE813960018 Bankverbindungen: Commerzbank AG - Hamburg - BLZ 200 800 00 - Kto. 915661600 - IBAN: DE82 2008 0000 0915 6616 00\nBIC Code DRESDEFF 200 Deutsche Bank AG - Hamburg - BLZ 200 700 00 Kto. 0305045 IBAN: DE63 2007 0000 0030 5045 00 - BIC Code DEUTDEHH\n\nAlle von der Hapag-Lloyd AG durchgeführten Transporte unterliegen unseren Allgemeinen Transportbedingungen ( General Conditions of Transport ), die auf Nachfrage\nerhältlich sind, es sei denn, für den Transport wurde ein Konnossement oder Sea Waybill ausgestellt.\n\n\n \n\n\n    \n</s>[INST] Extract the language the invoice is mostly written in and the company name.\n\nOutput the information as a XML object. Create only the XML object. Do not provide explanations or additional notes. \n\nMap the language to the field 'invoice.language' and the issuer name to the field 'cdtr.name'.\n\nHere is an example of a XML Object:\n\n<invoice>\n  <invoice.language>English<invoice.language>\n  <cdtr.name>Kraxi GmbH</cdtr.name>\n</invoice>\n\nNote: The company name is the name of the company that issued the invoice document, not the recipient and it is not \"alpha trans Luft- und Seefrachtspedition GmbH & Co. KG\". The company name is usually at the beginning or end of the invoice document.\n\nNote: Do not generate any other information instead of the XML object.\n\n[/INST]\n\n",
+    "truncated": true,
+    "stopped_eos": true,
+    "stopped_word": false,
+    "stopped_limit": false,
+    "stopping_word": "",
+    "tokens_cached": 460,
+    "timings": {
+        "prompt_n": 414,
+        "prompt_ms": 28591.162,
+        "prompt_per_token_ms": 69.06077777777777,
+        "prompt_per_second": 14.479999099022278,
+        "predicted_n": 47,
+        "predicted_ms": 10359.215,
+        "predicted_per_token_ms": 220.40882978723405,
+        "predicted_per_second": 4.537023316921214
+    }
 }

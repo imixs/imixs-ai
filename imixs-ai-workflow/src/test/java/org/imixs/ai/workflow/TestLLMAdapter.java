@@ -30,7 +30,7 @@ public class TestLLMAdapter {
     protected ItemCollection event;
     protected ItemCollection documentProcess;
     protected WorkflowMockEnvironment workflowMockEnvironment;
-    protected LLMAdapter adapter;
+    protected OpenAIAPIAdapter adapter;
 
     /**
      * The setup method loads t
@@ -45,7 +45,7 @@ public class TestLLMAdapter {
         workflowMockEnvironment.setModelPath("/bpmn/llm-example-1.0.0.bpmn");
         workflowMockEnvironment.setup();
 
-        adapter = new LLMAdapter();
+        adapter = new OpenAIAPIAdapter();
         adapter.setWorkflowService(workflowMockEnvironment.getWorkflowService());
 
         // prepare data

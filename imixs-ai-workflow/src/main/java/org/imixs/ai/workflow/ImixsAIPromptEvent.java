@@ -31,26 +31,26 @@ package org.imixs.ai.workflow;
 import org.imixs.workflow.ItemCollection;
 
 /**
- * The LLMResultEvent is fired by the {@link org.imixs.ai.workflow.LLMService}
- * after a prompt was processed.
- * A CDI bean can observe this event to adapt the AI result stored in the item
- * 'ai.result'.
+ * The ImixsAIPromptEvent is fired by the
+ * {@link org.imixs.ai.workflow.OpenAIAPIService}
+ * before a prompt is processed.
+ * 
+ * The ImixsAIPromptEvent contains the prompt template and the workitem. An
+ * observer CDI Bean can update and extend the given prompt.
  * 
  * 
  * @author Ralph Soika
  * @version 1.0
- * @see org.imixs.ai.workflow.LLMService
  * @see org.imixs.workflow.engine.WorkflowService
  */
-public class LLMResultEvent {
+public class ImixsAIPromptEvent {
     private ItemCollection workitem;
-    private String eventType;
-    private String promptResult;
 
-    public LLMResultEvent(String promptResult, String eventType, ItemCollection workitem) {
+    private String promptTemplate;
+
+    public ImixsAIPromptEvent(String promptTemplate, ItemCollection workitem) {
         this.workitem = workitem;
-        this.eventType = eventType;
-        this.promptResult = promptResult;
+        this.promptTemplate = promptTemplate;
     }
 
     public ItemCollection getWorkitem() {
@@ -61,20 +61,12 @@ public class LLMResultEvent {
         this.workitem = workitem;
     }
 
-    public String getEventType() {
-        return eventType;
+    public String getPromptTemplate() {
+        return promptTemplate;
     }
 
-    public void setEventType(String eventType) {
-        this.eventType = eventType;
-    }
-
-    public String getPromptResult() {
-        return promptResult;
-    }
-
-    public void setPromptResult(String promptResult) {
-        this.promptResult = promptResult;
+    public void setPromptTemplate(String promptTemplate) {
+        this.promptTemplate = promptTemplate;
     }
 
 }

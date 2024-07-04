@@ -5,7 +5,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.imixs.ai.workflow.LLMPromptEvent;
+import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 
@@ -19,14 +19,14 @@ import jakarta.enterprise.event.Observes;
  * @author rsoika
  *
  */
-public class LLMFileContextBuilder {
+public class ImixsAIFileContextBuilder {
 
     public static final String API_ERROR = "API_ERROR";
     public static final String FILE_CONTENT_REGEX = "(?i)<filecontext>(.*?)</filecontext>";
 
-    private static Logger logger = Logger.getLogger(LLMFileContextBuilder.class.getName());
+    private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
 
-    public void onEvent(@Observes LLMPromptEvent event) {
+    public void onEvent(@Observes ImixsAIPromptEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }

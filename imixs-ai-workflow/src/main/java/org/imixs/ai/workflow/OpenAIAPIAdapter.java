@@ -43,41 +43,47 @@ import org.imixs.workflow.exceptions.ProcessingErrorException;
 import org.imixs.workflow.util.XMLParser;
 
 import jakarta.inject.Inject;
+import jakarta.json.JsonObject;
 
 /**
- * This adapter class is used for text analysis with LLMs.
+ * The OpenAIAPIAdapter is used for text completion requests by a LLMs.
  * <p>
- * The LLMAdapter automatically analyses the text content of a attached files by
- * a given prompt template. The result is stored in the item 'ai.result' which
- * is typically a json object.
+ * The adapter automatically parses the imixs-ai prompt definition and generates
+ * a prompt template to be send to an OpenAIApi Endpoint.
+ * <p>
+ * The imixs-ai prompt definition defines the API endpoint and processing events
+ * to adapt the prompt template or the completion result. The result is stored
+ * in the item 'ai.result'
  * <p>
  * The Adapter can be configured by a event entity.
  * <p>
- * Example llm-config Prompt:
+ * Example imixs-ai Prompt:
  * 
  * <pre>
  * {@code
-        <llm-config name="PROMPT">
+        <imixs-ai name="PROMPT">
             <endpoint>https://localhost:8111/</endpoint>
             <result-item>invoice.summary</result-item>
             <result-event>JSON</result-event>
-        </llm-config>
+        </imixs-ai>
  * }
  * </pre>
  * 
- * The Endpoint defines the Rest API endpoint of the LMA server and the
- * result-item defines the item to store the result.
+ * The Endpoint defines the Rest API endpoint of the llama-cpp http server or
+ * any compatible OpenAI / Open API rest service endpoint.
+ * 
+ * The result-item defines the item to store the result.
  * Optional also result-events can be defined to handle more complex business
  * rules.
  * <p>
- * Optional an llm-config SUGGEST configuration can be proivded.
+ * Optional an imixs-ai SUGGEST configuration can be provided.
  * 
  * <pre>
  * {@code
-        <llm-config name="SUGGEST">
+        <imixs-ai name="SUGGEST">
             <items>invoice.number</items>
             <mode>ON|OFF</mode>
-        </llm-config>
+        </imixs-ai>
  * }
  * </pre>
  * 
@@ -92,7 +98,7 @@ import jakarta.inject.Inject;
  *
  */
 
-public class LLMAdapter implements SignalAdapter {
+public class OpenAIAPIAdapter implements SignalAdapter {
 
     public static final String ML_ENTITY = "entity";
     public static final String API_ERROR = "API_ERROR";
@@ -102,26 +108,26 @@ public class LLMAdapter implements SignalAdapter {
     public static final int API_EVENT_SUCCESS = 110;
     public static final int API_EVENT_FAILURE = 90;
 
-    private static Logger logger = Logger.getLogger(LLMAdapter.class.getName());
+    private static Logger logger = Logger.getLogger(OpenAIAPIAdapter.class.getName());
 
     @Inject
-    @ConfigProperty(name = LLMService.LLM_SERVICE_ENDPOINT)
+    @ConfigProperty(name = OpenAIAPIService.LLM_SERVICE_ENDPOINT)
     Optional<String> mlDefaultAPIEndpoint;
 
     @Inject
-    @ConfigProperty(name = LLMService.LLM_MODEL, defaultValue = "imixs-model")
+    @ConfigProperty(name = OpenAIAPIService.LLM_MODEL, defaultValue = "imixs-model")
     String mlDefaultModel;
 
     @Inject
     private WorkflowService workflowService;
 
     @Inject
-    private LLMService llmService;
+    private OpenAIAPIService llmService;
 
     /**
      * Default Constructor
      */
-    public LLMAdapter() {
+    public OpenAIAPIAdapter() {
         super();
     }
 
@@ -131,7 +137,7 @@ public class LLMAdapter implements SignalAdapter {
      * @param workflowService
      */
     @Inject
-    public LLMAdapter(WorkflowService workflowService) {
+    public OpenAIAPIAdapter(WorkflowService workflowService) {
         super();
         this.workflowService = workflowService;
     }
@@ -146,8 +152,11 @@ public class LLMAdapter implements SignalAdapter {
      * For each PROMPT the method posts a context data (e.g text from an attachment)
      * to the Imixs-AI Analyse service
      * endpoint
+     * 
+     * @throws PluginException
      */
-    public ItemCollection execute(ItemCollection workitem, ItemCollection event) throws AdapterException {
+    public ItemCollection execute(ItemCollection workitem, ItemCollection event)
+            throws AdapterException {
         String llmAPIEndpoint = null;
         String llmAPIResultEvent = null;
         String llmAPIResultItem = null;
@@ -160,11 +169,11 @@ public class LLMAdapter implements SignalAdapter {
         // read optional configuration form the model or imixs.properties....
         try {
 
-            llmConfig = workflowService.evalWorkflowResult(event, "llm-config", workitem, false);
+            llmConfig = workflowService.evalWorkflowResult(event, "imixs-ai", workitem, false);
             if (llmConfig == null) {
                 // no configuration found!
-                throw new AdapterException(LLMAdapter.class.getSimpleName(), API_ERROR,
-                        "Missing llm-config definition in Event!");
+                throw new AdapterException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
+                        "Missing imixs-ai definition in Event!");
             }
 
             /**
@@ -186,23 +195,30 @@ public class LLMAdapter implements SignalAdapter {
 
                         // do we have a valid endpoint?
                         if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                            throw new ProcessingErrorException(LLMAdapter.class.getSimpleName(), API_ERROR,
+                            throw new ProcessingErrorException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
                                     "imixs-ai llm service endpoint is empty!");
                         }
 
                         // Build the prompt template....
                         String promptTemplate = readPromptTemplate(event);
                         String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+
                         // if we have a prompt we call the llm api endpoint
                         if (!llmPrompt.isEmpty()) {
-
                             logger.info("===> Total Prompt Length = " + llmPrompt.length());
-                            String xmlResult = llmService.postPrompt(llmAPIEndpoint, llmPrompt);
-                            workitem.appendItemValue(LLMService.ITEM_AI_RESULT, xmlResult);
+                            // postPromptCompletion
+                            JsonObject jsonPrompt = llmService.buildJsonPromptObject(llmPrompt,
+                                    workitem.getItemValueString("ai.prompt.prompt_options"));
+                            String completionResult = llmService.postPromptCompletion(llmAPIEndpoint, jsonPrompt);
+
+                            logger.info("Das ergebnis is : ");
+                            logger.info(completionResult);
                             // process the ai.result....
-                            llmService.processPromptResult(workitem, llmAPIResultItem, llmAPIResultEvent);
+                            llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
+                                    llmAPIResultEvent);
                         } else {
-                            logger.finest("......no ai content found to be analyzed for " + workitem.getUniqueID());
+                            logger.finest(
+                                    "......no prompt definition found for " + workitem.getUniqueID());
                         }
                     }
                 }
@@ -218,20 +234,23 @@ public class LLMAdapter implements SignalAdapter {
                 String llmSuggestMode = suggestDefinition.getItemValueString("mode");
                 // do we have a suggest-mode?
                 if (llmSuggestMode.equalsIgnoreCase("ON") || llmSuggestMode.equalsIgnoreCase("OFF")) {
-                    workitem.setItemValue(LLMService.ITEM_SUGGEST_MODE, llmSuggestMode.toUpperCase());
+                    workitem.setItemValue(OpenAIAPIService.ITEM_SUGGEST_MODE, llmSuggestMode.toUpperCase());
                 } else {
-                    workitem.setItemValue(LLMService.ITEM_SUGGEST_MODE, "OFF");
+                    workitem.setItemValue(OpenAIAPIService.ITEM_SUGGEST_MODE, "OFF");
                 }
                 // do we have a suggest-item list?
                 String[] suggestItemList = llmSuggestItems.split(",");
-                workitem.removeItem(LLMService.ITEM_SUGGEST_ITEMS);
+                workitem.removeItem(OpenAIAPIService.ITEM_SUGGEST_ITEMS);
                 for (String item : suggestItemList) {
-                    workitem.appendItemValue(LLMService.ITEM_SUGGEST_ITEMS, item.trim());
+                    workitem.appendItemValue(OpenAIAPIService.ITEM_SUGGEST_ITEMS, item.trim());
                 }
             }
 
         } catch (PluginException e) {
-            logger.warning("Unable to parse item definitions for 'llm-config', verify model - " + e.getMessage());
+            // logger.warning("Unable to parse item definitions for 'imixs-ai', verify
+            // model - " + e.getMessage());
+            throw new ProcessingErrorException(
+                    OpenAIAPIAdapter.class.getSimpleName(), e.getErrorCode(), e.getMessage(), e);
         }
 
         return workitem;

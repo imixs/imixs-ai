@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.imixs.ai.workflow.LLMResultEvent;
+import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
 
 import jakarta.enterprise.event.Observes;
@@ -76,7 +76,7 @@ import jakarta.json.JsonValue;
 public class LLMResultJSONAdapter {
     private static Logger logger = Logger.getLogger(LLMResultJSONAdapter.class.getName());
 
-    public void onEvent(@Observes LLMResultEvent event) {
+    public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }

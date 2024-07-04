@@ -14,7 +14,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.imixs.ai.workflow.LLMResultEvent;
+import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -25,12 +25,12 @@ import org.xml.sax.SAXException;
 import jakarta.enterprise.event.Observes;
 
 /**
- * The LLMResultXMLAdapter is a CDI bean that can be used to parse an LLM
- * prompt result in XML format. The bean transforms the structure into items
- * of a workitem.
+ * The ImixsAIResultXMLAdapter is a CDI bean that can be used to parse a
+ * completion prompt result in XML format. The bean transforms the structure
+ * into items of a workitem.
  * <p>
- * This observer Bean is triggered automatically by the LLMService after
- * processing a PROMT and feierring a `LLMResultEvent`.
+ * This observer Bean is triggered automatically by the OpenAIAPIService after
+ * processing a PROMT and feierring a `ImixsAIResultEvent`.
  * <p>
  * The LLMResultXMLAdapter only reacts on the LLMResultEvent in case the the
  * event type==='XML'
@@ -66,10 +66,10 @@ import jakarta.enterprise.event.Observes;
 }</pre>
  * 
  */
-public class LLMResultXMLAdapter {
-    private static Logger logger = Logger.getLogger(LLMResultXMLAdapter.class.getName());
+public class ImixsAIResultXMLAdapter {
+    private static Logger logger = Logger.getLogger(ImixsAIResultXMLAdapter.class.getName());
 
-    public void onEvent(@Observes LLMResultEvent event) {
+    public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }

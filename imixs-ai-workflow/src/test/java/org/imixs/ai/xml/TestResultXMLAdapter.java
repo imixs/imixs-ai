@@ -32,7 +32,7 @@ public class TestResultXMLAdapter {
             String xml = readXmlFileAsString("src/test/resources/xml/xmlresult-01.xml");
 
             ItemCollection workitem = new ItemCollection();
-            LLMResultXMLAdapter.parseXML(xml, workitem);
+            ImixsAIResultXMLAdapter.parseXML(xml, workitem);
             Assert.assertNotNull(workitem);
             Assert.assertEquals("Kraxi GmbH", workitem.getItemValueString("cdtr.name"));
             Assert.assertEquals("R1234", workitem.getItemValueString("invoice.number"));
@@ -65,7 +65,7 @@ public class TestResultXMLAdapter {
             String xml = readXmlFileAsString("src/test/resources/xml/xmlresult-02.xml");
 
             ItemCollection workitem = new ItemCollection();
-            LLMResultXMLAdapter.parseXML(xml, workitem);
+            ImixsAIResultXMLAdapter.parseXML(xml, workitem);
             Assert.assertNotNull(workitem);
             Assert.assertEquals("XXX Logistics GmbH & Co. KG", workitem.getItemValueString("cdtr.name"));
             Assert.assertEquals("AB -> 1234", workitem.getItemValueString("invoice.number"));
