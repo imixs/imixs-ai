@@ -186,3 +186,15 @@ The field 'mode' provides a suggest mode for a UI component. The information is 
 
 Optional a basic authentication can be used to connect to the LLM Service. In this case the environment variables
 `LLM_SERVICE_ENDPOINT_USER` and `LLM_SERVICE_ENDPOINT_PASSWORD` need to be defined globally for the application.
+
+
+
+# Debug Mode
+
+You can activate a debug mode to print out prompt processing information during a workflow processing life cycle.
+
+```xml
+<llm-config name="PROMPT"> 
+   ......
+   <debug>true</debug>
+</llm-con

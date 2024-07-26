@@ -159,6 +159,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         String llmAPIEndpoint = null;
         String llmAPIResultEvent = null;
         String llmAPIResultItem = null;
+        boolean llmAPIDebug = false;
+        long processingTime = System.currentTimeMillis();
 
         logger.finest("...running api adapter...");
         ItemCollection llmConfig = null;
@@ -185,9 +187,13 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     // evaluate the prompt definition (XML format expected here!)
                     ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
                     if (promptDefinition != null) {
+
                         llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
                         llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                         llmAPIResultItem = promptDefinition.getItemValueString("result-item");
+                        if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
+                            llmAPIDebug = true;
+                        }
 
                         // do we have a valid endpoint?
                         if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
@@ -197,12 +203,18 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                             throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
                                     "imixs-ai llm service endpoint is empty!");
                         }
+                        logger.info("post Llama-cpp request: " + llmAPIEndpoint);
+
                         // Build the prompt template....
                         String promptTemplate = readPromptTemplate(event);
                         String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                         // if we have a prompt we call the llm api endpoint
                         if (!llmPrompt.isEmpty()) {
-                            logger.fine("===> Total Prompt Length = " + llmPrompt.length());
+                            if (llmAPIDebug) {
+                                logger.info("===> Total Prompt Length = " + llmPrompt.length());
+                                logger.info("===> Prompt: ");
+                                logger.info(llmPrompt);
+                            }
                             // postPromptCompletion
                             JsonObject jsonPrompt = llmService.buildJsonPromptObject(llmPrompt,
                                     workitem.getItemValueString("ai.prompt.prompt_options"));
@@ -249,6 +261,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     "Unable to parse item definitions for 'imixs-ai', verify model - " + e.getMessage(), e);
         }
 
+        if (llmAPIDebug) {
+            logger.info("===> Total Processing Time=" + (System.currentTimeMillis() - processingTime) + "ms");
+        }
         return workitem;
     }
 
