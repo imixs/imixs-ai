@@ -134,6 +134,7 @@ public class ImixsAIResultXMLAdapter {
                     applyElement((Element) element, workitem);
             }
         } catch (IOException | SAXException | ParserConfigurationException e) {
+            logger.severe("Failed to parse Result XML:" + xmlString);
             e.printStackTrace();
         }
     }
@@ -164,6 +165,7 @@ public class ImixsAIResultXMLAdapter {
 
             // test if value is a number
             if (isDouble(element)) {
+                value = cleanDoubleFormatting(value);
                 workitem.appendItemValue(name, Double.parseDouble(value));
                 return;
             }
@@ -181,6 +183,31 @@ public class ImixsAIResultXMLAdapter {
             // default to string
             workitem.appendItemValue(name, value);
         }
+    }
+
+    /**
+     * This method parses a String providing a double value and fixes some minor
+     * formatting issues.
+     * 
+     * e.g.
+     * 
+     * "1,172.15" => "1172.15"
+     * 
+     * @param value
+     * @return
+     */
+    private static String cleanDoubleFormatting(String value) {
+        // remove spaces
+        value = value.replace(" ", "");
+
+        // check , and . combination
+        int commaPos = value.indexOf(",");
+        int digitPos = value.indexOf(".");
+        if (commaPos > -1 && digitPos > -1 && commaPos < digitPos) {
+            // remove ,
+            value = value.replace(",", "");
+        }
+        return value;
     }
 
     /**
