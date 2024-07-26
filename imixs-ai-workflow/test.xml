@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--XML-Beispieldatei von
+XMLSpy generiert v2013 sp1 (x64) (http://www.altova.com)-->
+<CargoSoftEFile version="String" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="CargoSoftEFile-2021.4.xsd">
+    <Message>
+        <SenderID>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</SenderID>
+        <ReceiverID>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</ReceiverID>
+        <Timezone>String</Timezone>
+        <MessageID>String</MessageID>
+        <MessageDate>
+            <DateTime>2001-12-17T09:30:47Z</DateTime>
+        </MessageDate>
+        <Provider>
+            <CargoSoftDatabaseVersion>2021.4</CargoSoftDatabaseVersion>
+            <CargoServiceVersion>2021.4</CargoServiceVersion>
+            <InterfaceRevisionNumber>String</InterfaceRevisionNumber>
+            <InterfaceModificationDate>String</InterfaceModificationDate>
+            <InterfaceModificationUser>String</InterfaceModificationUser>
+            <InterfaceConfigurationHash>String</InterfaceConfigurationHash>
+        </Provider>
+    </Message>
+    <EFile id="1928373">
+        <Description>
+            <DocDate>
+                <DateTime>2001-12-17T09:30:47Z</DateTime>
+            </DocDate>
+            <DocType>String</DocType>
+            <Title>String</Title>
+        </Description>
+        <Attachments>
+            <Attachment id="0">
+                <Version>0</Version>
+                <Filename>String</Filename>
+                <MimeType>String</MimeType>
+                <FileDate>
+                    <DateTime>2001-12-17T09:30:47Z</DateTime>
+                </FileDate>
+                <Md5>String</Md5>
+                <FileSize>0</FileSize>
+                <Content>
+                    UjBsR09EbGhjZ0dTQUxNQUFBUUNBRU1tQ1p0dU1GUXhEUzhiUjBsR09EbGhjZ0dTQUxNQUFBUUNBRU1tQ1p0dU1GUXhEUzhiUjBsR09EbGhjZ0dTQUxNQUFBUUNBRU1tQ1p0dU1GUXhEUzhi</Content>
+            </Attachment>
+        </Attachments>
+        <References>
+            <Reference id="1983733" type="client">001</Reference>
+            <Reference id="1983734" type="cs_voucher_number ">100012234</Reference>
+            <Reference id="1983735" type="cs_voucher_type">LR</Reference>
+            <Reference id="1983736" type="cs_address_number">G45677</Reference>
+            <Reference id="1983737" type="currency">USD</Reference>
+            <Reference id="1983738" type="voucherdate">12.12.2022</Reference>
+            <Reference id="1983739" type="total_net_amount">1234.78</Reference>
+            <Reference id="1983740" type="total_tax_amount">47.11</Reference>
+            <Reference id="1983741" type="currency_rate">1.000283</Reference>
+            <Reference id="1983742" type="reference">ATC400009450420242452</Reference>
+            <Reference id="1983743" type="booking_period">202404</Reference>
+            <Reference id="1983744" type="booking_date">04.04.2024</Reference>
+            <Reference id="1983745" type="booking_text">ATLAS Steuerbescheid</Reference>
+            <Reference id="1983746" type="row_1_activity_type">ZOLL</Reference>
+            <Reference id="1983747" type="row_1_amount">1000.00</Reference>
+            <Reference id="1983748" type="row_1_tax_code">0</Reference>
+            <Reference id="1983749" type="row_1_cs_filenumber">LA-ZEL-2403-004</Reference>
+            <Reference id="1983750" type="row_2_activity_type">EUST</Reference>
+            <Reference id="1983751" type="row_2_amount">234.78</Reference>
+            <Reference id="1983752" type="row_2_tax_code">0</Reference>
+            <Reference id="1983753" type="row_2_cs_filenumber">LA-ZEL-2403-00</Reference>
+        </References>
+    </EFile>
+</CargoSoftEFile>

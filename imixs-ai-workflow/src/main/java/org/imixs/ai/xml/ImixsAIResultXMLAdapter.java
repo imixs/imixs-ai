@@ -79,7 +79,7 @@ public class ImixsAIResultXMLAdapter {
             // get result string
             String xmlString = event.getPromptResult();
 
-            logger.info("Prompt Result= " + xmlString);
+            logger.fine("Prompt Result= " + xmlString);
             xmlString = cleanXML(xmlString);
             ItemCollection xmlItemCol = new ItemCollection();
             parseXML(xmlString, xmlItemCol);
@@ -103,11 +103,9 @@ public class ImixsAIResultXMLAdapter {
         // tag
         Pattern pattern = Pattern.compile("<[^>]+>.*</[^>]+>", Pattern.DOTALL);
         Matcher matcher = pattern.matcher(input);
-
         if (matcher.find()) {
             return matcher.group();
         }
-
         return null; // Return null if no XML content is found
     }
 
@@ -123,7 +121,6 @@ public class ImixsAIResultXMLAdapter {
             String xmlStringWrapped = wrapTextWithCDATA(xmlString);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder;
-
             builder = factory.newDocumentBuilder();
 
             // Parse the XML string to create a Document object
@@ -136,11 +133,8 @@ public class ImixsAIResultXMLAdapter {
                 if (element.getNodeType() == Node.ELEMENT_NODE)
                     applyElement((Element) element, workitem);
             }
-
         } catch (IOException | SAXException | ParserConfigurationException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
-
         }
     }
 
@@ -151,7 +145,6 @@ public class ImixsAIResultXMLAdapter {
      * @param workitem
      */
     public static void applyElement(final Element element, ItemCollection workitem) {
-
         if (containsChildNodes(element)) {
             NodeList childNodes = element.getChildNodes();
             String parentItemName = element.getNodeName();
@@ -212,19 +205,17 @@ public class ImixsAIResultXMLAdapter {
      * @return true if it is type=date or a ISO Date String
      */
     public static boolean isISODateValue(final Element element) {
-
         if (element.hasAttribute("type")) {
             String typeValue = element.getAttribute("type");
             if ("date".equalsIgnoreCase(typeValue)) {
                 return true;
             }
         }
-
         // Define the expected format
         DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE;
-
         try {
             // Parse the string
+            @SuppressWarnings("unused")
             LocalDate date = LocalDate.parse(element.getTextContent(), formatter);
             // If parsing is successful, the string is in ISO date format
             return true;
@@ -242,7 +233,6 @@ public class ImixsAIResultXMLAdapter {
                 return true; // Contains at least one element child node
             }
         }
-
         return false; // No element child nodes
     }
 

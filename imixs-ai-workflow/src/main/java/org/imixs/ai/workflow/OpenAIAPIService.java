@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
@@ -168,7 +167,13 @@ public class OpenAIAPIService implements Serializable {
             }
 
         } catch (IOException | ParserConfigurationException | SAXException e) {
-            logger.warning("Unable to extract meta data from prompt template: " + e.getMessage());
+            // logger.warning("Unable to extract meta data from prompt template: " +
+            // e.getMessage());
+
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Unable to extract meta data from prompt template: " + e.getMessage(), e);
         }
 
         // Fire Prompt Event...
@@ -207,9 +212,6 @@ public class OpenAIAPIService implements Serializable {
             throws PluginException {
         String response = null;
         try {
-            // JsonObject jsonPromptObject = buildJsonPromptObject(prompt, prompt_options);
-            logger.info("POSTe... :");
-            logger.info(jsonPromptObject.toString());
             if (!apiEndpoint.endsWith("/")) {
                 apiEndpoint = apiEndpoint + "/";
             }
@@ -233,14 +235,7 @@ public class OpenAIAPIService implements Serializable {
 
             // Write the JSON object to the output stream
             String jsonString = jsonPromptObject.toString();
-
-            logger.info("JSON Object=");
-            logger.info(jsonString);
-
-            // write to file just for debugging
-            try (PrintWriter out = new PrintWriter("ai-post.txt")) {
-                out.println(jsonString);
-            }
+            logger.fine("JSON Object=" + jsonString);
 
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
@@ -249,7 +244,7 @@ public class OpenAIAPIService implements Serializable {
 
             // Reading the response
             int responseCode = conn.getResponseCode();
-            logger.info("POST Response Code :: " + responseCode);
+            logger.fine("POST Response Code :: " + responseCode);
 
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 try (BufferedReader br = new BufferedReader(
@@ -260,7 +255,7 @@ public class OpenAIAPIService implements Serializable {
                         responseBody.append(responseLine.trim() + "\n");
                     }
                     response = responseBody.toString();
-                    logger.info("Response Body :: " + response);
+                    logger.fine("Response Body :: " + response);
                 }
             } else {
                 logger.warning("POST request not worked.");
@@ -268,7 +263,7 @@ public class OpenAIAPIService implements Serializable {
             }
             // Close the connection
             conn.disconnect();
-            logger.info("===== postPromptCompletion completed");
+            logger.fine("===== postPromptCompletion completed");
             return response;
 
         } catch (IOException e) {
@@ -313,8 +308,8 @@ public class OpenAIAPIService implements Serializable {
         // Build the JsonObject
         JsonObject jsonObject = jsonObjectBuilder.build();
 
-        logger.info("--buildJsonPromptObject completed:");
-        logger.info(jsonObject.toString());
+        logger.fine("buildJsonPromptObject completed:");
+        logger.fine(jsonObject.toString());
         return jsonObject;
     }
 

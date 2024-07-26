@@ -73,8 +73,8 @@ import jakarta.json.JsonValue;
 }</pre>
  * 
  */
-public class LLMResultJSONAdapter {
-    private static Logger logger = Logger.getLogger(LLMResultJSONAdapter.class.getName());
+public class ImixsAIResultJSONAdapter {
+    private static Logger logger = Logger.getLogger(ImixsAIResultJSONAdapter.class.getName());
 
     public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {

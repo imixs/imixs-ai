@@ -72,7 +72,7 @@ public class TestLLMAdapter {
             workitem.setEventID(10);
             try {
                 adapter.execute(workitem, event);
-            } catch (NullPointerException | AdapterException e) {
+            } catch (NullPointerException | AdapterException | PluginException e) {
                 e.printStackTrace();
                 Assert.fail();
             }
