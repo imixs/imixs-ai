@@ -39,7 +39,6 @@ import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
-import org.imixs.workflow.util.XMLParser;
 
 import jakarta.inject.Inject;
 import jakarta.json.JsonObject;
@@ -163,79 +162,65 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         long processingTime = System.currentTimeMillis();
 
         logger.finest("...running api adapter...");
-        ItemCollection llmConfig = null;
+
         // read optional configuration form the model or imixs.properties....
         try {
 
-            llmConfig = workflowService.evalWorkflowResult(event, "imixs-ai", workitem, false);
-            if (llmConfig == null) {
-                // no configuration found!
-                throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
-                        "Missing imixs-ai definition in Event!");
-            }
-
+            List<ItemCollection> llmPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+                    LLM_PROMPT, workitem, false);
+            List<ItemCollection> llmSuggestDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+                    LLM_SUGGEST, workitem, false);
             /**
              * Iterate over each PROMPT definition and process the prompt
              */
-            List<String> llmPromptDefinitions = llmConfig.getItemValueList(LLM_PROMPT, String.class);
             if (llmPromptDefinitions != null) {
-                for (String promptDefinitionXML : llmPromptDefinitions) {
-                    if (promptDefinitionXML.trim().isEmpty()) {
-                        // no definition
-                        continue;
+                for (ItemCollection promptDefinition : llmPromptDefinitions) {
+                    llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+                    llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
+                    llmAPIResultItem = promptDefinition.getItemValueString("result-item");
+                    if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
+                        llmAPIDebug = true;
                     }
-                    // evaluate the prompt definition (XML format expected here!)
-                    ItemCollection promptDefinition = XMLParser.parseItemStructure(promptDefinitionXML);
-                    if (promptDefinition != null) {
 
-                        llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
-                        llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
-                        llmAPIResultItem = promptDefinition.getItemValueString("result-item");
-                        if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
-                            llmAPIDebug = true;
-                        }
+                    // do we have a valid endpoint?
+                    if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
+                        // throw new ProcessingErrorException(OpenAIAPIAdapter.class.getSimpleName(),
+                        // API_ERROR,
+                        // "imixs-ai llm service endpoint is empty!");
+                        throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
+                                "imixs-ai llm service endpoint is empty!");
+                    }
+                    logger.info("post Llama-cpp request: " + llmAPIEndpoint);
 
-                        // do we have a valid endpoint?
-                        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                            // throw new ProcessingErrorException(OpenAIAPIAdapter.class.getSimpleName(),
-                            // API_ERROR,
-                            // "imixs-ai llm service endpoint is empty!");
-                            throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
-                                    "imixs-ai llm service endpoint is empty!");
+                    // Build the prompt template....
+                    String promptTemplate = readPromptTemplate(event);
+                    String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+                    // if we have a prompt we call the llm api endpoint
+                    if (!llmPrompt.isEmpty()) {
+                        if (llmAPIDebug) {
+                            logger.info("===> Total Prompt Length = " + llmPrompt.length());
+                            logger.info("===> Prompt: ");
+                            logger.info(llmPrompt);
                         }
-                        logger.info("post Llama-cpp request: " + llmAPIEndpoint);
-
-                        // Build the prompt template....
-                        String promptTemplate = readPromptTemplate(event);
-                        String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
-                        // if we have a prompt we call the llm api endpoint
-                        if (!llmPrompt.isEmpty()) {
-                            if (llmAPIDebug) {
-                                logger.info("===> Total Prompt Length = " + llmPrompt.length());
-                                logger.info("===> Prompt: ");
-                                logger.info(llmPrompt);
-                            }
-                            // postPromptCompletion
-                            JsonObject jsonPrompt = llmService.buildJsonPromptObject(llmPrompt,
-                                    workitem.getItemValueString("ai.prompt.prompt_options"));
-                            String completionResult = llmService.postPromptCompletion(llmAPIEndpoint, jsonPrompt);
-                            // process the ai.result....
-                            llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
-                                    llmAPIResultEvent);
-                        } else {
-                            logger.finest(
-                                    "......no prompt definition found for " + workitem.getUniqueID());
-                        }
+                        // postPromptCompletion
+                        JsonObject jsonPrompt = llmService.buildJsonPromptObject(llmPrompt,
+                                workitem.getItemValueString("ai.prompt.prompt_options"));
+                        String completionResult = llmService.postPromptCompletion(llmAPIEndpoint, jsonPrompt);
+                        // process the ai.result....
+                        llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
+                                llmAPIResultEvent);
+                    } else {
+                        logger.finest(
+                                "......no prompt definition found for " + workitem.getUniqueID());
                     }
                 }
+
             }
 
             // verify if we also have an optional SUGGEST configuration (only one definition
             // is supported!)
-            String llmSuggestDefinitionXML = llmConfig.getItemValueString(LLM_SUGGEST);
-            if (!llmSuggestDefinitionXML.isEmpty()) {
-                // evaluate the suggest definition (XML format expected here!)
-                ItemCollection suggestDefinition = XMLParser.parseItemStructure(llmSuggestDefinitionXML);
+            if (llmSuggestDefinitions != null && llmSuggestDefinitions.size() > 0) {
+                ItemCollection suggestDefinition = llmSuggestDefinitions.get(0);
                 String llmSuggestItems = suggestDefinition.getItemValueString("items");
                 String llmSuggestMode = suggestDefinition.getItemValueString("mode");
                 // do we have a suggest-mode?
@@ -254,8 +239,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
         } catch (PluginException e) {
             logger.severe("Unable to parse item definitions for 'imixs-ai', verify model - " + e.getMessage());
-            // throw new ProcessingErrorException(
-            // OpenAIAPIAdapter.class.getSimpleName(), e.getErrorCode(), e.getMessage(), e);
             throw new PluginException(
                     OpenAIAPIAdapter.class.getSimpleName(), e.getErrorCode(),
                     "Unable to parse item definitions for 'imixs-ai', verify model - " + e.getMessage(), e);
