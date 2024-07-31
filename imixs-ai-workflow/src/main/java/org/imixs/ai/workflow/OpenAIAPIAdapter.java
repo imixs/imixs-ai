@@ -184,9 +184,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
                     // do we have a valid endpoint?
                     if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                        // throw new ProcessingErrorException(OpenAIAPIAdapter.class.getSimpleName(),
-                        // API_ERROR,
-                        // "imixs-ai llm service endpoint is empty!");
                         throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
                                 "imixs-ai llm service endpoint is empty!");
                     }

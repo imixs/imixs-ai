@@ -41,7 +41,7 @@ public class ImixsAIAdaptTextBuilder {
         try {
             prompt = workflowService.adaptText(prompt, event.getWorkitem());
         } catch (PluginException e) {
-            logger.warning("Failed to adapt text to current promtp-template: " + e.getMessage());
+            logger.warning("Failed to adapt text to current prompt-template: " + e.getMessage());
         }
 
         // update the prompt tempalte

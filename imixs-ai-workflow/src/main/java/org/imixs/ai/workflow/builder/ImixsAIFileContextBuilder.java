@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.exceptions.AdapterException;
 
 import jakarta.enterprise.event.Observes;
 
@@ -26,7 +27,7 @@ public class ImixsAIFileContextBuilder {
 
     private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
 
-    public void onEvent(@Observes ImixsAIPromptEvent event) {
+    public void onEvent(@Observes ImixsAIPromptEvent event) throws AdapterException {
         if (event.getWorkitem() == null) {
             return;
         }
@@ -61,10 +62,14 @@ public class ImixsAIFileContextBuilder {
                 }
             }
             // replace the regex with the fileContext String...
-            // int conextPos = prompt.indexOf(fullTag);
+            if (fileContext == null || fileContext.isEmpty()) {
+                throw new AdapterException(ImixsAIFileContextBuilder.class.getSimpleName(), API_ERROR,
+                        "No File Context found in current workitem");
+            }
+
             prompt = prompt.replace(fullTag, fileContext);
             matcher = pattern.matcher(prompt);
-            // matcher.appendReplacement(prompt, fileContext);
+
         }
 
         // finally update the prompt template

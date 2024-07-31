@@ -24,6 +24,7 @@ import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ModelService;
 import org.imixs.workflow.engine.WorkflowService;
+import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -33,6 +34,7 @@ import org.xml.sax.SAXException;
 import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.ObserverException;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
@@ -128,8 +130,9 @@ public class OpenAIAPIService implements Serializable {
      * @param workitem       - the workitem to be processed
      * @return the plain prompt to be send to the llm endpoint
      * @throws PluginException
+     * @throws AdapterException
      */
-    public String buildPrompt(String promptTemplate, ItemCollection workitem) throws PluginException {
+    public String buildPrompt(String promptTemplate, ItemCollection workitem) throws PluginException, AdapterException {
 
         String prompt = null;
         // Extract Meta Information from XML....
@@ -152,13 +155,6 @@ public class OpenAIAPIService implements Serializable {
                         "Missing prompt tag in prompt template!");
             }
 
-            // // model_options
-            // modelNodes = doc.getElementsByTagName("model_options");
-            // if (modelNodes.getLength() > 0) {
-            // Node modelNode = modelNodes.item(0);
-            // workitem.setItemValue("ai.prompt.model_options", modelNode.getTextContent());
-            // }
-
             // prompt_options
             modelNodes = doc.getElementsByTagName("prompt_options");
             if (modelNodes.getLength() > 0) {
@@ -167,9 +163,6 @@ public class OpenAIAPIService implements Serializable {
             }
 
         } catch (IOException | ParserConfigurationException | SAXException e) {
-            // logger.warning("Unable to extract meta data from prompt template: " +
-            // e.getMessage());
-
             throw new PluginException(
                     OpenAIAPIService.class.getSimpleName(),
                     ERROR_PROMPT_TEMPLATE,
@@ -178,7 +171,15 @@ public class OpenAIAPIService implements Serializable {
 
         // Fire Prompt Event...
         ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
-        llmPromptEventObservers.fire(llmPromptEvent);
+        try {
+            llmPromptEventObservers.fire(llmPromptEvent);
+        } catch (ObserverException e) {
+            // catch Adapter Exceptions
+            if (e.getCause() instanceof AdapterException) {
+                throw (AdapterException) e.getCause();
+            }
+
+        }
         logger.finest(llmPromptEvent.getPromptTemplate());
 
         return llmPromptEvent.getPromptTemplate();

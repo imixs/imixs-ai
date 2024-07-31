@@ -192,6 +192,7 @@ public class ImixsAIResultXMLAdapter {
      * e.g.
      * 
      * "1,172.15" => "1172.15"
+     * "1.172,15" => "1172.15"
      * 
      * @param value
      * @return
@@ -204,8 +205,14 @@ public class ImixsAIResultXMLAdapter {
         int commaPos = value.indexOf(",");
         int digitPos = value.indexOf(".");
         if (commaPos > -1 && digitPos > -1 && commaPos < digitPos) {
-            // remove ,
+            // "1,172.15" => remove ,
             value = value.replace(",", "");
+        } else {
+            if (commaPos > -1 && digitPos > -1 && digitPos < commaPos) {
+                // "1.172,15" remove . and than replace , with .
+                value = value.replace(".", "");
+                value = value.replace(",", ".");
+            }
         }
         return value;
     }
