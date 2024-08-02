@@ -71,6 +71,7 @@ public class OpenAIAPIService implements Serializable {
 
     public static final String ENV_LLM_SERVICE_ENDPOINT_USER = "LLM_SERVICE_ENDPOINT_USER";
     public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "LLM_SERVICE_ENDPOINT_PASSWORD";
+    public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "LLM_SERVICE_TIMEOUT";
 
     @Inject
     @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_USER)
@@ -79,6 +80,10 @@ public class OpenAIAPIService implements Serializable {
     @Inject
     @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_PASSWORD)
     Optional<String> serviceEndpointPassword;
+
+    @Inject
+    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_TIMEOUT, defaultValue = "120000")
+    int serviceTimeout;
 
     @Inject
     protected ModelService modelService;
@@ -219,6 +224,8 @@ public class OpenAIAPIService implements Serializable {
             URL url = new URL(apiEndpoint + "completion");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
+            conn.setConnectTimeout(serviceTimeout); // set timeout to 5 seconds
+            conn.setReadTimeout(serviceTimeout);
             // Set Basic Authentication?
             if (serviceEndpointUser != null && serviceEndpointUser.isPresent() && !serviceEndpointUser.get().isEmpty()
                     && serviceEndpointPassword.isPresent() && !serviceEndpointPassword.get().isEmpty()) {

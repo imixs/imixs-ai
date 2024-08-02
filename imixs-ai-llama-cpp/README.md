@@ -355,3 +355,29 @@ General information about prompt engineering can be found here:
  - https://www.promptingguide.ai/models/mixtral
  - https://docs.mistral.ai/guides/prompting-capabilities/
 
+
+
+# Set Options for Llama-CPP Web Server
+
+
+## Avoid infinite loop
+
+You can can set the `predict` option to cap the number of tokens any completion request can generate
+Otherwise infinite loop scenario can occur if the model hallucinates and does not stop answering.
+
+```
+-n,    --predict N              number of tokens to predict (default: -1, -1 = infinity, -2 = until context filled)
+```
+
+This server param set the number of tokens in general. 
+
+
+Optional you can set `n_predict` as an option in the request body. 
+
+```xml
+<PromptDefinition>
+	<prompt_options>{"max_tokens": 4096, "temperature": 0, "n_predict": 512}</prompt_options>
+    ...
+<PromptDefinition>
+```
+
