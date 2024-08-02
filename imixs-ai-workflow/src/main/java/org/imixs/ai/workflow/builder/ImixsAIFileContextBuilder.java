@@ -22,7 +22,7 @@ import jakarta.enterprise.event.Observes;
  */
 public class ImixsAIFileContextBuilder {
 
-    public static final String API_ERROR = "API_ERROR";
+    public static final String PROMPT_ERROR = "PROMPT_ERROR";
     public static final String FILE_CONTENT_REGEX = "(?i)<filecontext>(.*?)</filecontext>";
 
     private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
@@ -63,9 +63,11 @@ public class ImixsAIFileContextBuilder {
             }
             // replace the regex with the fileContext String...
             if (fileContext == null || fileContext.isEmpty()) {
-                throw new AdapterException(ImixsAIFileContextBuilder.class.getSimpleName(), API_ERROR,
+                throw new AdapterException(ImixsAIFileContextBuilder.class.getSimpleName(), PROMPT_ERROR,
                         "No File Context found in current workitem");
             }
+
+            fileContext = cleanupFileContext(fileContext);
 
             prompt = prompt.replace(fullTag, fileContext);
             matcher = pattern.matcher(prompt);
@@ -78,4 +80,54 @@ public class ImixsAIFileContextBuilder {
 
     }
 
+    /**
+     * This method removes multiple newlines in the file context.
+     * The occurrence of multiple \n may cause infinite loops with complex prompt
+     * e.g. in Mistral 7b
+     * 
+     * 
+     * @See Issue #22
+     * @See https://github.com/ggerganov/llama.cpp/issues/3969
+     *
+     * @param fileContext
+     * @return
+     */
+    private String cleanupFileContext(String fileContext) {
+
+        // First iterate over all lines and trim the content of each line
+        StringBuilder trimmedContentBuffer = new StringBuilder();
+        String[] lines = fileContext.split("\n");
+
+        for (String line : lines) {
+            String trimmedLine = trimRight(line);
+            if (!trimmedLine.isEmpty()) {
+                trimmedContentBuffer.append(trimmedLine).append("\n");
+            }
+        }
+        // Remove the last newline character if the result is not empty
+        if (trimmedContentBuffer.length() > 0) {
+            trimmedContentBuffer.setLength(trimmedContentBuffer.length() - 1);
+        }
+
+        fileContext = trimmedContentBuffer.toString();
+
+        // finally remove repeating new lines
+        fileContext = fileContext.replace("\n\n\n", "\n\n");
+
+        return fileContext;
+    }
+
+    /**
+     * Trim only the right part of a line
+     * 
+     * @param input
+     * @return
+     */
+    public static String trimRight(String input) {
+        int end = input.length();
+        while (end > 0 && Character.isWhitespace(input.charAt(end - 1))) {
+            end--;
+        }
+        return input.substring(0, end);
+    }
 }
