@@ -113,7 +113,7 @@ public class ImixsAIFileContextBuilder {
 
         // finally remove repeating new lines
         fileContext = fileContext.replace("\n\n\n", "\n\n");
-
+        // fileContext = fileContext.replace("\n\n", "\n");
         return fileContext;
     }
 

@@ -61,6 +61,7 @@ public class OpenAIAPIService implements Serializable {
     private static Logger logger = Logger.getLogger(OpenAIAPIService.class.getName());
 
     public static final String ERROR_PROMPT_TEMPLATE = "ERROR_PROMPT_TEMPLATE";
+    public static final String ERROR_PROMPT_INFERENCE = "ERROR_PROMPT_INFERENCE";
     public static final String ITEM_AI_RESULT = "ai.result";
     public static final String ITEM_AI_RESULT_ITEM = "ai.result.item";
     public static final String ITEM_SUGGEST_ITEMS = "ai.suggest.items";
@@ -337,9 +338,10 @@ public class OpenAIAPIService implements Serializable {
      * @param resultItemName  - the item name to store the llm text result
      * @param resultEventType - optional event type send to all CDI Event observers
      *                        for the LLMResultEvent
+     * @throws PluginException
      */
     public void processPromptResult(String completionResult, ItemCollection workitem, String resultItemName,
-            String resultEventType) {
+            String resultEventType) throws PluginException {
 
         // We expect a OpenAI API Json Result object
         // Extract the field 'content'
@@ -350,6 +352,11 @@ public class OpenAIAPIService implements Serializable {
 
         // extract content
         String promptResult = parsedJsonObject.getString("content");
+        if (promptResult == null) {
+            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_INFERENCE, "Error during POST prompt - no result returned!");
+        }
+        promptResult = promptResult.trim();
         workitem.appendItemValue(ITEM_AI_RESULT, promptResult);
 
         if (resultItemName != null && !resultItemName.isEmpty()) {

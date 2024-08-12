@@ -197,7 +197,7 @@ public class ImixsAIResultXMLAdapter {
      * @param value
      * @return
      */
-    private static String cleanDoubleFormatting(String value) {
+    public static String cleanDoubleFormatting(String value) {
         // remove spaces
         value = value.replace(" ", "");
 
@@ -214,6 +214,9 @@ public class ImixsAIResultXMLAdapter {
                 value = value.replace(",", ".");
             }
         }
+
+        // finally replace , with .
+        value = value.replace(",", ".");
         return value;
     }
 
