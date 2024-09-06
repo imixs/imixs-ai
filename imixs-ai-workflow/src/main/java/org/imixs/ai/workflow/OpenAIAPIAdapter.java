@@ -204,6 +204,10 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                                 workitem.getItemValueString("ai.prompt.prompt_options"));
                         String completionResult = llmService.postPromptCompletion(llmAPIEndpoint, jsonPrompt);
                         // process the ai.result....
+                        if (llmAPIDebug) {
+                            logger.info("===> Completion Result: ");
+                            logger.info(completionResult);
+                        }
                         llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
                                 llmAPIResultEvent);
                     } else {

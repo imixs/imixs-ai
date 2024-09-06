@@ -166,17 +166,25 @@ public class ImixsAIResultXMLAdapter {
             // test if value is a number
             if (isDouble(element)) {
                 value = cleanDoubleFormatting(value);
-                workitem.appendItemValue(name, Double.parseDouble(value));
+                try {
+                    workitem.appendItemValue(name, Double.parseDouble(value));
+                } catch (NumberFormatException e) {
+                    // no op
+                }
                 return;
             }
             if (isISODateValue(element)) {
-                // Define the expected format
-                DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE;
-                // Parse the string to LocalDate
-                LocalDate localDate = LocalDate.parse(value, formatter);
-                // Convert LocalDate to java.util.Date
-                Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-                workitem.appendItemValue(name, date);
+                try {
+                    // Define the expected format
+                    DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE;
+                    // Parse the string to LocalDate
+                    LocalDate localDate = LocalDate.parse(value, formatter);
+                    // Convert LocalDate to java.util.Date
+                    Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+                    workitem.appendItemValue(name, date);
+                } catch (Exception e) {
+                    // no op
+                }
                 return;
             }
 

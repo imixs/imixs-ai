@@ -254,7 +254,6 @@ public class OpenAIAPIService implements Serializable {
             // Reading the response
             int responseCode = conn.getResponseCode();
             logger.fine("POST Response Code :: " + responseCode);
-
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -267,8 +266,8 @@ public class OpenAIAPIService implements Serializable {
                     logger.fine("Response Body :: " + response);
                 }
             } else {
-                logger.warning("POST request not worked.");
-                return "";
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_INFERENCE, "Error during POST prompt: HTTP Result " + responseCode);
             }
             // Close the connection
             conn.disconnect();
