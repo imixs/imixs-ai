@@ -280,8 +280,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
      * 
      * @param llmPrompt
      * @return
+     * @throws PluginException
      */
-    private String parseLLMEndpointByBPMN(ItemCollection llmPrompt) {
+    private String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
         boolean debug = logger.isLoggable(Level.FINE);
         String llmAPIEndpoint = null;
 
@@ -302,6 +303,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         if (debug) {
             logger.info("......llm api endpoint " + llmAPIEndpoint);
         }
+
+        // adapt text...
+        llmAPIEndpoint = workflowService.adaptText(llmAPIEndpoint, null);
 
         if (!llmAPIEndpoint.endsWith("/")) {
             llmAPIEndpoint = llmAPIEndpoint + "/";
