@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<PromptDefinition>
-	<model></model>
-	<max_tokens>32</max_tokens>
-	<prompt><![CDATA[<s>[INST] 
-		You are a helpfull java developer. Tell me something about Imixs-Workflow.
-	    [/INST]
-		]]></prompt>
-</PromptDefinition>
