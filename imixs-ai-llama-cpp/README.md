@@ -1,13 +1,34 @@
 # Imixs-AI LLaMa.cpp
 
-The module [imixs-ai-llm](./imixs-ai-llama-cpp/README.md) provides a model agnostic AI implementation based on [Llama.cpp](https://github.com/ggerganov/llama.cpp). Llama CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
+The module *imixs-ai-llama-cpp* provides docker examples to run [Llama.cpp](https://github.com/ggerganov/llama.cpp) for development or in a production environment. Llama CCP allows you to run a LLM with minimal setup and state-of-the-art performance on a wide variety of hardware – locally and in the cloud. 
 
 The project provides different Docker image with an Open-API Rest Interface:
 
  - imixs/imixs-ai-llama-cpp-cpu Imixs-AI llama-cpp for CPU only
  - imixs/imixs-ai-llama-cpp-gpu Imixs-AI llama-cpp with GPU/CUDA support
 
-<img src="../doc/images/rest-api-01.png" />   
+
+# Quick Start with Docker and the llama.cpp Web Server
+
+The [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp) provides Docker images that can be used for a quick test without installing software libraries. You only need to make sure you have downloaded a llama model file in `.gguf` format. The following example shows how to run the llama.cpp web server locally on a CPU only with the `mistral-7b-instruct-v0.2.Q5_K_M.gguf` model: 
+
+```bash
+docker compose up
+```
+
+You can also run the container with GPU support with CUDA:
+
+```bash
+docker compose -f docker-compose-gpu.yaml up
+
+```
+
+Note that you need to download first a model before you start your server. 
+
+You can access a Chat Interface via http://YOUR-SERER:8080/
+
+<img src="../doc/images/llama-cpp-web-server.png" />
+
 
 ## Supported LLMs
 
@@ -15,8 +36,6 @@ This project is developed using the Mistral-7B Instruct model. But you can run t
 
 - [Mistral-7B Instruct 0.2](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF) from [Mistral AI](https://mistral.ai)
 - [Mistral-7B Instruct 0.3](https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF) from [Mistral AI](https://mistral.ai)
-
-
 
 We currently tested the following Large Language models, but the project can be adapted to many other LLMs:
 
@@ -28,13 +47,11 @@ We currently tested the following Large Language models, but the project can be 
  - mistral-7b-instruct-v0.2.Q5_K_M.gguf
  - Mistral-7B-Instruct-v0.3.Q8_0.gguf
 
-The implementation is based on [Llama-cpp-python](https://github.com/abetlen/llama-cpp-python) and [FastAPI](https://fastapi.tiangolo.com/). Find details in the official [API documentation](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). The Rest API provides  a XML extension based on [Fast API XML](https://github.com/cercide/fastapi-xml) to exchange complex prompt templates. 
 
 
+### Download Mistral 7B Model
 
-# Download Mistral 7B Model
-
-Before you can run the project and examples you need to downloaded a llama model locally on your server. The project expect that all models are located unter `imixs-ai/imixs-ai-llm/models`.  You can download a model form [huggingface.co](https://huggingface.co/) by using  the tool `huggingface-cli`. 
+Before you can run the project and examples you need to downloaded a llama model locally on your server. The project expect that all models are located unter `imixs-ai/imixs-ai-llama-cpp/models`.  You can download a model form [huggingface.co](https://huggingface.co/) by using  the tool `huggingface-cli`. 
 ex
 To install the `huggingface-cli` tool run:
 
@@ -55,48 +72,6 @@ $ huggingface-cli download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF Meta-Llama
 **Note:** For this project we assume that all models are located unter `imixs-ai/imixs-ai-llm/models`
 
 
-
-# The Prompt Template
-
-Imixs-AI expects a so called prompt template including the model-path, the prompt and optional option parameters defined in the [Llama-cpp API](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). 
-
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<PromptDefinition>
-	<model>mistral-7b-instruct-v0.2.Q3_K_M.gguf</model>
-	<model_options>{"n_ctx": 1024, "n_batch": 521}</model_options>
-	<prompt_options>{"max_tokens": 128}</prompt_options>
-	<prompt><![CDATA[What is the Imixs-Workflow engine?]]></prompt>
-</PromptDefinition>
-```
-
-**Note:** The prompt is wrapped in a CDATA tag, as the prompt may include special characters. 
-
-For the possible model and prompt options please refer to the the [Llama-cpp API](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/). 
-
-
-
-
-# Quick Start with Docker and the llama.cpp Web Server
-
-The [LLaMA-cpp project](https://github.com/ggerganov/llama.cpp) provides Docker images that can be used for a quick test without installing software libraries. You only need to make sure you have downloaded a llama model file in `.gguf` format. The following example shows how to run the llama.cpp web server locally on a CPU only with the `mistral-7b-instruct-v0.2.Q5_K_M.gguf` model: 
-
-```bash
-docker run -p 8080:8080 -v /home/imixs/imixs-ai/imixs-ai-llama-cpp/models:/models ghcr.io/ggerganov/llama.cpp:server -m models/mistral-7b-instruct-v0.2.Q5_K_M.gguf -c 512 --host 0.0.0.0 --port 8080
-```
-
-You can also run the contaner with GPU support with CUDA:
-
-```
-docker run -p 8080:8080 -v /home/imixs/imixs-ai/imixs-ai-llama-cpp/models:/models --gpus all ghcr.io/ggerganov/llama.cpp:server-cuda -m models/mistral-7b-instruct-v0.2.Q5_K_M.gguf -c 512 --host 0.0.0.0 --port 8080 --n-gpu-layers 99
-
-```
-
-You can access a Chat Interface via http://YOUR-SERER:8080/
-
-<img src="../doc/images/llama-cpp-web-server.png" />
-
 ## Testing with CURL
 
 Using [curl](https://curl.se/) allows you to test a model quickly: 
@@ -107,52 +82,6 @@ curl --request POST \
     --header "Content-Type: application/json" \
     --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
 ```
-
-
-
-# Build and Run
-
-Imixs-AI provides images with and without GPU support. 
-
-To build the Imixs-AI Docker image for CPUs only run:
-
-    $ cd ./imixs-ai-llama-cpp
-    $ ./devi build-cpu
-
-To build a Docker image with GPU support run:
-
-    $ ./devi build-gpu
-
-
-To start the server run
-
-    $ docker compose -f docker-compose-dev.yml up
-
-
-To start the GPU version run:
-
-    $ docker compose -f docker-compose-dev-gpu.yml up
-
-
-Now you can access the Rest API via: 
-
-    http://127.0.0.1:8000/docs
-
-**Note:** You need to provide a LLM in the `.gguf` format located in the directory `/models`  to run the container. We map this directory into the docker-compose files but do not provide any LLM in this project.
-
-
-
-## Developer Support
-
-For developers we provide the docker-compose file `docker-compose-dev.yml` that maps the `/app/` directory locally into the container image. This makes it easier to change code during development. 
-
-
-## Docker Hub - Build and Push
-
-To push the latest image to a repository run:
- 
-    $ docker build --pull --no-cache -f ./Dockerfile-GPU -t imixs/imixs-ai-llama-cpp-gpu .
-	$ docker push imixs/imixs-ai-llama-cpp-gpu:latest
 
 
 

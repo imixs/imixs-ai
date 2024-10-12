@@ -1,0 +1,19 @@
+
+version: '3'
+
+#######################
+# llama.cpp Web Server 
+# CPU Support only
+#######################
+services:
+  llama-cpp-server:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/models
+    command: >
+      -m /models/mistral-7b-instruct-v0.2.Q3_K_M.gguf
+      -c 512
+      --host 0.0.0.0
+      --port 8080
