@@ -270,6 +270,9 @@ If something goes wrong you can delete the operator with:
     $ helm delete -n gpu-operator $(helm list -n gpu-operator | grep gpu-operator | awk '{print $1}')
 
 
+### Deployment 
+
+For the deployment in a Kubernetes cluster you can use the file `kubernetes.yaml` as a template. The template expects a data volume named `llama-cpp-models` that holds the models. 
 
 
 

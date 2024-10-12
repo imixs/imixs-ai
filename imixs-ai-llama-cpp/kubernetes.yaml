@@ -1,45 +1,57 @@
 ###################################################
-# Imixs-AI Kubernetes Deployment
-# Take care to provide a persistance volume named 'imixs-ai-models'
+# Deployment of llama.cpp:server-cuda 
+# GPU Support with CUDA
 ###################################################
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: imixs-ai-llama-cpp-gpu
+  namespace: llama-cpp
+  name: server-cuda
   labels: 
-    app: imixs-ai-llama-cpp-gpu
-
+    app: server-cuda
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: imixs-ai-llama-cpp-gpu
+      app: server-cuda
   template:
     metadata:
       labels:
-        app: imixs-ai-llama-cpp-gpu
+        app: server-cuda
     spec:
       containers:
-      - name: imixs-ai-llama-cpp-gpu
-        image: imixs/imixs-ai-llama-cpp-gpu:latest
+      - name: server-cuda
+        image: ghcr.io/ggerganov/llama.cpp:server-cuda
+        args:
+        - "-m"
+        - "/models/Mistral-7B-Instruct-v0.3.Q8_0.gguf"
+        #- "-c"
+        #- "4096"
+        #- "--verbose"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "8080"
+        - "--n-gpu-layers"
+        - "99"        
+        - "--ctx-size"
+        - "16384"
+        - "--n-predict"
+        - "2048"
         imagePullPolicy: Always
-        env:
-        - name: PYTHONUNBUFFERED
-          value: "1"        
-        - name: USE_MLOCK
-          value: "true"   
         ports: 
           - name: web
-            containerPort: 8000
+            containerPort: 8080
         resources:
           limits:
             nvidia.com/gpu: 1
         volumeMounts:
         - mountPath: /models
-          name: imixs-ai-models
+          name: llama-cpp-models
       restartPolicy: Always
       volumes:
-      - name: imixs-ai-models
+      - name: llama-cpp-models
         persistentVolumeClaim:
-          claimName: imixs-ai-models
+          claimName: llama-cpp-models
+
