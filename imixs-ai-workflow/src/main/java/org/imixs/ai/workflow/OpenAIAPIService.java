@@ -197,6 +197,49 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
+     * This helper method builds a json prompt object including options params.
+     * 
+     * See details:
+     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
+     * 
+     * @param prompt
+     * @param stream         - boolean indicates if the client tries to stream the
+     *                       result.
+     * @param prompt_options
+     * @return
+     */
+    public JsonObject buildJsonPromptObject(String prompt, boolean stream, String prompt_options) {
+
+        // Create a JsonObjectBuilder instance
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+        jsonObjectBuilder.add("prompt", prompt);
+        if (stream) {
+            // set optional stream flag
+            jsonObjectBuilder.add("stream", stream);
+        }
+
+        // Do we have options?
+        if (prompt_options != null && !prompt_options.isEmpty()) {
+            // Create a JsonReader from the JSON string
+            JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
+            JsonObject parsedJsonObject = jsonReader.readObject();
+            jsonReader.close();
+            // Add each key-value pair from the parsed JsonObject to the new
+            // JsonObjectBuilder
+            for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
+                jsonObjectBuilder.add(entry.getKey(), entry.getValue());
+            }
+        }
+
+        // Build the JsonObject
+        JsonObject jsonObject = jsonObjectBuilder.build();
+
+        logger.fine("buildJsonPromptObject completed:");
+        logger.fine(jsonObject.toString());
+        return jsonObject;
+    }
+
+    /**
      * This method POSTs a LLM Prompt to the service endpoint '/completion' and
      * returns the predicted completion. The method returns the response body.
      * <p>
@@ -229,30 +272,7 @@ public class OpenAIAPIService implements Serializable {
         String response = null;
 
         try {
-            if (apiEndpoint == null) {
-                // default to global endpoint
-                if (!serviceEndpoint.isPresent()) {
-                    throw new PluginException(OpenAIAPIService.class.getSimpleName(), ERROR_API,
-                            "imixs-ai llm service endpoint is empty!");
-                }
-                apiEndpoint = serviceEndpoint.get();
-            }
-            if (!apiEndpoint.endsWith("/")) {
-                apiEndpoint = apiEndpoint + "/";
-            }
-            URL url = new URL(apiEndpoint + "completion");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-            conn.setConnectTimeout(serviceTimeout); // set timeout to 5 seconds
-            conn.setReadTimeout(serviceTimeout);
-            // Set Basic Authentication?
-            if (serviceEndpointUser != null && serviceEndpointUser.isPresent() && !serviceEndpointUser.get().isEmpty()
-                    && serviceEndpointPassword.isPresent() && !serviceEndpointPassword.get().isEmpty()) {
-                String auth = serviceEndpointUser.get() + ":" + serviceEndpointPassword.get();
-                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
-                String authHeaderValue = "Basic " + new String(encodedAuth);
-                conn.setRequestProperty("Authorization", authHeaderValue);
-            }
+            HttpURLConnection conn = createHttpConnection(apiEndpoint);
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -285,7 +305,8 @@ public class OpenAIAPIService implements Serializable {
                 }
             } else {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                        ERROR_PROMPT_INFERENCE, "Error during POST prompt: HTTP Result " + responseCode);
+                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                        "Error during POST prompt: HTTP Result " + responseCode);
             }
             // Close the connection
             conn.disconnect();
@@ -300,43 +321,6 @@ public class OpenAIAPIService implements Serializable {
                     "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
         }
 
-    }
-
-    /**
-     * This helper method builds a json prompt object including options params.
-     * 
-     * See details:
-     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
-     * 
-     * @param prompt
-     * @param prompt_options
-     * @return
-     */
-    public JsonObject buildJsonPromptObject(String prompt, String prompt_options) {
-
-        // Create a JsonObjectBuilder instance
-        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
-        jsonObjectBuilder.add("prompt", prompt);
-
-        // Do we have options?
-        if (prompt_options != null && !prompt_options.isEmpty()) {
-            // Create a JsonReader from the JSON string
-            JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
-            JsonObject parsedJsonObject = jsonReader.readObject();
-            jsonReader.close();
-            // Add each key-value pair from the parsed JsonObject to the new
-            // JsonObjectBuilder
-            for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
-                jsonObjectBuilder.add(entry.getKey(), entry.getValue());
-            }
-        }
-
-        // Build the JsonObject
-        JsonObject jsonObject = jsonObjectBuilder.build();
-
-        logger.fine("buildJsonPromptObject completed:");
-        logger.fine(jsonObject.toString());
-        return jsonObject;
     }
 
     /**
@@ -395,6 +379,58 @@ public class OpenAIAPIService implements Serializable {
 
     public void setServiceEndpointPassword(Optional<String> serviceEndpointPassword) {
         this.serviceEndpointPassword = serviceEndpointPassword;
+    }
+
+    /**
+     * Builds aULConnection to a LLM Endpoint
+     * 
+     * @param apiEndpoint - optional service endpoint
+     * @throws PluginException
+     */
+    public HttpURLConnection createHttpConnection(String apiEndpoint)
+            throws PluginException {
+
+        HttpURLConnection conn = null;
+        try {
+            if (apiEndpoint == null) {
+                // default to global endpoint
+                if (!serviceEndpoint.isPresent()) {
+                    throw new PluginException(OpenAIAPIService.class.getSimpleName(), ERROR_API,
+                            "imixs-ai llm service endpoint is empty!");
+                }
+                apiEndpoint = serviceEndpoint.get();
+            }
+            if (!apiEndpoint.endsWith("/")) {
+                apiEndpoint = apiEndpoint + "/";
+            }
+            URL url = new URL(apiEndpoint + "completion");
+            conn = (HttpURLConnection) url.openConnection();
+
+            conn.setConnectTimeout(serviceTimeout); // set timeout to 5 seconds
+            conn.setReadTimeout(serviceTimeout);
+            // Set Basic Authentication?
+            if (serviceEndpointUser != null && serviceEndpointUser.isPresent() && !serviceEndpointUser.get().isEmpty()
+                    && serviceEndpointPassword.isPresent() && !serviceEndpointPassword.get().isEmpty()) {
+                String auth = serviceEndpointUser.get() + ":" + serviceEndpointPassword.get();
+                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+                String authHeaderValue = "Basic " + new String(encodedAuth);
+                conn.setRequestProperty("Authorization", authHeaderValue);
+            }
+
+            // Set the appropriate HTTP method
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; utf-8");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setDoOutput(true);
+
+        } catch (IOException e) {
+            logger.severe(e.getMessage());
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_API,
+                    "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
+        }
+        return conn;
     }
 
 }
