@@ -109,12 +109,13 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     private static Logger logger = Logger.getLogger(OpenAIAPIAdapter.class.getName());
 
     @Inject
-    @ConfigProperty(name = OpenAIAPIService.LLM_SERVICE_ENDPOINT)
-    Optional<String> mlDefaultAPIEndpoint;
+    @ConfigProperty(name = OpenAIAPIService.ENV_LLM_SERVICE_ENDPOINT)
+    Optional<String> serviceEndpoint;
 
-    @Inject
-    @ConfigProperty(name = OpenAIAPIService.LLM_MODEL, defaultValue = "imixs-model")
-    String mlDefaultModel;
+    // @Inject
+    // @ConfigProperty(name = OpenAIAPIService.LLM_MODEL, defaultValue =
+    // "imixs-model")
+    // String mlDefaultModel;
 
     @Inject
     private WorkflowService workflowService;
@@ -202,7 +203,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                         // postPromptCompletion
                         JsonObject jsonPrompt = llmService.buildJsonPromptObject(llmPrompt,
                                 workitem.getItemValueString("ai.prompt.prompt_options"));
-                        String completionResult = llmService.postPromptCompletion(llmAPIEndpoint, jsonPrompt);
+                        String completionResult = llmService.postPromptCompletion(jsonPrompt, llmAPIEndpoint);
                         // process the ai.result....
                         if (llmAPIDebug) {
                             logger.info("===> Completion Result: ");
@@ -276,7 +277,10 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
     /**
      * This helper method parses the ml api endpoint either provided by a model
-     * definition or a imixs.property or an environment variable
+     * definition or a imixs.property or an environment variable.
+     * <p>
+     * If not api endpoint is defined by the model the adapter uses the default api
+     * endpoint.
      * 
      * @param llmPrompt
      * @return
@@ -286,8 +290,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         boolean debug = logger.isLoggable(Level.FINE);
         String llmAPIEndpoint = null;
 
-        // test if the model provides a MLEndpoint. If not, the adapter uses the
-        // mlDefaultAPIEndpoint
+        // Test if the model provides a API Endpoint.
         llmAPIEndpoint = null;
         if (llmPrompt != null) {
             llmAPIEndpoint = llmPrompt.getItemValueString("endpoint");
@@ -296,8 +299,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         // switch to default api endpoint?
         if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
             // set defautl api endpoint if defined
-            if (mlDefaultAPIEndpoint.isPresent() && !mlDefaultAPIEndpoint.get().isEmpty()) {
-                llmAPIEndpoint = mlDefaultAPIEndpoint.get();
+            if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
+                llmAPIEndpoint = serviceEndpoint.get();
             }
         }
         if (debug) {

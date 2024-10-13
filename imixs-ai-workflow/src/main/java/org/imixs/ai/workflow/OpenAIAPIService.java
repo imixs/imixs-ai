@@ -60,19 +60,24 @@ public class OpenAIAPIService implements Serializable {
     private static final long serialVersionUID = 1L;
     private static Logger logger = Logger.getLogger(OpenAIAPIService.class.getName());
 
-    public static final String ERROR_PROMPT_TEMPLATE = "ERROR_PROMPT_TEMPLATE";
-    public static final String ERROR_PROMPT_INFERENCE = "ERROR_PROMPT_INFERENCE";
+    public static final String ERROR_API = "ERROR_LLM_API";
+    public static final String ERROR_PROMPT_TEMPLATE = "ERROR_LLM_PROMPT_TEMPLATE";
+    public static final String ERROR_PROMPT_INFERENCE = "ERROR_LLM_PROMPT_INFERENCE";
     public static final String ITEM_AI_RESULT = "ai.result";
     public static final String ITEM_AI_RESULT_ITEM = "ai.result.item";
     public static final String ITEM_SUGGEST_ITEMS = "ai.suggest.items";
     public static final String ITEM_SUGGEST_MODE = "ai.suggest.mode";
 
-    public static final String LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
     public static final String LLM_MODEL = "llm.model";
 
-    public static final String ENV_LLM_SERVICE_ENDPOINT_USER = "LLM_SERVICE_ENDPOINT_USER";
-    public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "LLM_SERVICE_ENDPOINT_PASSWORD";
-    public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "LLM_SERVICE_TIMEOUT";
+    public static final String ENV_LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
+    public static final String ENV_LLM_SERVICE_ENDPOINT_USER = "llm.service.endpoint.user";
+    public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "llm.service.endpoint.password";
+    public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "llm.service.timeout";
+
+    @Inject
+    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT)
+    Optional<String> serviceEndpoint;
 
     @Inject
     @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_USER)
@@ -192,10 +197,13 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method POST a given prompt to the endpoint '/completion' and returns the
-     * predicted completion.
-     * The method returns the response body.
-     * 
+     * This method POSTs a LLM Prompt to the service endpoint '/completion' and
+     * returns the predicted completion. The method returns the response body.
+     * <p>
+     * The endpoint is optional and can be null. In the endpoint is not provided the
+     * method resolves the endpoint from the environment variable
+     * <code>llm.service.endpoint</code>.
+     * <p>
      * The method optional test if the environment variables
      * LLM_SERVICE_ENDPOINT_USER and LLM_SERVICE_ENDPOINT_PASSWORD are set. In this
      * case a BASIC Authentication is used for the connection to the LLMService.
@@ -212,13 +220,23 @@ public class OpenAIAPIService implements Serializable {
      * --data '{"prompt": "Building a website can be done in 10 simple
      * steps:","n_predict": 128}'
      * 
-     * @param xmlPromptData
+     * @param jsonPromptObject - an LLM json prompt object
+     * @param apiEndpoint      - optional service endpoint
      * @throws PluginException
      */
-    public String postPromptCompletion(String apiEndpoint, JsonObject jsonPromptObject)
+    public String postPromptCompletion(JsonObject jsonPromptObject, String apiEndpoint)
             throws PluginException {
         String response = null;
+
         try {
+            if (apiEndpoint == null) {
+                // default to global endpoint
+                if (!serviceEndpoint.isPresent()) {
+                    throw new PluginException(OpenAIAPIService.class.getSimpleName(), ERROR_API,
+                            "imixs-ai llm service endpoint is empty!");
+                }
+                apiEndpoint = serviceEndpoint.get();
+            }
             if (!apiEndpoint.endsWith("/")) {
                 apiEndpoint = apiEndpoint + "/";
             }
