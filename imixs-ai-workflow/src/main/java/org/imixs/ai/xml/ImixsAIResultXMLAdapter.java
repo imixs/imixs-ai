@@ -296,7 +296,9 @@ public class ImixsAIResultXMLAdapter {
         while (matcher.find()) {
             String textContent = matcher.group(1).trim();
             if (!textContent.isEmpty()) {
-                matcher.appendReplacement(sb, "><![CDATA[" + textContent + "]]><");
+                // Escape special characters in the replacement string
+                String escapedContent = Matcher.quoteReplacement(textContent);
+                matcher.appendReplacement(sb, "><![CDATA[" + escapedContent + "]]><");
             } else {
                 matcher.appendReplacement(sb, "><");
             }
