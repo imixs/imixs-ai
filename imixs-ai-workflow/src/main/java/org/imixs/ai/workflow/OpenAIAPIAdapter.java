@@ -191,7 +191,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     logger.info("post Llama-cpp request: " + llmAPIEndpoint);
 
                     // Build the prompt template....
-                    String promptTemplate = readPromptTemplate(event);
+                    String promptTemplate = llmService.loadPromptTemplate(event);
                     String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                     // if we have a prompt we call the llm api endpoint
                     if (!llmPrompt.isEmpty()) {
@@ -250,29 +250,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
             logger.info("===> Total Processing Time=" + (System.currentTimeMillis() - processingTime) + "ms");
         }
         return workitem;
-    }
-
-    /**
-     * Helper method that reads the prompt template form a BPMN DataObject
-     * associated with the current Event object.
-     * 
-     * @param event
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    private String readPromptTemplate(ItemCollection event) {
-        List<?> dataObjects = event.getItemValue("dataObjects");
-
-        if (dataObjects == null || dataObjects.size() == 0) {
-            logger.warning("No data object for prompt template found");
-        }
-
-        // tage teh first data object....
-        List<String> data = (List<String>) dataObjects.get(0);
-        // String name = "" + data.get(0);
-        String prompt = "" + data.get(1);
-        return prompt;
-
     }
 
     /**
