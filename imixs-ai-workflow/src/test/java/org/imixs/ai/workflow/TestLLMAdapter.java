@@ -1,9 +1,8 @@
 package org.imixs.ai.workflow;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Vector;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.logging.Logger;
 
 import org.imixs.workflow.ItemCollection;
@@ -11,10 +10,15 @@ import org.imixs.workflow.engine.WorkflowMockEnvironment;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.ModelException;
 import org.imixs.workflow.exceptions.PluginException;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.openbpmn.bpmn.BPMNModel;
 
 /**
  * Test class to test the LLMAdapter configuration
@@ -22,15 +26,17 @@ import org.junit.Test;
  * 
  * @author rsoika
  */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.WARN)
 public class TestLLMAdapter {
 
     private static Logger logger = Logger.getLogger(TestLLMAdapter.class.getName());
 
-    protected ItemCollection workitem;
-    protected ItemCollection event;
-    protected ItemCollection documentProcess;
-    protected WorkflowMockEnvironment workflowMockEnvironment;
+    @InjectMocks
     protected OpenAIAPIAdapter adapter;
+
+    WorkflowMockEnvironment workflowEnvironment;
+    ItemCollection workitem;
 
     /**
      * The setup method loads t
@@ -38,24 +44,15 @@ public class TestLLMAdapter {
      * @throws AdapterException
      * 
      */
-    @Before
+    @BeforeEach
     public void setUp() throws PluginException, ModelException, AdapterException {
+        // Ensures that @Mock and @InjectMocks annotations are processed
+        MockitoAnnotations.openMocks(this);
 
-        workflowMockEnvironment = new WorkflowMockEnvironment();
-        workflowMockEnvironment.setModelPath("/bpmn/llm-example-1.0.0.bpmn");
-        workflowMockEnvironment.setup();
+        workflowEnvironment = new WorkflowMockEnvironment();
 
-        adapter = new OpenAIAPIAdapter();
-        adapter.setWorkflowService(workflowMockEnvironment.getWorkflowService());
-
-        // prepare data
-        workitem = new ItemCollection().model(WorkflowMockEnvironment.DEFAULT_MODEL_VERSION).task(100);
-        logger.info("[TestAccessAdapterProcessEntity] setup test data...");
-        Vector<String> list = new Vector<String>();
-        list.add("manfred");
-        list.add("anna");
-        workitem.replaceItemValue("namTeam", list);
-        workitem.replaceItemValue("namCreator", "ronny");
+        workflowEnvironment.setUp();
+        workflowEnvironment.loadBPMNModel("/bpmn/llm-example-1.0.0.bpmn");
 
     }
 
@@ -63,36 +60,27 @@ public class TestLLMAdapter {
      * Test the event configuration
      */
     @Test
-    @Ignore // integration test only!
     public void testEventSetup() {
 
         try {
-            event = workflowMockEnvironment.getModel().getEvent(100, 10);
-            Assert.assertNotNull(event);
+
+            BPMNModel model = workflowEnvironment.getModelService().getModelManager().getModel("1.0.0");
+            ItemCollection event = workflowEnvironment.getModelService().getModelManager().findEventByID(model, 100,
+                    10);
             workitem.setEventID(10);
+            assertNotNull(event);
             try {
                 adapter.execute(workitem, event);
             } catch (NullPointerException | AdapterException | PluginException e) {
                 e.printStackTrace();
-                Assert.fail();
+                fail();
             }
 
         } catch (ModelException e) {
             e.printStackTrace();
-            Assert.fail();
+            fail();
         }
 
     }
 
-    /**
-     * Helper method to read a text file into a String
-     * 
-     * @param filePath
-     * @return
-     * @throws IOException
-     */
-    public static String readFileAsString(String filePath) throws IOException {
-
-        return new String(Files.readAllBytes(Paths.get(filePath)));
-    }
 }
