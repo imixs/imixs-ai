@@ -112,11 +112,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     @ConfigProperty(name = OpenAIAPIService.ENV_LLM_SERVICE_ENDPOINT)
     Optional<String> serviceEndpoint;
 
-    // @Inject
-    // @ConfigProperty(name = OpenAIAPIService.LLM_MODEL, defaultValue =
-    // "imixs-model")
-    // String mlDefaultModel;
-
     @Inject
     private WorkflowService workflowService;
 

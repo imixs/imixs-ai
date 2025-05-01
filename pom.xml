@@ -20,8 +20,6 @@
 		<junit.jupiter.version>5.9.2</junit.jupiter.version>
 		<mockito.version>5.8.0</mockito.version>
 		<org.imixs.mock.version>6.1.0</org.imixs.mock.version>
-
-
 	</properties>
 
 	<description>Connect Imixs-Workflow with services and software platforms</description>
@@ -361,6 +359,47 @@
 			<scope>test</scope>
 		</dependency>
 
+
+		<!-- Mockito Dependencies -->
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>${mockito.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-junit-jupiter</artifactId>
+			<version>${mockito.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- Test dependencies -->
+		<dependency>
+			<groupId>org.eclipse.parsson</groupId>
+			<artifactId>jakarta.json</artifactId>
+			<version>1.1.1</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish.jaxb</groupId>
+			<artifactId>jaxb-runtime</artifactId>
+			<version>3.0.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>jakarta.xml.bind</groupId>
+			<artifactId>jakarta.xml.bind-api</artifactId>
+			<version>3.0.0</version>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Imixs Mock -->
+		<dependency>
+			<groupId>org.imixs.workflow</groupId>
+			<artifactId>imixs-mock</artifactId>
+			<version>${org.imixs.mock.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 </project>

@@ -65,10 +65,11 @@ Possible ImageTypes are:
  * GRAY      Shades of gray
  * RGB      Red, Green, Blue
 </bpmn2:text>
+      <bpmn2:documentation id="documentation_vR0U9g"/>
     </bpmn2:textAnnotation>
     <bpmn2:participant id="participant_GUMWGQ" name="Default Process" processRef="process_2"/>
   </bpmn2:collaboration>
-  <bpmn2:process definitionalCollaborationRef="Collaboration_1" id="Process_1" isExecutable="false" name="Example">
+  <bpmn2:process definitionalCollaborationRef="Collaboration_1" id="Process_1" isExecutable="false" name="Example" processType="Private">
     <bpmn2:laneSet id="LaneSet_1" name="Lane Set 1">
       <bpmn2:lane id="Lane_2" name="Team">
         <bpmn2:flowNodeRef>Task_1</bpmn2:flowNodeRef>
@@ -216,10 +217,10 @@ Possible ImageTypes are:
           <imixs:value>false</imixs:value>
         </imixs:item>
         <imixs:item name="txtactivityresult" type="xs:string">
-          <imixs:value><![CDATA[<llm-config name="PROMPT"><endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
-
-
-</llm-config>
+          <imixs:value><![CDATA[<imixs-ai name="PROMPT">
+ <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+ <result-event>XML</result-event>
+</imixs-ai>
 ]]></imixs:value>
         </imixs:item>
       </bpmn2:extensionElements>
@@ -442,9 +443,9 @@ Betrag: <itemvalue>_amount</itemvalue> (Brutto € <itemvalue>_amount_brutto</it
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge bpmnElement="association_qd9ofQ" id="BPMNEdge_S7zmJg" sourceElement="BPMNShape_5K72Mw" targetElement="BPMNShape_IntermediateCatchEvent_4">
-        <di:waypoint x="507.5" y="340.0"/>
-        <di:waypoint x="507.5" y="301.5"/>
-        <di:waypoint x="505.0" y="301.5"/>
+        <di:waypoint x="508.0" y="340.0"/>
+        <di:waypoint x="508.0" y="302.0"/>
+        <di:waypoint x="505.0" y="302.0"/>
         <di:waypoint x="505.0" y="263.0"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape bpmnElement="event_XIUx0g" id="BPMNShape_ZM4l6A">
@@ -464,8 +465,8 @@ Betrag: <itemvalue>_amount</itemvalue> (Brutto € <itemvalue>_amount_brutto</it
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge bpmnElement="association_QUQqFA" id="BPMNEdge_9tr0gQ" sourceElement="BPMNShape_Cn1HMQ" targetElement="BPMNShape_Task_1">
-        <di:waypoint x="276.5" y="330.0"/>
-        <di:waypoint x="276.5" y="299.0"/>
+        <di:waypoint x="277.0" y="330.0"/>
+        <di:waypoint x="277.0" y="299.0"/>
         <di:waypoint x="334.0" y="299.0"/>
         <di:waypoint x="334.0" y="270.0"/>
       </bpmndi:BPMNEdge>
