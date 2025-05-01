@@ -1,12 +1,12 @@
 package org.imixs.ai.workflow;
 
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.logging.Logger;
 
 import org.imixs.ai.xml.ImixsAIResultXMLAdapter;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.engine.WorkflowMockEnvironment;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test class to test the LLMAdapter configuration
@@ -21,7 +21,6 @@ public class TestXMLParser {
     protected ItemCollection workitem;
     protected ItemCollection event;
     protected ItemCollection documentProcess;
-    protected WorkflowMockEnvironment workflowMockEnvironment;
     protected OpenAIAPIAdapter adapter;
 
     /**
@@ -39,7 +38,7 @@ public class TestXMLParser {
             double d = Double.parseDouble(result);
             System.out.println("Double=" + d);
         } catch (NumberFormatException e) {
-            Assert.fail(e.getMessage());
+            fail(e.getMessage());
         }
 
     }
