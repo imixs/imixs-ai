@@ -26,8 +26,7 @@ find . -name "*.java" | while read -r file; do
 
     # Case 1: existing comment block at the very top
     if [[ "$first_line" =~ ^[[:space:]]*/\* ]]; then
-        echo " -> Found header comment at line 1. Replacing it."
-
+        echo " -> Found header comment at line 1. updating it."
         # Remove the first comment block (header) only
         awk '
             BEGIN {in_header=1}
@@ -38,7 +37,6 @@ find . -name "*.java" | while read -r file; do
 
         {
             echo "$NEW_HEADER"
-            echo ""
             cat "$file.tmp"
         } > "$file"
 
