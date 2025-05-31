@@ -199,8 +199,7 @@ public class ImixsAIResultXMLAdapter {
      * 
      * e.g.
      * 
-     * "1,172.15" => "1172.15"
-     * "1.172,15" => "1172.15"
+     * "1,172.15" => "1172.15" "1.172,15" => "1172.15"
      * 
      * @param value
      * @return
@@ -243,8 +242,8 @@ public class ImixsAIResultXMLAdapter {
     }
 
     /**
-     * Helper method to parse the given element has the attribute type="date"
-     * or if the content conforms to the ISO date format (yyyy-MM-dd).
+     * Helper method to parse the given element has the attribute type="date" or if
+     * the content conforms to the ISO date format (yyyy-MM-dd).
      * 
      * @param element
      * @return true if it is type=date or a ISO Date String

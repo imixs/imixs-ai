@@ -151,6 +151,18 @@
 				<version>3.0.0</version>
 			</plugin>
 
+			<!-- Formatting -->
+			<plugin>
+				<groupId>net.revelc.code.formatter</groupId>
+				<artifactId>formatter-maven-plugin</artifactId>
+				<version>2.26.0</version>
+				<configuration>
+					<configFile>
+						https://raw.githubusercontent.com/imixs/imixs-workflow/refs/heads/master/imixs-code-style.xml
+					</configFile>
+					<lineEnding>LF</lineEnding>
+				</configuration>
+			</plugin>
 
 		</plugins>
 	</build>

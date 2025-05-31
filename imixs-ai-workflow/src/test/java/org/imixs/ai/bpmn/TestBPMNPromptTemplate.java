@@ -42,7 +42,10 @@ public class TestBPMNPromptTemplate {
         openBPMNModelManager = new ModelManager();
         try {
             openBPMNModelManager.addModel(BPMNModelFactory.read("/bpmn/rechnung-ai-test.bpmn"));
-            model = openBPMNModelManager.getModel("1.0.0");
+            openBPMNModelManager.addModel(BPMNModelFactory.read("/bpmn/rechnungseingang-de-1.2.41.bpmn"));
+            // model = openBPMNModelManager.getModel("1.0.0");
+            model = openBPMNModelManager.getModel("rechnungseingang-de-1.2");
+
             assertNotNull(model);
         } catch (ModelException | BPMNModelException e) {
             fail(e.getMessage());
@@ -119,7 +122,7 @@ public class TestBPMNPromptTemplate {
                 + task.getItemValueString("name") + "\n");
 
         String documentation = task.getItemValueString("documentation");
-        if (!documentation.isEmpty()) {
+        if (!documentation.isEmpty() && !documentation.startsWith("<")) {
             buffer.append("  |  "
                     + documentation + "\n");
         }

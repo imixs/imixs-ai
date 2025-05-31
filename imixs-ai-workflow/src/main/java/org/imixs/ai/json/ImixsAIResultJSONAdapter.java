@@ -69,7 +69,7 @@ import jakarta.json.JsonValue;
         "totalprice": 762.00
         }
     ]
-  }        
+  } 
 }</pre>
  * 
  */
@@ -102,7 +102,7 @@ public class ImixsAIResultJSONAdapter {
 
     /**
      * Static one liner method to parse a JSON String into a JsonObject
-     * 
+     *
      * @param jsonString
      * @return
      */
@@ -121,7 +121,7 @@ public class ImixsAIResultJSONAdapter {
 
     /**
      * Applies the values of a Imixs-AI JSON result object to a given workitem.
-     * 
+     *
      * @param resultObject
      * @param workitem
      */
@@ -167,35 +167,35 @@ public class ImixsAIResultJSONAdapter {
         for (JsonValue element : jsonArray) {
             // Process each element based on its type
             switch (element.getValueType()) {
-                case STRING:
-                    applyJSONStringObject(element, itemName, workitem);
-                    break;
-                case NUMBER:
-                    applyJSONNumberObject(element, itemName, workitem);
-                    break;
-                case TRUE:
-                    workitem.appendItemValue(itemName, true);
-                    break;
-                case FALSE:
-                    workitem.appendItemValue(itemName, false);
-                    break;
-                case NULL:
-                    // now op
-                    break;
-                case OBJECT:
-                    // Handle objects if needed
-                    ItemCollection childItemCol = new ItemCollection();
-                    JsonObject childObject = (JsonObject) element;
-                    applyJSONObject(childObject, childItemCol);
-                    childItems.add(childItemCol);
+            case STRING:
+                applyJSONStringObject(element, itemName, workitem);
+                break;
+            case NUMBER:
+                applyJSONNumberObject(element, itemName, workitem);
+                break;
+            case TRUE:
+                workitem.appendItemValue(itemName, true);
+                break;
+            case FALSE:
+                workitem.appendItemValue(itemName, false);
+                break;
+            case NULL:
+                // now op
+                break;
+            case OBJECT:
+                // Handle objects if needed
+                ItemCollection childItemCol = new ItemCollection();
+                JsonObject childObject = (JsonObject) element;
+                applyJSONObject(childObject, childItemCol);
+                childItems.add(childItemCol);
 
-                    break;
-                case ARRAY:
-                    logger.warning(itemName + ": Array in Array is not supported");
-                    break;
-                default:
-                    logger.warning(itemName + ": Unknown value type");
-                    break;
+                break;
+            case ARRAY:
+                logger.warning(itemName + ": Array in Array is not supported");
+                break;
+            default:
+                logger.warning(itemName + ": Unknown value type");
+                break;
             }
         }
 
@@ -233,9 +233,9 @@ public class ImixsAIResultJSONAdapter {
     }
 
     /*
-     * Helper method to apply a string value to a worktiem.
-     * The method tests if the string is a ISO Date. In that case we convert the
-     * string into a java.util:Date object.
+     * Helper method to apply a string value to a worktiem. The method tests if the
+     * string is a ISO Date. In that case we convert the string into a
+     * java.util:Date object.
      * 
      */
     private static void applyJSONStringObject(JsonValue jsonValue, String itemName, ItemCollection workitem) {

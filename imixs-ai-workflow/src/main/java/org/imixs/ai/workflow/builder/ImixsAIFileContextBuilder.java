@@ -14,8 +14,7 @@ import jakarta.enterprise.event.Observes;
 
 /**
  * The LLMFileContextBuilder adds a file content stored in a workitem into the
- * prompt template.
- * The template must provide a <<context>> place holder
+ * prompt template. The template must provide a <<context>> place holder
  * 
  * @author rsoika
  *
@@ -81,10 +80,8 @@ public class ImixsAIFileContextBuilder {
     }
 
     /**
-     * This method removes multiple newlines in the file context.
-     * The occurrence of multiple \n may cause infinite loops with complex prompt
-     * e.g. in Mistral 7b
-     * 
+     * This method removes multiple newlines in the file context. The occurrence of
+     * multiple \n may cause infinite loops with complex prompt e.g. in Mistral 7b
      * 
      * @See Issue #22
      * @See https://github.com/ggerganov/llama.cpp/issues/3969
