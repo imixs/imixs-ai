@@ -12,7 +12,6 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-
 package org.imixs.ai.workflow;
 
 import java.util.List;
@@ -57,9 +56,8 @@ import jakarta.json.JsonObject;
  * The Endpoint defines the Rest API endpoint of the llama-cpp http server or
  * any compatible OpenAI / Open API rest service endpoint.
  * 
- * The result-item defines the item to store the result.
- * Optional also result-events can be defined to handle more complex business
- * rules.
+ * The result-item defines the item to store the result. Optional also
+ * result-events can be defined to handle more complex business rules.
  * <p>
  * Optional an imixs-ai SUGGEST configuration can be provided.
  * 
@@ -72,11 +70,10 @@ import jakarta.json.JsonObject;
  * }
  * </pre>
  * 
- * The field 'items' contains a list of item names. This list will be
- * stored in the item "ai.suggest.items". An UI can use this information for
- * additional input support (e.g. a suggest list)
- * The field 'mode' provides a suggest mode for a UI component. The information
- * is stored in the item 'ai.suggest.mode'
+ * The field 'items' contains a list of item names. This list will be stored in
+ * the item "ai.suggest.items". An UI can use this information for additional
+ * input support (e.g. a suggest list) The field 'mode' provides a suggest mode
+ * for a UI component. The information is stored in the item 'ai.suggest.mode'
  * 
  * @author Ralph Soika
  * @version 1.0
@@ -131,8 +128,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
      * This method parses the LLM Event definitions.
      * 
      * For each PROMPT the method posts a context data (e.g text from an attachment)
-     * to the Imixs-AI Analyse service
-     * endpoint
+     * to the Imixs-AI Analyse service endpoint
      * 
      * @throws PluginException
      */

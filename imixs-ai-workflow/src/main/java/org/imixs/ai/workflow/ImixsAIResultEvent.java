@@ -12,20 +12,18 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-
 package org.imixs.ai.workflow;
 
 import org.imixs.workflow.ItemCollection;
 
 /**
  * The ImixsAIResultEvent is fired by the
- * {@link org.imixs.ai.workflow.OpenAIAPIService}
- * after a prompt was processed.
+ * {@link org.imixs.ai.workflow.OpenAIAPIService} after a prompt was processed.
  * A CDI bean can observe this event to adapt the AI result stored in the item
  * 'ai.result'.
  * 
- * For example an Observer bean can transfer an xml result tree
- * form a completion request into items of the current workitem.
+ * For example an Observer bean can transfer an xml result tree form a
+ * completion request into items of the current workitem.
  * 
  * 
  * @author Ralph Soika
