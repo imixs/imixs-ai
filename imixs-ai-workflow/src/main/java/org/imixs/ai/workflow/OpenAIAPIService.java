@@ -37,10 +37,12 @@ import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.ObserverException;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
+import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonReader;
 import jakarta.json.JsonValue;
+import jakarta.ws.rs.core.MediaType;
 
 /**
  * The OpenAIAPIService provides methods to post prompt templates to the OpenAI
@@ -129,9 +131,9 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method first extracts the prompt from the prompt template.
-     * Next the method fires a prompt event to all registered PromptEvent Observer
-     * classes. This allows adaptors to customize the prompt.
+     * This method first extracts the prompt from the prompt template. Next the
+     * method fires a prompt event to all registered PromptEvent Observer classes.
+     * This allows adaptors to customize the prompt.
      * 
      * Finally the method stores the prompt_options in the item
      * 'ai.prompt.prompt_options'
@@ -197,9 +199,9 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method returns the prompt template form a BPMN DataObject
-     * associated with the current Event object.
-     * 
+     * This method returns the prompt template form a BPMN DataObject associated
+     * with the current Event object.
+     *
      * @param event
      * @return
      */
@@ -221,10 +223,10 @@ public class OpenAIAPIService implements Serializable {
 
     /**
      * This helper method builds a json prompt object including options params.
-     * 
+     *
      * See details:
-     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
-     * 
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
      * @param prompt
      * @param stream         - boolean indicates if the client tries to stream the
      *                       result.
@@ -280,11 +282,9 @@ public class OpenAIAPIService implements Serializable {
      * 
      * curl example:
      * 
-     * curl --request POST \
-     * --url http://localhost:8080/completion \
-     * --header "Content-Type: application/json" \
-     * --data '{"prompt": "Building a website can be done in 10 simple
-     * steps:","n_predict": 128}'
+     * curl --request POST \ --url http://localhost:8080/completion \ --header
+     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
+     * be done in 10 simple steps:","n_predict": 128}'
      * 
      * @param jsonPromptObject - an LLM json prompt object
      * @param apiEndpoint      - optional service endpoint
@@ -295,12 +295,12 @@ public class OpenAIAPIService implements Serializable {
         String response = null;
 
         try {
-            HttpURLConnection conn = createHttpConnection(apiEndpoint);
+            HttpURLConnection conn = createHttpConnection(apiEndpoint, "completion");
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json; utf-8");
-            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
+            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
             conn.setDoOutput(true);
 
             // Write the JSON object to the output stream
@@ -357,8 +357,7 @@ public class OpenAIAPIService implements Serializable {
      * The parameter 'mode' defines a resolver method.
      * 
      * @param workitem        - the workitem holding the last AI result (stored in a
-     *                        value
-     *                        list)
+     *                        value list)
      * @param resultItemName  - the item name to store the llm text result
      * @param resultEventType - optional event type send to all CDI Event observers
      *                        for the LLMResultEvent
@@ -396,6 +395,123 @@ public class OpenAIAPIService implements Serializable {
 
     }
 
+    /**
+     * RAG Support - compute vector by text
+     *
+     * See details:
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
+     *
+     * curl example:
+     *
+     * curl --request POST \ --url http://localhost:8080/completion \ --header
+     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
+     * be done in 10 simple steps:","n_predict": 128}'
+     *
+     * @param completionResult
+     * @param workitem
+     * @param resultItemName
+     * @param resultEventType
+     * @throws PluginException
+     */
+    public float[] processRAGIndex(String text, String apiEndpoint) throws PluginException {
+
+        String response = null;
+        float[] result = null;
+
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+        jsonObjectBuilder.add("content", text);
+        JsonObject jsonObject = jsonObjectBuilder.build();
+
+        logger.info("buildJsonPromptObject completed:");
+        logger.info(jsonObject.toString());
+
+        String jsonString = jsonObject.toString();
+        logger.fine("JSON Object=" + jsonString);
+
+        try {
+            HttpURLConnection conn = createHttpConnection(apiEndpoint, "embedding");
+
+            // Set the appropriate HTTP method
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
+            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
+            conn.setDoOutput(true);
+
+            // Write the text to the output stream
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            // Reading the response
+            int responseCode = conn.getResponseCode();
+            logger.fine("POST Response Code :: " + responseCode);
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder responseBody = new StringBuilder();
+                    String responseLine = null;
+                    while ((responseLine = br.readLine()) != null) {
+                        responseBody.append(responseLine.trim() + "\n");
+                    }
+                    response = responseBody.toString();
+                    logger.fine("Response Body :: " + response);
+
+                    // Extract the vector field from the json string
+
+                    try (JsonReader jsonReader = Json.createReader(new StringReader(jsonString))) {
+                        // Lies das JSON-Array
+                        JsonArray rootArray = jsonReader.readArray();
+                        if (!rootArray.isEmpty()) {
+                            // Hole das erste JSON-Objekt
+                            JsonObject firstObject = rootArray.getJsonObject(0);
+                            // Überprüfe, ob "embedding" vorhanden ist
+
+                            if (firstObject.containsKey("embedding")) {
+                                JsonArray embeddingArray = firstObject.getJsonArray("embedding");
+
+                                if (!embeddingArray.isEmpty()) {
+                                    JsonArray firstEmbedding = embeddingArray.getJsonArray(0);
+
+                                    // Extrahiere die Werte als float[]
+                                    result = new float[firstEmbedding.size()];
+                                    for (int i = 0; i < firstEmbedding.size(); i++) {
+                                        result[i] = (float) firstEmbedding.getJsonNumber(i).doubleValue();
+                                    }
+
+                                    // Ausgabe zur Kontrolle
+                                    System.out.println("Erstes Embedding (float):");
+                                    for (float val : result) {
+                                        System.out.println(val);
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+            } else {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                        "Error during POST text: HTTP Result " + responseCode);
+            }
+            // Close the connection
+            conn.disconnect();
+            logger.fine("===== postRAGIndex completed");
+            return result;
+
+        } catch (IOException e) {
+            logger.severe(e.getMessage());
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
+        }
+
+    }
+
     public void setServiceEndpointUser(Optional<String> serviceEndpointUser) {
         this.serviceEndpointUser = serviceEndpointUser;
     }
@@ -408,9 +524,10 @@ public class OpenAIAPIService implements Serializable {
      * Builds aULConnection to a LLM Endpoint
      * 
      * @param apiEndpoint - optional service endpoint
+     * @param resourceURI - endpoint resource
      * @throws PluginException
      */
-    public HttpURLConnection createHttpConnection(String apiEndpoint)
+    public HttpURLConnection createHttpConnection(String apiEndpoint, String resourceURI)
             throws PluginException {
 
         HttpURLConnection conn = null;
@@ -426,7 +543,7 @@ public class OpenAIAPIService implements Serializable {
             if (!apiEndpoint.endsWith("/")) {
                 apiEndpoint = apiEndpoint + "/";
             }
-            URL url = new URL(apiEndpoint + "completion");
+            URL url = new URL(apiEndpoint + resourceURI);
             conn = (HttpURLConnection) url.openConnection();
 
             conn.setConnectTimeout(serviceTimeout); // set timeout to 5 seconds
