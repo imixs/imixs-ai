@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Neues Lizenz-Header
+# Define the new license header
 read -r -d '' NEW_HEADER <<'EOF'
 /****************************************************************************
  * Copyright (c) 2022-2025 Imixs Software Solutions GmbH and others.
@@ -17,41 +17,49 @@ read -r -d '' NEW_HEADER <<'EOF'
  ****************************************************************************/
 EOF
 
-# Check all .java-files 
+# Find all Java files in the project
 find . -name "*.java" | while read -r file; do
-    echo "processing: $file"
+    echo "Processing: $file"
 
-    # Check for old header
-    if grep -q "Imixs Software Solutions GmbH" "$file" && grep -q "This program is free software" "$file"; then
-        echo " -> found old header..."
-        # remove old comment blog (from /* to */)
-        awk '/\/\*/,/\*\// {next} {print}' "$file" > "$file.tmp"
+    # Read the first line
+    first_line=$(head -n 1 "$file")
 
-    # check for missing header (starts direkt with package or import)
-    elif grep -q -m 1 -E "^\s*(package|import)" "$file"; then
-        FIRST_LINE=$(head -n 1 "$file")
-        if [[ $FIRST_LINE =~ ^[[:space:]]*(package|import) ]]; then
-            echo " -> missing header - adding now"
-            cp "$file" "$file.tmp"
-        else
-            echo " -> no changes."
-            continue
-        fi
+    # Case 1: existing comment block at the very top
+    if [[ "$first_line" =~ ^[[:space:]]*/\* ]]; then
+        echo " -> Found header comment at line 1. Replacing it."
 
+        # Remove the first comment block (header) only
+        awk '
+            BEGIN {in_header=1}
+            NR==1 && $0 !~ /^\/\*/ {in_header=0}
+            in_header && $0 ~ /\*\// {getline; in_header=0}
+            !in_header {print}
+        ' "$file" > "$file.tmp"
+
+        {
+            echo "$NEW_HEADER"
+            echo ""
+            cat "$file.tmp"
+        } > "$file"
+
+        rm "$file.tmp"
+
+    # Case 2: no header, file starts with package or import
+    elif [[ "$first_line" =~ ^[[:space:]]*(package|import) ]]; then
+        echo " -> No license header found. Inserting new header."
+
+        mv "$file" "$file.tmp"
+        {
+            echo "$NEW_HEADER"
+            echo ""
+            cat "$file.tmp"
+        } > "$file"
+        rm "$file.tmp"
+
+    # Case 3: some other structure; skip for safety
     else
-        echo " -> already up to date."
-        continue
+        echo " -> No recognizable header structure. Skipping."
     fi
-
-    # update file
-    {
-        echo "$NEW_HEADER"
-        echo ""
-        cat "$file.tmp"
-    } > "$file"
-
-    # clean up
-    rm "$file.tmp"
 done
 
-echo "completed."
+echo "Done."
