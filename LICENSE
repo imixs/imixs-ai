@@ -14,9 +14,9 @@ terms of either:
 
 You may choose to use, modify, and distribute this program under the terms of either license.
 
-Eclipse Public License - v 2.0
+# Eclipse Public License - v 2.0
 
-1. DEFINITIONS
+## 1. DEFINITIONS
 
 "Contribution" means:
 
@@ -71,7 +71,7 @@ Version 2.0, or any later versions of that license, including any
 exceptions or additional permissions as identified by the initial
 Contributor.
 
-2. GRANT OF RIGHTS
+## 2. GRANT OF RIGHTS
 
 a) Subject to the terms of this Agreement, each Contributor hereby
 grants Recipient a non-exclusive, worldwide, royalty-free copyright
@@ -115,9 +115,9 @@ those set forth in this Agreement) as a result of such Recipient's
 receipt of the Program under the terms of a Secondary License
 (if permitted under the terms of Section 3).
 
-3. REQUIREMENTS
+## 3. REQUIREMENTS
 
-3.1 If a Contributor Distributes the Program in any form, then:
+### 3.1 If a Contributor Distributes the Program in any form, then:
 
 a) the Program must also be made available as Source Code, in
 accordance with section 3.2, and the Contributor must accompany
@@ -134,18 +134,18 @@ warranties or conditions of title and non-infringement, and
 implied warranties or conditions of merchantability and fitness
 for a particular purpose;
 
-     ii) effectively excludes on behalf of all other Contributors all
-     liability for damages, including direct, indirect, special,
-     incidental and consequential damages, such as lost profits;
+ii) effectively excludes on behalf of all other Contributors all
+liability for damages, including direct, indirect, special,
+incidental and consequential damages, such as lost profits;
 
-     iii) does not attempt to limit or alter the recipients' rights
-     in the Source Code under section 3.2; and
+iii) does not attempt to limit or alter the recipients' rights
+in the Source Code under section 3.2; and
 
-     iv) requires any subsequent distribution of the Program by any
-     party to be under a license that satisfies the requirements
-     of this section 3.
+iv) requires any subsequent distribution of the Program by any
+party to be under a license that satisfies the requirements
+of this section 3.
 
-3.2 When the Program is Distributed as Source Code:
+### 3.2 When the Program is Distributed as Source Code:
 
 a) it must be made available under this Agreement, or if the
 Program (i) is combined with other material in a separate file or
@@ -157,13 +157,14 @@ under the terms of such Secondary Licenses, and
 b) a copy of this Agreement must be included with each copy of
 the Program.
 
-3.3 Contributors may not remove or alter any copyright, patent,
+### 3.3 Contributors may not remove or alter any copyright, patent,
+
 trademark, attribution notices, disclaimers of warranty, or limitations
 of liability ("notices") contained within the Program from any copy of
 the Program which they Distribute, provided that Contributors may add
 their own appropriate notices.
 
-4. COMMERCIAL DISTRIBUTION
+## 4. COMMERCIAL DISTRIBUTION
 
 Commercial distributors of software may accept certain responsibilities
 with respect to end users, business partners and the like. While this
@@ -198,7 +199,7 @@ claims and warranties, and if a court requires any other Contributor to
 pay any damages as a result, the Commercial Contributor must pay
 those damages.
 
-5. NO WARRANTY
+## 5. NO WARRANTY
 
 EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, AND TO THE EXTENT
 PERMITTED BY APPLICABLE LAW, THE PROGRAM IS PROVIDED ON AN "AS IS"
@@ -212,7 +213,7 @@ including but not limited to the risks and costs of program errors,
 compliance with applicable laws, damage to or loss of data, programs
 or equipment, and unavailability or interruption of operations.
 
-6. DISCLAIMER OF LIABILITY
+## 6. DISCLAIMER OF LIABILITY
 
 EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, AND TO THE EXTENT
 PERMITTED BY APPLICABLE LAW, NEITHER RECIPIENT NOR ANY CONTRIBUTORS
@@ -224,7 +225,7 @@ ARISING IN ANY WAY OUT OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE
 EXERCISE OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGES.
 
-7. GENERAL
+## 7. GENERAL
 
 If any provision of this Agreement is invalid or unenforceable under
 applicable law, it shall not affect the validity or enforceability of
@@ -271,7 +272,7 @@ under this Agreement are reserved. Nothing in this Agreement is intended
 to be enforceable by any entity that is not a Contributor or Recipient.
 No third-party beneficiary rights are created under this Agreement.
 
-Exhibit A – Form of Secondary Licenses Notice
+# Exhibit A – Form of Secondary Licenses Notice
 
 This Source Code may also be made available under the following
 Secondary Licenses when the conditions for such availability set forth
