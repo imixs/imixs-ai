@@ -23,6 +23,7 @@ import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -422,27 +423,24 @@ public class OpenAIAPIService implements Serializable {
      * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
      * be done in 10 simple steps:","n_predict": 128}'
      *
-     * @param completionResult
-     * @param workitem
-     * @param resultItemName
-     * @param resultEventType
+     * @param prompt      - the prompt to be indexed
+     * @param apiEndpoint - llm api endpoint
+     * @param debug       - debug mode
      * @throws PluginException
      */
-    public float[] processRAGIndex(String text, String apiEndpoint) throws PluginException {
+    public List<Float> postEmbedding(String prompt, String apiEndpoint, boolean debug) throws PluginException {
 
-        String response = null;
-        float[] result = null;
+        List<Float> result = new ArrayList<>();
+
+        if (debug) {
+            logger.info("├── postEmbeddings...");
+            logger.info("├── text size=" + prompt.length());
+        }
 
         JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
-        jsonObjectBuilder.add("content", text);
+        jsonObjectBuilder.add("content", prompt);
         JsonObject jsonObject = jsonObjectBuilder.build();
-
-        logger.info("buildJsonPromptObject completed:");
-        logger.info(jsonObject.toString());
-
-        String jsonString = jsonObject.toString();
-        logger.fine("JSON Object=" + jsonString);
-
+        String jsonPrompt = jsonObject.toString();
         try {
             HttpURLConnection conn = createHttpConnection(apiEndpoint, "embedding");
 
@@ -453,15 +451,20 @@ public class OpenAIAPIService implements Serializable {
             conn.setDoOutput(true);
 
             // Write the text to the output stream
-
+            if (debug) {
+                logger.info("│   ├── POST Text:");
+                logger.info(jsonPrompt);
+            }
             try (OutputStream os = conn.getOutputStream()) {
-                byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
+                byte[] input = jsonPrompt.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
             }
 
             // Reading the response
             int responseCode = conn.getResponseCode();
-            logger.fine("POST Response Code :: " + responseCode);
+            if (debug) {
+                logger.info("│   ├── POST Response Code: " + responseCode);
+            }
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 try (BufferedReader br = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -469,39 +472,26 @@ public class OpenAIAPIService implements Serializable {
                     String responseLine = null;
                     while ((responseLine = br.readLine()) != null) {
                         responseBody.append(responseLine.trim() + "\n");
+                        // logger.info("lese line: " + responseLine);
                     }
-                    response = responseBody.toString();
-                    logger.fine("Response Body :: " + response);
-
+                    String jsonResponse = responseBody.toString();
+                    // logger.info(jsonResponse);
                     // Extract the vector field from the json string
-
-                    try (JsonReader jsonReader = Json.createReader(new StringReader(jsonString))) {
+                    try (JsonReader jsonReader = Json.createReader(new StringReader(jsonResponse))) {
                         // Lies das JSON-Array
                         JsonArray rootArray = jsonReader.readArray();
                         if (!rootArray.isEmpty()) {
-                            // Hole das erste JSON-Objekt
                             JsonObject firstObject = rootArray.getJsonObject(0);
-                            // Überprüfe, ob "embedding" vorhanden ist
-
                             if (firstObject.containsKey("embedding")) {
                                 JsonArray embeddingArray = firstObject.getJsonArray("embedding");
-
                                 if (!embeddingArray.isEmpty()) {
                                     JsonArray firstEmbedding = embeddingArray.getJsonArray(0);
-
-                                    // Extrahiere die Werte als float[]
-                                    result = new float[firstEmbedding.size()];
+                                    // Extrahiere die Werte als List<Float>
+                                    // result = new float[firstEmbedding.size()];
                                     for (int i = 0; i < firstEmbedding.size(); i++) {
-                                        result[i] = (float) firstEmbedding.getJsonNumber(i).doubleValue();
-                                    }
-
-                                    // Ausgabe zur Kontrolle
-                                    System.out.println("Erstes Embedding (float):");
-                                    for (float val : result) {
-                                        System.out.println(val);
+                                        result.add((float) firstEmbedding.getJsonNumber(i).doubleValue());
                                     }
                                 }
-
                             }
                         }
                     }
@@ -509,11 +499,14 @@ public class OpenAIAPIService implements Serializable {
             } else {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         OpenAIAPIService.ERROR_PROMPT_INFERENCE,
-                        "Error during POST text: HTTP Result " + responseCode);
+                        "Error during POST prompt: HTTP Result " + responseCode);
             }
             // Close the connection
             conn.disconnect();
-            logger.fine("===== postRAGIndex completed");
+            if (debug) {
+                logger.info("│   ├── index size= " + result.size() + " floats");
+                logger.info("├── ✅ postEmbeddings completed");
+            }
             return result;
 
         } catch (IOException e) {
@@ -521,7 +514,7 @@ public class OpenAIAPIService implements Serializable {
             throw new PluginException(
                     OpenAIAPIService.class.getSimpleName(),
                     ERROR_PROMPT_TEMPLATE,
-                    "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
+                    "⚠️ postEmbeddings failed: " + e.getMessage(), e);
         }
 
     }
