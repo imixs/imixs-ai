@@ -472,7 +472,7 @@ public class OpenAIAPIService implements Serializable {
                     String responseLine = null;
                     while ((responseLine = br.readLine()) != null) {
                         responseBody.append(responseLine.trim() + "\n");
-                        // logger.info("lese line: " + responseLine);
+                        // logger.info("read line: " + responseLine);
                     }
                     String jsonResponse = responseBody.toString();
                     // logger.info(jsonResponse);
