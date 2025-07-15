@@ -40,6 +40,10 @@ import org.openbpmn.bpmn.elements.Event;
 import org.openbpmn.bpmn.elements.core.BPMNElementNode;
 import org.openbpmn.bpmn.exceptions.BPMNValidationException;
 
+/**
+ * This test class demonstrates how to convert a BPMN Model into Markup Language
+ * useable for LLMs
+ */
 public class TestBPMNPromptTemplate {
 
     private static Logger logger = Logger.getLogger(TestBPMNPromptTemplate.class.getName());
@@ -51,23 +55,21 @@ public class TestBPMNPromptTemplate {
 
     @BeforeEach
     public void setup() throws PluginException, ModelException {
-
-        MockitoAnnotations.openMocks(this);
         Logger.getLogger("org.imixs.workflow.*").setLevel(Level.FINEST);
-        workflowEnvironment = new MockWorkflowEnvironment();
 
         // Setup Environment
+        MockitoAnnotations.openMocks(this);
+        workflowEnvironment = new MockWorkflowEnvironment();
         workflowEnvironment.setUp();
-
+        // Load Models
         workflowEnvironment.loadBPMNModelFromFile("/bpmn/rechnungseingang-de-1.2.41.bpmn");
-
     }
 
     /**
-     * Test the event configuration
+     * Test the output of the Model in Markup Language
      */
     @Test
-    public void testPromptTempalteOutput() {
+    public void testPromptTemplateOutput() {
         StringBuffer buffer = new StringBuffer();
         List<Integer> allTaskIDs = new ArrayList<>();
         try {
@@ -114,7 +116,6 @@ public class TestBPMNPromptTemplate {
                         printTask(task, buffer);
                     }
                 }
-
             }
 
             buffer.append("  *\n");
@@ -157,12 +158,10 @@ public class TestBPMNPromptTemplate {
                         + event.getItemValueString("name") + " --> [Task: "
                         + targetItemCol.getItemValueString("taskid") + "] "
                         + targetItemCol.getItemValueString("name") + "\n");
-
             }
         }
 
         buffer.append("  |\n");
-
         return taskID;
     }
 }
