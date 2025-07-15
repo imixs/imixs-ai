@@ -16,10 +16,11 @@ package org.imixs.ai.workflow;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.engine.WorkflowMockEnvironment;
+import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;
 import org.imixs.workflow.exceptions.PluginException;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +47,7 @@ public class TestLLMAdapter {
 
     protected ItemCollection workitem;
     protected ItemCollection event;
-    protected WorkflowMockEnvironment workflowEnvironment;
+    protected MockWorkflowEnvironment workflowEnvironment;
     BPMNModel model = null;
 
     @InjectMocks
@@ -58,16 +59,20 @@ public class TestLLMAdapter {
     @BeforeEach
     public void setUp() throws PluginException, ModelException {
         // Ensures that @Mock and @InjectMocks annotations are processed
-        MockitoAnnotations.openMocks(this);
-        workflowEnvironment = new WorkflowMockEnvironment();
 
-        // register AccessAdapter Mock
-        workflowEnvironment.registerAdapter(adapter);
+        MockitoAnnotations.openMocks(this);
+        Logger.getLogger("org.imixs.workflow.*").setLevel(Level.FINEST);
+        workflowEnvironment = new MockWorkflowEnvironment();
 
         // Setup Environment
         workflowEnvironment.setUp();
-        workflowEnvironment.loadBPMNModel("/bpmn/llm-example-1.0.0.bpmn");
-        model = workflowEnvironment.getModelService().getModelManager().getModel("1.0.0");
+
+        workflowEnvironment.loadBPMNModelFromFile("/bpmn/llm-example-1.0.0.bpmn");
+
+        model = workflowEnvironment.fetchModel("1.0.0");
+
+        // register Adapter classes
+        workflowEnvironment.registerAdapter(adapter);
         adapter.setWorkflowService(workflowEnvironment.getWorkflowService());
 
         // prepare data
@@ -83,7 +88,7 @@ public class TestLLMAdapter {
     @Test
     public void testEventSetup() {
         try {
-            event = workflowEnvironment.getModelService().getModelManager().findEventByID(model, 100, 10);
+            event = workflowEnvironment.getModelManager().findEventByID(model, 100, 10);
             assertNotNull(event);
             workitem.setEventID(10);
             // currently we ignore this test beause we can not yet mock the OpenAIAPIService

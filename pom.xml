@@ -19,7 +19,7 @@
 		<microprofile.version>6.0</microprofile.version>
 		<junit.jupiter.version>5.9.2</junit.jupiter.version>
 		<mockito.version>5.8.0</mockito.version>
-		<org.imixs.mock.version>6.1.0</org.imixs.mock.version>
+		<org.imixs.mock.version>6.2.0-SNAPSHOT</org.imixs.mock.version>
 	</properties>
 
 	<description>Connect Imixs-Workflow with services and software platforms</description>

@@ -14,56 +14,53 @@
 
 package org.imixs.ai.bpmn;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ItemCollectionComparator;
-import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.bpmn.BPMNEntityBuilder;
 import org.imixs.workflow.bpmn.BPMNLinkedFlowIterator;
 import org.imixs.workflow.bpmn.BPMNUtil;
+import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;
+import org.imixs.workflow.exceptions.PluginException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockitoAnnotations;
 import org.openbpmn.bpmn.BPMNModel;
 import org.openbpmn.bpmn.elements.Event;
 import org.openbpmn.bpmn.elements.core.BPMNElementNode;
-import org.openbpmn.bpmn.exceptions.BPMNModelException;
 import org.openbpmn.bpmn.exceptions.BPMNValidationException;
-import org.openbpmn.bpmn.util.BPMNModelFactory;
-import org.xml.sax.SAXException;
 
 public class TestBPMNPromptTemplate {
 
     private static Logger logger = Logger.getLogger(TestBPMNPromptTemplate.class.getName());
 
     BPMNModel model = null;
-    ModelManager openBPMNModelManager = null;
+    protected ItemCollection workitem;
+    protected ItemCollection event;
+    protected MockWorkflowEnvironment workflowEnvironment;
 
     @BeforeEach
-    public void setup() throws ParserConfigurationException, SAXException, IOException {
-        openBPMNModelManager = new ModelManager();
-        try {
-            openBPMNModelManager.addModel(BPMNModelFactory.read("/bpmn/rechnung-ai-test.bpmn"));
-            openBPMNModelManager.addModel(BPMNModelFactory.read("/bpmn/rechnungseingang-de-1.2.41.bpmn"));
-            // model = openBPMNModelManager.getModel("1.0.0");
-            model = openBPMNModelManager.getModel("rechnungseingang-de-1.2");
+    public void setup() throws PluginException, ModelException {
 
-            assertNotNull(model);
-        } catch (ModelException | BPMNModelException e) {
-            fail(e.getMessage());
-        }
+        MockitoAnnotations.openMocks(this);
+        Logger.getLogger("org.imixs.workflow.*").setLevel(Level.FINEST);
+        workflowEnvironment = new MockWorkflowEnvironment();
+
+        // Setup Environment
+        workflowEnvironment.setUp();
+
+        workflowEnvironment.loadBPMNModelFromFile("/bpmn/rechnungseingang-de-1.2.41.bpmn");
+
     }
 
     /**
@@ -74,14 +71,14 @@ public class TestBPMNPromptTemplate {
         StringBuffer buffer = new StringBuffer();
         List<Integer> allTaskIDs = new ArrayList<>();
         try {
-
-            Set<String> groups = openBPMNModelManager.findAllGroups();
+            model = workflowEnvironment.fetchModel("rechnungseingang-de-1.2");
+            Set<String> groups = workflowEnvironment.getModelManager().findAllGroupsByModel(model);
 
             for (String group : groups) {
                 buffer.append("Prozess: " + group + "\n\n");
 
                 // find start tasks
-                List<ItemCollection> startTasks = openBPMNModelManager.findStartTasks(model, group);
+                List<ItemCollection> startTasks = workflowEnvironment.getModelManager().findStartTasks(model, group);
                 for (ItemCollection startTask : startTasks) {
                     buffer.append("START\n  |\n");
                     allTaskIDs.add(startTask.getItemValueInteger("taskid"));
@@ -90,7 +87,7 @@ public class TestBPMNPromptTemplate {
                 }
 
                 // now print all immediate tasks...
-                List<ItemCollection> allTasks = openBPMNModelManager.findTasks(model, group);
+                List<ItemCollection> allTasks = workflowEnvironment.getModelManager().findTasks(model, group);
                 Iterator<ItemCollection> taskIterator = allTasks.iterator();
                 while (taskIterator.hasNext()) {
                     ItemCollection task = taskIterator.next();
@@ -141,7 +138,7 @@ public class TestBPMNPromptTemplate {
                     + documentation + "\n");
         }
 
-        List<ItemCollection> events = openBPMNModelManager.findEventsByTask(model, taskID);
+        List<ItemCollection> events = workflowEnvironment.getModelManager().findEventsByTask(model, taskID);
         Collections.sort(events, new ItemCollectionComparator("eventID", true));
         for (ItemCollection event : events) {
             String id = event.getItemValueString("id");
