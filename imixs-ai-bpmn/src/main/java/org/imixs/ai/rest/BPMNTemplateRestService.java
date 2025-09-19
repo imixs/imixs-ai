@@ -47,7 +47,7 @@ import jakarta.ws.rs.core.UriInfo;
 @Named
 @RequestScoped
 @Path("/ai/bpmn/template/")
-@Produces({ MediaType.APPLICATION_JSON })
+@Produces({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
 public class BPMNTemplateRestService implements Serializable {
 
     private static final long serialVersionUID = 1L;

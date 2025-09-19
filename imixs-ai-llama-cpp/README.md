@@ -217,6 +217,7 @@ This should just the nvidia-smi output form above.
 
 To add GPU support for kuberentes use the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html).
 
+
 ### Install Helm
 
 To install you need the cli tool Helm. If not yet installed run:
@@ -274,7 +275,101 @@ If something goes wrong you can delete the operator with:
 
 For the deployment in a Kubernetes cluster you can use the file `kubernetes.yaml` as a template. The template expects a data volume named `llama-cpp-models` that holds the models. 
 
+#### Basic Authentication
 
+To protect the llama-cpp web server you usually use a ingress condfiguration with a BASIC authentication like this:
+
+```xml
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: llama-cpp-server-tls
+  namespace: llama-cpp
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - llama.cpp.foo.com
+      secretName: tls-llama-cpp-service
+  rules:
+    - host: llama.cpp.foo.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: server
+                port:
+                  number: 8080
+```
+
+#### API Key Authentication
+
+As an alternative you can also setup an ingress with an API key authentication. See the following example: 
+
+```xml
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: llama-cpp-api-key-auth
+  namespace: llama-cpp
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      access_by_lua_block {
+        -- Skip API key validation for Let's Encrypt ACME challenges
+        if string.match(ngx.var.uri, "^/.well%-known/acme%-challenge/") then
+          return
+        end
+
+        local api_key = ngx.var.http_x_api_key or ngx.var.arg_api_key
+        local valid_key = "MY_SECRET_API_KEY"
+        if not api_key or api_key ~= valid_key then
+          ngx.status = 401
+          ngx.header["Content-Type"] = "application/json"
+          ngx.say('{"error": "Invalid API key"}')
+          ngx.exit(401)
+        end
+      }
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+      - api.llama.cpp.foo.com
+      secretName: tls-api-llama-cpp-service
+  rules:
+    - host: api.llama.cpp.foo.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: server
+                port:
+                  number: 8080
+```
+
+
+You can test the API solution with curl:
+
+```bash
+curl --request   POST   --url https://api.llama.cpp.imixs.com/v1/completions   --header "Content-Type: application/json"   --header "X-API-Key: MY_SECRET_API_KEY"   --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
+```
+
+or you can provide the API key as a query string:
+
+```bash
+curl --request   POST   --url https://api.llama.cpp.imixs.com/v1/completions   --header "Content-Type: application/json"   --header "X-API-Key: MY_SECRET_API_KEY"   --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
+```
 
 
 # Prompt Engineering 
