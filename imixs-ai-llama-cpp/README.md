@@ -330,8 +330,26 @@ metadata:
           return
         end
 
-        local api_key = ngx.var.http_x_api_key or ngx.var.arg_api_key
+        local api_key = nil
+        
+        -- Check for Bearer token in Authorization header
+        local auth_header = ngx.var.http_authorization
+        if auth_header then
+          api_key = string.match(auth_header, "^Bearer%s+(.+)$")
+        end
+        
+        -- Fallback: Check for X-API-Key header
+        if not api_key then
+          api_key = ngx.var.http_x_api_key
+        end
+        
+        -- Fallback: Check for api_key query parameter
+        if not api_key then
+          api_key = ngx.var.arg_api_key
+        end
+        
         local valid_key = "MY_SECRET_API_KEY"
+        
         if not api_key or api_key ~= valid_key then
           ngx.status = 401
           ngx.header["Content-Type"] = "application/json"
@@ -362,13 +380,18 @@ spec:
 You can test the API solution with curl:
 
 ```bash
-curl --request   POST   --url https://api.llama.cpp.imixs.com/v1/completions   --header "Content-Type: application/json"   --header "X-API-Key: MY_SECRET_API_KEY"   --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
+curl -X POST "https://api.llama.cpp.foo.com/v1/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer MY_SECRET_API_KEY" \
+  -d '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
 ```
 
 or you can provide the API key as a query string:
 
 ```bash
-curl --request   POST   --url https://api.llama.cpp.imixs.com/v1/completions   --header "Content-Type: application/json"   --header "X-API-Key: MY_SECRET_API_KEY"   --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
+curl --request POST --url https://api.llama.cpp.foo.com/v1/completions?api_key=MY_SECRET_API_KEY  \
+     --header "Content-Type: application/json" \
+     --data '{"prompt": "Building a website can be done in 10 simple steps:","n_predict": 128}'
 ```
 
 
