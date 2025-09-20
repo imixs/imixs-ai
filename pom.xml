@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.imixs.workflow</groupId>
 	<artifactId>imixs-ai</artifactId>
@@ -8,17 +10,19 @@
 	<modules>
 		<module>imixs-ai-workflow</module>
 		<module>imixs-ai-bpmn</module>
+		<module>imixs-ai-rag</module>
 	</modules>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<org.imixs.workflow.version>6.2.3</org.imixs.workflow.version>
 		<org.imixs.melman.version>1.0.19</org.imixs.melman.version>
+		<org.imixs.mock.version>6.2.0</org.imixs.mock.version>
 		<jakarta.version>10.0.0</jakarta.version>
 		<microprofile.version>6.0</microprofile.version>
 		<junit.jupiter.version>5.9.2</junit.jupiter.version>
 		<mockito.version>5.8.0</mockito.version>
-		<org.imixs.mock.version>6.2.0</org.imixs.mock.version>
+		<apache.cassandra.driver.version>4.19.0</apache.cassandra.driver.version>
 	</properties>
 
 	<description>Connect Imixs-Workflow with services and software platforms</description>
