@@ -1,6 +1,6 @@
 # Imixs-AI-BPMN
 
-The Imixs-AI-BPMN module provides Rest Services and Adapter classes to translate BPMN models, BPMN processes or single BPMN Elements into a text blocks that can be processed by an LLM.
+The Imixs-AI-BPMN module provides Rest Services and Adapter classes to translate BPMN models, BPMN processes or single BPMN Elements into text that can be processed by an LLM.
 
 - **BPMNTemplateBuilder**<br/>A builder class to translate a BPMN model into a text block that can be processed by an LLM
 
