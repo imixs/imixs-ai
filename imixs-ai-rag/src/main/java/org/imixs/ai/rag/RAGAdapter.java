@@ -222,34 +222,6 @@ public class RAGAdapter implements SignalAdapter {
                         workitem.getUniqueID(),
                         indexDefinition);
 
-                // if (llmAPIDebug) {
-                // logger.info("│ ├── Total Prompt Length = " + llmPrompt.length());
-                // logger.info("│ ├── Prompt: ");
-                // logger.info(llmPrompt);
-                // }
-
-                // // remove old embeddings
-                // clusterService.removeAllEmbeddings(workitem.getUniqueID());
-                // // chunk text....
-                // List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt);
-                // for (String chunk : chunk_list) {
-                // if (llmAPIDebug) {
-                // logger.info("│ ├── 🔸 chunk: ");
-                // logger.info(chunk);
-                // }
-                // List<Float> indexResult = llmService.postEmbedding(chunk, llmAPIEndpoint,
-                // llmAPIDebug);
-                // // write to cassandra
-                // clusterService.insertVector(workitem.getUniqueID(),
-                // workitem.getModelVersion(),
-                // workitem.getTaskID(),
-                // chunk,
-                // indexResult);
-                // if (llmAPIDebug) {
-                // logger.info("│ ├── ⇨ " + indexResult.size() + " floats stored in RAG db.");
-                // }
-                // }
-
                 if (llmAPIDebug) {
                     logger.info(
                             "├── ✅ Total processing time: " + (System.currentTimeMillis() - processingTime) + "ms");
