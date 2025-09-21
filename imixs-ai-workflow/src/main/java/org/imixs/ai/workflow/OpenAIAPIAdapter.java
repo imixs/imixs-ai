@@ -172,7 +172,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     String promptTemplate = llmService.loadPromptTemplate(event);
                     String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                     // if we have a prompt we call the llm api endpoint
-                    if (!llmPrompt.isEmpty()) {
+                    if (llmPrompt != null && !llmPrompt.isBlank()) {
                         if (llmAPIDebug) {
                             logger.info("===> Total Prompt Length = " + llmPrompt.length());
                             logger.info("===> Prompt: ");

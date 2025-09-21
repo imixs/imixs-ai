@@ -260,7 +260,7 @@ public class RAGAdapter implements SignalAdapter {
                     llmAPIDebug = true;
                 }
 
-                logger.info("├── post RAG Retrievalf request: " + llmAPIEndpoint);
+                logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
                 String promptTemplate = llmService.loadPromptTemplate(event);
                 logger.info("│   ├── PromptTemplate: ");
                 logger.info(promptTemplate);

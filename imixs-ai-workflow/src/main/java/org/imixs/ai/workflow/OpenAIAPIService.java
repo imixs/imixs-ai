@@ -219,7 +219,7 @@ public class OpenAIAPIService implements Serializable {
             logger.warning("No data object for prompt template found");
         }
 
-        // tage teh first data object....
+        // take the first data object....
         List<String> data = (List<String>) dataObjects.get(0);
         // String name = "" + data.get(0);
         String prompt = "" + data.get(1);
