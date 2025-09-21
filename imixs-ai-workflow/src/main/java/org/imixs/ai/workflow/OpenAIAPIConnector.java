@@ -56,8 +56,8 @@ public class OpenAIAPIConnector implements Serializable {
     public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "llm.service.endpoint.password";
     public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "llm.service.timeout";
 
-    // public static final String ENDPOINT_URI_COMPLETIONS = "v1/chat/completions";
-    public static final String ENDPOINT_URI_COMPLETIONS = "completion";
+    public static final String ENDPOINT_URI_COMPLETIONS = "v1/chat/completions";
+    // public static final String ENDPOINT_URI_COMPLETIONS = "completion";
 
     public static final String ENDPOINT_URI_EMBEDDINGS = "v1/embeddings";
 

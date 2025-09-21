@@ -51,6 +51,7 @@ import jakarta.enterprise.event.ObserverException;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
+import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.json.JsonReader;
@@ -228,6 +229,8 @@ public class OpenAIAPIService implements Serializable {
 
     /**
      * This helper method builds a json prompt object including options params.
+     * 
+     * Use buildJsonPromptObjectV1 to support new OpenAI API
      *
      * See details:
      * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
@@ -238,6 +241,7 @@ public class OpenAIAPIService implements Serializable {
      * @param prompt_options
      * @return
      */
+    @Deprecated
     public JsonObject buildJsonPromptObject(String prompt, boolean stream, String prompt_options) {
 
         // Create a JsonObjectBuilder instance
@@ -270,23 +274,122 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method processes a OpenAI API prompt result in JSON format. The method
-     * expects a workitem* including the item 'ai.result' providing the LLM result
+     * This helper method builds a json prompt object for OpenAI API including
+     * optional params.
+     *
+     * See details:
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
+     * @param prompt
+     * @param stream         - boolean indicates if the client tries to stream the
+     *                       result.
+     * @param prompt_options
+     * @return
+     */
+    public JsonObject buildJsonPromptObjectV1(String prompt, boolean stream, String prompt_options) {
+
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+
+        // Create the messages array with one user message
+        JsonArrayBuilder messagesArrayBuilder = Json.createArrayBuilder();
+        JsonObjectBuilder userMessageBuilder = Json.createObjectBuilder();
+        userMessageBuilder.add("role", "user");
+        userMessageBuilder.add("content", prompt);
+        messagesArrayBuilder.add(userMessageBuilder);
+        jsonObjectBuilder.add("messages", messagesArrayBuilder);
+
+        // Default model – könnte man auch per prompt_options überschreiben
+        // jsonObjectBuilder.add("model", "gpt-4o-mini");
+
+        if (stream) {
+            jsonObjectBuilder.add("stream", true);
+        }
+
+        // Do we have additional options?
+        if (prompt_options != null && !prompt_options.isEmpty()) {
+            JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
+            JsonObject parsedJsonObject = jsonReader.readObject();
+            jsonReader.close();
+
+            for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
+                jsonObjectBuilder.add(entry.getKey(), entry.getValue());
+            }
+        }
+
+        JsonObject jsonObject = jsonObjectBuilder.build();
+
+        logger.fine("buildJsonPromptObjectV1 completed:");
+        logger.fine(jsonObject.toString());
+        return jsonObject;
+    }
+
+    /**
+     * This method processes a OpenAI API completions result in JSON format. The
+     * method expects a workitem* to store the result into the item 'ai.result' as a
+     * List of string values.
+     * <p>
+     * The optional parameter 'resultItemName' defines an item to store the result
      * string.
      * 
-     * The parameter 'resultItemName' defines the item to store the result string.
-     * This param can be empty.
-     * 
-     * The parameter 'mode' defines a resolver method.
-     * 
-     * @param workitem        - the workitem holding the last AI result (stored in a
-     *                        value list)
-     * @param resultItemName  - the item name to store the llm text result
+     * @param workitem        - the workitem to store the text result
+     * @param resultItemName  - optional item name to store the text result
      * @param resultEventType - optional event type send to all CDI Event observers
      *                        for the LLMResultEvent
      * @throws PluginException
      */
     public void processPromptResult(String completionResult, ItemCollection workitem, String resultItemName,
+            String resultEventType) throws PluginException {
+
+        // Parse the JSON result
+        JsonReader jsonReader = Json.createReader(new StringReader(completionResult));
+        JsonObject parsedJsonObject = jsonReader.readObject();
+        jsonReader.close();
+
+        String promptResult = null;
+
+        // Case 1: OpenAI chat format -> {"choices":[{"message":{"content":"..."}}]}
+        if (parsedJsonObject.containsKey("choices")) {
+            JsonArray choices = parsedJsonObject.getJsonArray("choices");
+            if (choices != null && !choices.isEmpty()) {
+                JsonObject firstChoice = choices.getJsonObject(0);
+                if (firstChoice.containsKey("message")) {
+                    JsonObject message = firstChoice.getJsonObject("message");
+                    promptResult = message.getString("content", null);
+                }
+            }
+        }
+
+        // Case 2: old Llama.cpp format -> {"content": "..."}
+        if (promptResult == null && parsedJsonObject.containsKey("content")) {
+            promptResult = parsedJsonObject.getString("content", null);
+        }
+
+        // Error handling
+        if (promptResult == null) {
+            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_INFERENCE, "Error during POST prompt - no result returned!");
+        }
+
+        // Clean result
+        promptResult = promptResult.trim();
+
+        // Store result in workitem
+        workitem.appendItemValue(ITEM_AI_RESULT, promptResult);
+
+        if (resultItemName != null && !resultItemName.isEmpty()) {
+            workitem.setItemValue(resultItemName, promptResult);
+            workitem.setItemValue(ITEM_AI_RESULT_ITEM, resultItemName);
+        }
+
+        // Fire CDI event (Adapters can resolve the result)
+        if (resultEventType != null && !resultEventType.isEmpty()) {
+            ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(promptResult, resultEventType, workitem);
+            llmResultEventObservers.fire(llmResultEvent);
+        }
+    }
+
+    @Deprecated
+    public void processPromptResultOld(String completionResult, ItemCollection workitem, String resultItemName,
             String resultEventType) throws PluginException {
 
         // We expect a OpenAI API Json Result object
