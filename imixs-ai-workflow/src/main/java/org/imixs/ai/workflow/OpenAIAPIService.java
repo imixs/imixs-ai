@@ -21,10 +21,8 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,26 +85,18 @@ public class OpenAIAPIService implements Serializable {
 
     public static final String LLM_MODEL = "llm.model";
 
-    public static final String ENV_LLM_SERVICE_ENDPOINT = "llm.service.endpoint";
-    public static final String ENV_LLM_SERVICE_ENDPOINT_USER = "llm.service.endpoint.user";
-    public static final String ENV_LLM_SERVICE_ENDPOINT_PASSWORD = "llm.service.endpoint.password";
     public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "llm.service.timeout";
 
     @Inject
-    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT)
+    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
     Optional<String> serviceEndpoint;
-
-    @Inject
-    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_USER)
-    Optional<String> serviceEndpointUser;
-
-    @Inject
-    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_PASSWORD)
-    Optional<String> serviceEndpointPassword;
 
     @Inject
     @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_TIMEOUT, defaultValue = "120000")
     int serviceTimeout;
+
+    @Inject
+    protected OpenAIAPIConnector openAIAPIConnector;
 
     @Inject
     protected ModelService modelService;
@@ -280,88 +270,6 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method POSTs a LLM Prompt to the service endpoint '/completion' and
-     * returns the predicted completion. The method returns the response body.
-     * <p>
-     * The endpoint is optional and can be null. In the endpoint is not provided the
-     * method resolves the endpoint from the environment variable
-     * <code>llm.service.endpoint</code>.
-     * <p>
-     * The method optional test if the environment variables
-     * LLM_SERVICE_ENDPOINT_USER and LLM_SERVICE_ENDPOINT_PASSWORD are set. In this
-     * case a BASIC Authentication is used for the connection to the LLMService.
-     * 
-     * See details:
-     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
-     * 
-     * 
-     * curl example:
-     * 
-     * curl --request POST \ --url http://localhost:8080/completion \ --header
-     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
-     * be done in 10 simple steps:","n_predict": 128}'
-     * 
-     * @param jsonPromptObject - an LLM json prompt object
-     * @param apiEndpoint      - optional service endpoint
-     * @throws PluginException
-     */
-    public String postPromptCompletion(JsonObject jsonPromptObject, String apiEndpoint)
-            throws PluginException {
-        String response = null;
-
-        try {
-            HttpURLConnection conn = createHttpConnection(apiEndpoint, "completion");
-
-            // Set the appropriate HTTP method
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
-            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
-            conn.setDoOutput(true);
-
-            // Write the JSON object to the output stream
-            String jsonString = jsonPromptObject.toString();
-            logger.fine("JSON Object=" + jsonString);
-
-            try (OutputStream os = conn.getOutputStream()) {
-                byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
-            }
-
-            // Reading the response
-            int responseCode = conn.getResponseCode();
-            logger.fine("POST Response Code :: " + responseCode);
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                try (BufferedReader br = new BufferedReader(
-                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                    StringBuilder responseBody = new StringBuilder();
-                    String responseLine = null;
-                    while ((responseLine = br.readLine()) != null) {
-                        responseBody.append(responseLine.trim() + "\n");
-                    }
-                    response = responseBody.toString();
-                    logger.fine("Response Body :: " + response);
-                }
-            } else {
-                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
-                        "Error during POST prompt: HTTP Result " + responseCode);
-            }
-            // Close the connection
-            conn.disconnect();
-            logger.fine("===== postPromptCompletion completed");
-            return response;
-
-        } catch (IOException e) {
-            logger.severe(e.getMessage());
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_TEMPLATE,
-                    "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
-        }
-
-    }
-
-    /**
      * This method processes a OpenAI API prompt result in JSON format. The method
      * expects a workitem* including the item 'ai.result' providing the LLM result
      * string.
@@ -411,6 +319,92 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
+     * This method POSTs a LLM Prompt to the service endpoint '/completion' and
+     * returns the predicted completion. The method returns the response body.
+     * <p>
+     * The endpoint is optional and can be null. In the endpoint is not provided the
+     * method resolves the endpoint from the environment variable
+     * <code>llm.service.endpoint</code>.
+     * <p>
+     * The method optional test if the environment variables
+     * LLM_SERVICE_ENDPOINT_USER and LLM_SERVICE_ENDPOINT_PASSWORD are set. In this
+     * case a BASIC Authentication is used for the connection to the LLMService.
+     * 
+     * See details:
+     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
+     * 
+     * 
+     * curl example:
+     * 
+     * curl --request POST \ --url http://localhost:8080/completion \ --header
+     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
+     * be done in 10 simple steps:","n_predict": 128}'
+     * 
+     * @param jsonPromptObject - an LLM json prompt object
+     * @param apiEndpoint      - optional service endpoint
+     * @throws PluginException
+     */
+    public String postPromptCompletion(JsonObject jsonPromptObject, String apiEndpoint)
+            throws PluginException {
+        String response = null;
+
+        try {
+            HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
+                    OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
+
+            // Set the appropriate HTTP method
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
+            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
+            conn.setDoOutput(true);
+
+            // Write the JSON object to the output stream
+            String jsonString = jsonPromptObject.toString();
+            logger.fine("JSON Object=" + jsonString);
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            // Reading the response
+            int responseCode = conn.getResponseCode();
+            logger.fine("POST Response Code :: " + responseCode);
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder responseBody = new StringBuilder();
+                    String responseLine = null;
+                    while ((responseLine = br.readLine()) != null) {
+                        responseBody.append(responseLine.trim() + "\n");
+                    }
+                    response = responseBody.toString();
+                    logger.fine("Response Body :: " + response);
+                }
+            } else {
+                logger.severe("│   ├── ⚠️ postCompletion failed - '" + apiEndpoint
+                        + OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS + "' ");
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                        "HTTP Result " + responseCode);
+            }
+            // Close the connection
+            conn.disconnect();
+            logger.fine("===== postPromptCompletion completed");
+            return response;
+
+        } catch (IOException e) {
+            logger.severe(e.getMessage());
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "⚠️ postCompletion failed - " + e.getClass().getName() + ": " + e.getMessage(), e);
+
+        }
+
+    }
+
+    /**
      * RAG Support - compute vector by text
      *
      * See details:
@@ -442,7 +436,8 @@ public class OpenAIAPIService implements Serializable {
         JsonObject jsonObject = jsonObjectBuilder.build();
         String jsonPrompt = jsonObject.toString();
         try {
-            HttpURLConnection conn = createHttpConnection(apiEndpoint, "embedding");
+            HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
+                    OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS);
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -497,9 +492,11 @@ public class OpenAIAPIService implements Serializable {
                     }
                 }
             } else {
+                logger.severe("│   ├── ⚠️ postEmbeddings failed - '" + apiEndpoint
+                        + OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS + "' ");
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         OpenAIAPIService.ERROR_PROMPT_INFERENCE,
-                        "Error during POST prompt: HTTP Result " + responseCode);
+                        "HTTP Result " + responseCode);
             }
             // Close the connection
             conn.disconnect();
@@ -510,74 +507,15 @@ public class OpenAIAPIService implements Serializable {
             return result;
 
         } catch (IOException e) {
+
             logger.severe(e.getMessage());
             throw new PluginException(
                     OpenAIAPIService.class.getSimpleName(),
                     ERROR_PROMPT_TEMPLATE,
-                    "⚠️ postEmbeddings failed: " + e.getMessage(), e);
+                    "⚠️ postEmbeddings failed - '" + apiEndpoint + "' : " + e.getMessage(), e);
+
         }
 
-    }
-
-    public void setServiceEndpointUser(Optional<String> serviceEndpointUser) {
-        this.serviceEndpointUser = serviceEndpointUser;
-    }
-
-    public void setServiceEndpointPassword(Optional<String> serviceEndpointPassword) {
-        this.serviceEndpointPassword = serviceEndpointPassword;
-    }
-
-    /**
-     * Builds aULConnection to a LLM Endpoint
-     * 
-     * @param apiEndpoint - optional service endpoint
-     * @param resourceURI - endpoint resource
-     * @throws PluginException
-     */
-    public HttpURLConnection createHttpConnection(String apiEndpoint, String resourceURI)
-            throws PluginException {
-
-        HttpURLConnection conn = null;
-        try {
-            if (apiEndpoint == null) {
-                // default to global endpoint
-                if (!serviceEndpoint.isPresent()) {
-                    throw new PluginException(OpenAIAPIService.class.getSimpleName(), ERROR_API,
-                            "imixs-ai llm service endpoint is empty!");
-                }
-                apiEndpoint = serviceEndpoint.get();
-            }
-            if (!apiEndpoint.endsWith("/")) {
-                apiEndpoint = apiEndpoint + "/";
-            }
-            URL url = new URL(apiEndpoint + resourceURI);
-            conn = (HttpURLConnection) url.openConnection();
-
-            conn.setConnectTimeout(serviceTimeout); // set timeout to 5 seconds
-            conn.setReadTimeout(serviceTimeout);
-            // Set Basic Authentication?
-            if (serviceEndpointUser != null && serviceEndpointUser.isPresent() && !serviceEndpointUser.get().isEmpty()
-                    && serviceEndpointPassword.isPresent() && !serviceEndpointPassword.get().isEmpty()) {
-                String auth = serviceEndpointUser.get() + ":" + serviceEndpointPassword.get();
-                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
-                String authHeaderValue = "Basic " + new String(encodedAuth);
-                conn.setRequestProperty("Authorization", authHeaderValue);
-            }
-
-            // Set the appropriate HTTP method
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json; utf-8");
-            conn.setRequestProperty("Accept", "application/json");
-            conn.setDoOutput(true);
-
-        } catch (IOException e) {
-            logger.severe(e.getMessage());
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_API,
-                    "Exception during POST prompt - " + e.getClass().getName() + ": " + e.getMessage(), e);
-        }
-        return conn;
     }
 
 }

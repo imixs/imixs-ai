@@ -25,6 +25,7 @@ import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.cluster.RetrievalResult;
 import org.imixs.ai.rag.events.RAGEventService;
+import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.ai.workflow.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
@@ -101,7 +102,7 @@ public class RAGAdapter implements SignalAdapter {
     private static Logger logger = Logger.getLogger(RAGAdapter.class.getName());
 
     @Inject
-    @ConfigProperty(name = OpenAIAPIService.ENV_LLM_SERVICE_ENDPOINT)
+    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
     Optional<String> serviceEndpoint;
 
     @Inject

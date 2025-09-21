@@ -93,7 +93,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     private static Logger logger = Logger.getLogger(OpenAIAPIAdapter.class.getName());
 
     @Inject
-    @ConfigProperty(name = OpenAIAPIService.ENV_LLM_SERVICE_ENDPOINT)
+    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
     Optional<String> serviceEndpoint;
 
     @Inject
