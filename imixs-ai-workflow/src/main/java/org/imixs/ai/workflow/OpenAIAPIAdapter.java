@@ -97,10 +97,10 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     Optional<String> serviceEndpoint;
 
     @Inject
-    private WorkflowService workflowService;
+    protected WorkflowService workflowService;
 
     @Inject
-    private OpenAIAPIService llmService;
+    protected OpenAIAPIService llmService;
 
     /**
      * Default Constructor
@@ -241,7 +241,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
      * @return
      * @throws PluginException
      */
-    private String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
+    protected String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
         boolean debug = logger.isLoggable(Level.FINE);
         String llmAPIEndpoint = null;
 
