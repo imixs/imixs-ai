@@ -1,5 +1,7 @@
 package org.imixs.ai;
 
+import java.io.IOException;
+import java.io.Serializable;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Date;
@@ -7,8 +9,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.imixs.workflow.ItemCollection;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
+import org.imixs.ai.workflow.ImixsAIPromptEvent;
+import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.exceptions.AdapterException;
+import org.imixs.workflow.exceptions.PluginException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.ObserverException;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
@@ -28,9 +46,13 @@ import jakarta.json.JsonReader;
  * In addition the ImixsAIContextHandler provides method to convert a
  * conversation into a OpenAI API-compatible message format.
  */
-public class ImixsAIContextHandler {
+@Named
+public class ImixsAIContextHandler implements Serializable {
 
     private static final Logger logger = Logger.getLogger(ImixsAIContextHandler.class.getName());
+
+    public static final String ERROR_PROMPT_TEMPLATE = "ERROR_LLM_PROMPT_TEMPLATE";
+    public static final String ERROR_INVALID_PARAMETER = "ERROR_INVALID_PARAMETER";
 
     public static final String ITEM_ROLE = "chat.role";
     public static final String ITEM_MESSAGE = "chat.message";
@@ -44,8 +66,11 @@ public class ImixsAIContextHandler {
     private ItemCollection workItem;
     private String itemNameContext;
 
+    @Inject
+    private Event<ImixsAIPromptEvent> llmPromptEventObservers = null;
+
     // Message container for API
-    private List<ItemCollection> context;
+    private List<ItemCollection> context = null;
 
     // Options as flexible JSON object
     private JsonObject options;
@@ -54,11 +79,26 @@ public class ImixsAIContextHandler {
      * Default constructor reads an existing conversation from the item
      * 'itemNameChatHistory'.
      */
-    public ImixsAIContextHandler(ItemCollection workItem, String itemNameContext) {
-        this.workItem = workItem;
-        this.itemNameContext = itemNameContext;
-        importContext(workItem, itemNameContext);
+    private ImixsAIContextHandler() {
+        init();
+    }
+
+    // reset context
+    public void init() {
+        context = null;
+        workItem = null;
         this.options = Json.createObjectBuilder().build();
+    }
+
+    /**
+     * Add a message and role to the conversation
+     */
+    public ImixsAIContextHandler addMessage(String role, String content) {
+        ItemCollection message = new ItemCollection();
+        message.setItemValue(ITEM_ROLE, role);
+        message.setItemValue(ITEM_MESSAGE, content);
+        context.add(message);
+        return this;
     }
 
     /**
@@ -96,6 +136,95 @@ public class ImixsAIContextHandler {
         message.setItemValue(ITEM_MESSAGE, content);
         context.add(message);
 
+        return this;
+    }
+
+    /**
+     * This method adds an Imixs PromptDefinition as a new message entry into the
+     * current context. The method evaluates the attribute 'role' from the tag
+     * prompt containing the template.
+     * <p>
+     * The method fires a prompt event to all registered PromptEvent Observer
+     * classes. This allows adaptors to customize the final prompt.
+     * <p>
+     * If the prompt definition contains options, the method updates the options
+     * of the current Context.
+     * 
+     * 
+     * @param promptTemplate - a imixs-ai prompt XML-Template
+     * @param workitem       - the workitem to be processed
+     * @throws PluginException
+     * @throws AdapterException
+     */
+    public ImixsAIContextHandler addPromptDefinition(String promptTemplate)
+            throws PluginException, AdapterException {
+
+        if (workItem == null) {
+            throw new PluginException(
+                    ImixsAIContextHandler.class.getSimpleName(),
+                    ERROR_INVALID_PARAMETER,
+                    "Workitem is not set - call importContext !");
+        }
+        String prompt = null;
+        String role = null;
+        // Extract Meta Information from XML....
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+
+            // extract prompt and role
+            NodeList modelNodes = doc.getElementsByTagName("prompt");
+            if (modelNodes.getLength() > 0) {
+                Element modelNode = (Element) modelNodes.item(0);
+                prompt = modelNode.getTextContent();
+                role = modelNode.getAttribute("role");
+                if (role.isBlank()) {
+                    role = ROLE_USER;
+                }
+            }
+
+            if (prompt == null || prompt.isEmpty()) {
+                throw new PluginException(
+                        ImixsAIContextHandler.class.getSimpleName(),
+                        ERROR_PROMPT_TEMPLATE,
+                        "Missing prompt tag in prompt template!");
+            }
+
+            // check prompt_options
+            modelNodes = doc.getElementsByTagName("prompt_options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                String promptOptions = modelNode.getTextContent();
+                if (!promptOptions.isBlank()) {
+                    logger.info("Update PromptOptions: " + promptOptions);
+                    this.setOptions(promptOptions);
+                }
+
+            }
+
+        } catch (IOException | ParserConfigurationException | SAXException e) {
+            throw new PluginException(
+                    ImixsAIContextHandler.class.getSimpleName(),
+                    ImixsAIContextHandler.ERROR_PROMPT_TEMPLATE,
+                    "Unable to extract meta data from prompt template: " + e.getMessage(), e);
+        }
+
+        // Fire Prompt Event...
+        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workItem);
+        try {
+            llmPromptEventObservers.fire(llmPromptEvent);
+        } catch (ObserverException e) {
+            // catch Adapter Exceptions
+            if (e.getCause() instanceof AdapterException) {
+                throw (AdapterException) e.getCause();
+            }
+
+        }
+        logger.finest(llmPromptEvent.getPromptTemplate());
+
+        // finally add the prompt Template
+        addMessage(role, llmPromptEvent.getPromptTemplate());
         return this;
     }
 
@@ -162,10 +291,9 @@ public class ImixsAIContextHandler {
     }
 
     /**
-     * Convert to JSON string for API calls or database storage
+     * Returns a JSON Object presenting an OpenAI API Message request object
      */
-    @Override
-    public String toString() {
+    public JsonObject getOpenAIMessageObject() {
         JsonObjectBuilder builder = Json.createObjectBuilder();
 
         // Build messages array
@@ -185,7 +313,15 @@ public class ImixsAIContextHandler {
 
         JsonObject result = builder.build();
         logger.fine("Generated JSON: " + result.toString());
-        return result.toString();
+        return result;
+    }
+
+    /**
+     * Converts the current Message Object into JSON string
+     */
+    @Override
+    public String toString() {
+        return getOpenAIMessageObject().toString();
     }
 
     /**
@@ -199,11 +335,13 @@ public class ImixsAIContextHandler {
      * converts the Map List of a workitem into a List of ItemCollections
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private void importContext(ItemCollection workitem, String childItemName) {
-        // convert current list of childItems into ItemCollection elements
+    public void importContext(ItemCollection workitem, String itemNameContext) {
+        this.init();
+        this.workItem = workitem;
+        this.itemNameContext = itemNameContext;
         context = new ArrayList<ItemCollection>();
 
-        List<Object> mapOrderItems = workitem.getItemValue(childItemName);
+        List<Object> mapOrderItems = workitem.getItemValue(itemNameContext);
         for (Object mapOderItem : mapOrderItems) {
             if (mapOderItem instanceof Map) {
                 ItemCollection itemCol = new ItemCollection((Map) mapOderItem);

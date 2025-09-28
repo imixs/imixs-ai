@@ -137,6 +137,9 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
+     * <strong>Deprecated</strong> - use ImixsAIContextHandler.addPromptDefinition()
+     * instead!
+     * <p>
      * This method first extracts the prompt from the prompt template. Next the
      * method fires a prompt event to all registered PromptEvent Observer classes.
      * This allows adaptors to customize the prompt.
@@ -151,6 +154,7 @@ public class OpenAIAPIService implements Serializable {
      * @throws PluginException
      * @throws AdapterException
      */
+    @Deprecated
     public String buildPrompt(String promptTemplate, ItemCollection workitem) throws PluginException, AdapterException {
 
         String prompt = null;
