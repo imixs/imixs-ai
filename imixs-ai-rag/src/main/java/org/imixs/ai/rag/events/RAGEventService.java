@@ -30,7 +30,8 @@ import org.imixs.workflow.engine.jpa.EventLog;
 import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.annotation.security.DeclareRoles;
-import jakarta.annotation.security.RolesAllowed;
+import jakarta.annotation.security.RunAs;
+import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
@@ -38,14 +39,18 @@ import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 
 /**
- * The AsyncEventService can be used to process workflow events in an
- * asynchronous batch process. The AsyncEventService lookup eventLog entries of
- * the topic "async.event".
+ * The RAGEventService is responsible to process Imixs-AI RAG events in an
+ * asynchronous batch process. The RAGEventService automatically lookup eventLog
+ * entries of the topic "rag.event.*". The RAGEventService is called only by the
+ * RAGEventScheduler which is implementing a ManagedScheduledExecutorService.
  * <p>
- * The processor look up the workItem and starts a processing life cycle.
- * <p>
- * The AsyncEventService is called only by the AsyncEventScheduler which is
- * implementing a ManagedScheduledExecutorService.
+ * The RAGEventService reacts on events from the following types:
+ * <ul>
+ * <li>rag.event.index - index a new workitem</li>
+ * <li>rag.event.update - update the meta data only</li>
+ * <li>rag.event.delete - delete an entry</li>
+ * </ul>
+ * The processor look up the workItem by the $uniqueId.
  * <p>
  * To prevent concurrent processes to handle the same workitems the batch
  * process uses a Optimistic lock strategy. After fetching new event log entries
@@ -62,13 +67,10 @@ import jakarta.persistence.OptimisticLockException;
  * @author rsoika
  *
  */
-@DeclareRoles({ "org.imixs.ACCESSLEVEL.NOACCESS", "org.imixs.ACCESSLEVEL.READERACCESS",
-        "org.imixs.ACCESSLEVEL.AUTHORACCESS", "org.imixs.ACCESSLEVEL.EDITORACCESS",
-        "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
-@RolesAllowed({ "org.imixs.ACCESSLEVEL.NOACCESS", "org.imixs.ACCESSLEVEL.READERACCESS",
-        "org.imixs.ACCESSLEVEL.AUTHORACCESS", "org.imixs.ACCESSLEVEL.EDITORACCESS",
-        "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
+@DeclareRoles({ "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
+@RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Stateless
+@LocalBean
 public class RAGEventService {
 
     public static final String EVENTLOG_TOPIC_RAG_EVENT_INDEX = "rag.event.index";
@@ -112,8 +114,22 @@ public class RAGEventService {
             for (EventLog eventLogEntry : events) {
                 try {
 
+                    logger.log(Level.INFO,
+                            "│   ├── Event: " + eventLogEntry.getTopic() + " - " + eventLogEntry.getRef());
                     // first try to lock the eventLog entry....
                     if (eventLogService.lock(eventLogEntry)) {
+
+                        // Delete Event?
+                        if (eventLogEntry.getTopic().equals(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE
+                                + ".lock")) {
+                            // remove embeddings
+                            clusterService.removeAllEmbeddings(eventLogEntry.getRef());
+                            // remove the event log entry...
+                            eventLogService.removeEvent(eventLogEntry.getId());
+                            continue;
+                        }
+
+                        // Index / Update event?
                         ItemCollection workitem = workflowService.getWorkItem(eventLogEntry.getRef());
                         if (workitem == null) {
                             logger.log(Level.WARNING, "│   ├── ⚠️ unable to read workitem: " + eventLogEntry.getRef());
@@ -121,11 +137,6 @@ public class RAGEventService {
                             continue;
                         }
                         switch (eventLogEntry.getTopic()) {
-                        case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE + ".lock":
-                            // remove embeddings
-                            clusterService.removeAllEmbeddings(eventLogEntry.getRef());
-                            break;
-
                         case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE + ".lock":
                             // update workflow status
                             clusterService.updateMetaData(eventLogEntry.getRef(), workitem.getModelVersion(),
@@ -178,7 +189,7 @@ public class RAGEventService {
 
                 } catch (OptimisticLockException e) {
                     // lock was not possible - continue....
-                    logger.log(Level.INFO, "...unable to lock AsyncEvent: {0}", e.getMessage());
+                    logger.log(Level.INFO, "│   ├── ⚠️ unable to lock AsyncEvent: {0}", e.getMessage());
                 } catch (ClusterException e) {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...

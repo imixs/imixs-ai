@@ -27,8 +27,10 @@ import org.imixs.workflow.exceptions.PluginException;
 import jakarta.inject.Inject;
 
 /**
- * The RAGIndexPlugin updates the workflow meta data for existing embeddings.
- * The plugin can be deactivated with:
+ * The RAGIndexPlugin automatically updates or remove the workflow meta data for
+ * existing embeddings. Embeddings are created by the {@link RAGAdapter}.
+ * <p>
+ * The plugin can be deactivated with the option 'DISABLED':
  * <p>
  * 
  * <pre>
@@ -60,7 +62,13 @@ public class RAGPlugin extends AbstractPlugin {
 		List<ItemCollection> deleteDefinitions = null;
 		List<ItemCollection> disableDefinitions = null;
 
-		logger.finest("running TaxonomyPlugin");
+		// do not run on Snapshots!
+		if (workitem.getType().startsWith("snapshot-")) {
+			// no op!
+			return workitem;
+		}
+
+		logger.finest("running RAGPlugin");
 		String workflowResult = event.getItemValueString("workflow.result");
 		if (workflowResult.contains("<rag-index")) {
 			deleteDefinitions = workflowService.evalWorkflowResultXML(event, "rag-index",

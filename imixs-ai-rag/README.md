@@ -1,6 +1,6 @@
 # Imixs AI RAG
 
-The Imixs AI RAG system is based on Apache Cassandra 4.0 which provides a distributed database system with high availability and scalability.
+The Imixs AI RAG module provides a system for retrieval augmented generation (RAG). This system can be used to index workflow business- and metadata (generation) as also to search for similarity (retrieval) for a given text. The system is based on Apache Cassandra 4.0 which provides a distributed database system with high availability and scalability.
 This module provides the Cassandra RAG services and also the adapter and plugin classes for an integration into a Imixs-Workflow instance.
 For more details about the database schema see the section [Database](./doc/DATABASE.md)
 
@@ -9,9 +9,12 @@ For more details about the database schema see the section [Database](./doc/DATA
 To create and retrieve embeddings during a workflow live cycle the `RAGAdapter` or the `RAGPlugin` can be added into a BPMN model.
 These adapter classes interact with the `OpenAIAPIService` class of the module [imixs-ai-workflow](../imixs-ai-workflow/README.md) to interact with a LLM embedding model.
 
-### Indexing
+- **RAGAdapter** - the `org.imixs.ai.RAGAdapter` is used to index, update or delete embeddings within the curren processing lifecycle of a workitem.
+- **RAGPlugin** - the `org.imixs.ai.RAGPlugin` class is used to update or delete existing embeddings.
 
-To index a process instance the Signal Adapter `ai.dynamixs.rag.RAGIndexAdapter` is used. The adapter expects a DataObject `PromptDefinition` associated with the corresponding event and a workflow configuration defining the LLM endpoint
+## Indexing
+
+To index a process instance the Signal Adapter `org.imixs.ai.RAGAdapter` is used. The adapter expects a DataObject `PromptDefinition` associated with the corresponding event and a workflow configuration defining the LLM endpoint
 
 ```xml
 <imixs-ai name="INDEX">
@@ -48,8 +51,8 @@ The RAG System does not only store the embeddings but also the following Workflo
 
 ### Update
 
-To update the workflow metadata only, plugin class `ai.dynamixs.rag.RAGIndexPlugin` can be used.
-This plugin is used to update the workflow model version and the workflow status only but not the embedings. The update is only be performed if an index already exists.
+To update the workflow metadata only, plugin class `org.imixs.ai.rag.RAGPlugin` can be used.
+This plugin is used to update the workflow model version and the workflow status only but not the embeddings. The update is only be performed if an index already exists.
 
 The update is performed automatically in each workflow processing cycle. To disabled a metadata update in single specific event you can define the following workflow definition:
 
@@ -61,10 +64,32 @@ In this case the plugin will be disabled.
 
 ### Delete
 
-To delete a RAG index the plugin class `ai.dynamixs.rag.RAGPlugin` can be used in the DELETE mode:
+To delete a RAG index the plugin class `org.imixs.ai.rag.RAGPlugin` can be used in the DELETE mode:
 
 ```xml
 <rag-index name="DELETE"></rag-index>
 ```
 
 This will remove the index for the current workitem.
+
+## Retrieval
+
+To retrieve indexed embeddings by a given prompt the Signal Adapter `org.imixs.ai.RAGAdapter` is used in the `RETRIEVAL` mode:
+
+```xml
+<imixs-ai name="RETRIEVAL">
+    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+    <item-ref>[ITEMNAME]</item-ref>
+    <debug>true</debug>
+</imixs-ai>
+```
+
+The `debug` flag is optional and can be set to `true` to log index information.
+
+The PromptDefinition associated by a DataObject defines the text to be used to retrieve the embeddings.
+
+The result is a list of $uniueIDs stored in the item [item-ref]
+
+## Deletion
+
+Independent from the `DELETE` mode in the `org.imixs.ai.rag.RAGPlugin` a embedding will also be removed from the index database if a workitem was deleted. For this the `RAGDeletionService` is observing the corresponding Document Event from the Imixs Workflow engine to delete existing entries. This behavior can not be disabled.

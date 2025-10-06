@@ -61,6 +61,7 @@ import jakarta.inject.Inject;
  * {@code
 <imixs-ai name="RETRIEVAL">
     <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+    <item-ref>[ITEMNAME]</item-ref>
     <debug>true</debug>
 </imixs-ai>
  * }
@@ -235,7 +236,7 @@ public class RAGAdapter implements SignalAdapter {
     }
 
     /**
-     * Creates a RAG retrieval for a Worktiem based on RetrievalDefinitions
+     * Creates a RAG retrieval for a WorkItem based on RetrievalDefinitions
      * 
      * @param llmRetrievalfDefinitions
      * @param workitem
@@ -251,10 +252,15 @@ public class RAGAdapter implements SignalAdapter {
         try {
             for (ItemCollection indexDefinition : llmRetrievalfDefinitions) {
                 llmAPIEndpoint = parseLLMEndpointByBPMN(indexDefinition);
+                String itemRef = indexDefinition.getItemValueString("ref-item");
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
                     throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
                             "imixs-ai configuration error: no llm service endpoint defined!");
+                }
+                if (itemRef.isEmpty()) {
+                    throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
+                            "imixs-ai configuration error: no ref-item defined!");
                 }
                 if ("true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"))) {
                     llmAPIDebug = true;
@@ -286,7 +292,7 @@ public class RAGAdapter implements SignalAdapter {
                 List<String> listOfIds = retrievalResultList.stream()
                         .map(RetrievalResult::getUniqueId)
                         .collect(Collectors.toList());
-                workitem.setItemValue("product.ref", listOfIds);
+                workitem.setItemValue(itemRef, listOfIds);
                 if (llmAPIDebug) {
                     logger.info(
                             "├── found " + retrievalResultList.size() + " matches");
