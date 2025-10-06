@@ -79,16 +79,14 @@ To retrieve indexed embeddings by a given prompt the Signal Adapter `org.imixs.a
 ```xml
 <imixs-ai name="RETRIEVAL">
     <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
-    <item-ref>[ITEMNAME]</item-ref>
+    <reference-item>[ITEMNAME]</reference-item>
     <debug>true</debug>
 </imixs-ai>
 ```
 
+The PromptDefinition associated by a DataObject defines the text to be used to retrieve the embeddings.The result is a list of $uniqueIDs stored in the item [reference-item]
+
 The `debug` flag is optional and can be set to `true` to log index information.
-
-The PromptDefinition associated by a DataObject defines the text to be used to retrieve the embeddings.
-
-The result is a list of $uniueIDs stored in the item [item-ref]
 
 ## Deletion
 

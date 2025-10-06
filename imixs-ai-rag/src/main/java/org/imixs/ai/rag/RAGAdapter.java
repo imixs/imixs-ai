@@ -252,7 +252,7 @@ public class RAGAdapter implements SignalAdapter {
         try {
             for (ItemCollection indexDefinition : llmRetrievalfDefinitions) {
                 llmAPIEndpoint = parseLLMEndpointByBPMN(indexDefinition);
-                String itemRef = indexDefinition.getItemValueString("ref-item");
+                String itemRef = indexDefinition.getItemValueString("reference-item");
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
                     throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
@@ -260,7 +260,7 @@ public class RAGAdapter implements SignalAdapter {
                 }
                 if (itemRef.isEmpty()) {
                     throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
-                            "imixs-ai configuration error: no ref-item defined!");
+                            "imixs-ai configuration error: no reference-item defined!");
                 }
                 if ("true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"))) {
                     llmAPIDebug = true;
