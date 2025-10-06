@@ -92,11 +92,29 @@ public class ImixsAIContextHandler implements Serializable {
 
     /**
      * Add a message and role to the conversation
+     * 
+     * @throws PluginException
      */
-    public ImixsAIContextHandler addMessage(String role, String content) {
+    public ImixsAIContextHandler addMessage(String role, String content, String userId, Date timestamp)
+            throws PluginException {
         ItemCollection message = new ItemCollection();
+
+        if (!ROLE_ASSISTANT.equals(role) && !ROLE_SYSTEM.equals(role) && !ROLE_USER.equals(role)) {
+            throw new PluginException(
+                    ImixsAIContextHandler.class.getSimpleName(),
+                    ImixsAIContextHandler.ERROR_INVALID_PARAMETER,
+                    "Missing Role parameter - system|user|assistant required!");
+        }
         message.setItemValue(ITEM_ROLE, role);
         message.setItemValue(ITEM_MESSAGE, content);
+        if (timestamp != null) {
+            message.setItemValue(ITEM_DATE, timestamp);
+        }
+        if (userId != null) {
+            message.setItemValue(ITEM_USERID, userId);
+
+        }
+
         context.add(message);
         return this;
     }
@@ -104,39 +122,29 @@ public class ImixsAIContextHandler implements Serializable {
     /**
      * Add a system message to the conversation (for LLM context only, not shown in
      * chat history)
+     * 
+     * @throws PluginException
      */
-    public ImixsAIContextHandler addSystemMessage(String content) {
-        ItemCollection message = new ItemCollection();
-        message.setItemValue(ITEM_ROLE, ROLE_SYSTEM);
-        message.setItemValue(ITEM_MESSAGE, content);
-        context.add(message);
-        return this;
+    public ImixsAIContextHandler addSystemMessage(String content) throws PluginException {
+        return addMessage(ROLE_SYSTEM, content, null, null);
     }
 
     /**
      * Add a user question (starts new chat history entry)
+     * 
+     * @throws PluginException
      */
-    public ImixsAIContextHandler addQuestion(String content, String userId, Date timestamp) {
-        ItemCollection message = new ItemCollection();
-        message.setItemValue(ITEM_ROLE, ROLE_USER);
-        message.setItemValue(ITEM_MESSAGE, content);
-        message.setItemValue(ITEM_DATE, timestamp);
-        message.setItemValue(ITEM_USERID, userId);
-        context.add(message);
-
-        return this;
+    public ImixsAIContextHandler addQuestion(String content, String userId, Date timestamp) throws PluginException {
+        return addMessage(ROLE_USER, content, userId, timestamp);
     }
 
     /**
      * Add assistant answer (completes current chat history entry)
+     * 
+     * @throws PluginException
      */
-    public ImixsAIContextHandler addAnswer(String content) {
-        ItemCollection message = new ItemCollection();
-        message.setItemValue(ITEM_ROLE, ROLE_ASSISTANT);
-        message.setItemValue(ITEM_MESSAGE, content);
-        context.add(message);
-
-        return this;
+    public ImixsAIContextHandler addAnswer(String content) throws PluginException {
+        return addMessage(ROLE_ASSISTANT, content, null, null);
     }
 
     /**
@@ -224,7 +232,7 @@ public class ImixsAIContextHandler implements Serializable {
         logger.finest(llmPromptEvent.getPromptTemplate());
 
         // finally add the prompt Template
-        addMessage(role, llmPromptEvent.getPromptTemplate());
+        addMessage(role, llmPromptEvent.getPromptTemplate(), null, null);
         return this;
     }
 

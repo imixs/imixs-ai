@@ -99,6 +99,7 @@ import jakarta.json.JsonObject;
 public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
 
     public static final String LLM_ASSIST = "ASSIST";
+    public static final String ITEM_AI_ASSIST_HISTORY = "ai.assist.history";
 
     private static Logger logger = Logger.getLogger(ImixsAIAssistantAdapter.class.getName());
 
@@ -137,7 +138,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
 
                 // Build template
                 try {
-                    imixsAIContextHandler.importContext(workitem, llmAPIResultItem);
+                    imixsAIContextHandler.importContext(workitem, ITEM_AI_ASSIST_HISTORY);
 
                     ModelManager modelManager = new ModelManager(workflowService);
                     BPMNModel model = modelManager.getModelByWorkitem(workitem);
@@ -170,8 +171,15 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                         logger.info("│   ├── ☑️ Completion Result: ");
                         logger.info(completionResult);
                     }
-                    llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
-                            llmAPIResultEvent);
+                    String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
+                            workitem);
+                    // store the result message
+                    if (llmAPIResultItem != null && !llmAPIResultItem.isEmpty()) {
+                        workitem.setItemValue(llmAPIResultItem, resultMessage);
+                    }
+                    // append answer to message history
+                    imixsAIContextHandler.addAnswer(resultMessage);
+                    imixsAIContextHandler.storeContext();
 
                 } catch (ModelException e) {
 

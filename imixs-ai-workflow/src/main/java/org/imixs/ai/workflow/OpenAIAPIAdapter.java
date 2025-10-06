@@ -187,8 +187,14 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                             logger.info("===> Completion Result: ");
                             logger.info(completionResult);
                         }
-                        llmService.processPromptResult(completionResult, workitem, llmAPIResultItem,
-                                llmAPIResultEvent);
+                        String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
+                                workitem);
+
+                        // store the result message
+                        if (llmAPIResultItem != null && !llmAPIResultItem.isEmpty()) {
+                            workitem.setItemValue(llmAPIResultItem, resultMessage);
+                        }
+
                     } else {
                         logger.finest(
                                 "......no prompt definition found for " + workitem.getUniqueID());

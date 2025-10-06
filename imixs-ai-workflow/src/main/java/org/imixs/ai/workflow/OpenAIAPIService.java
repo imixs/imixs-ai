@@ -328,24 +328,22 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method processes a OpenAI API completions result in JSON format. The
-     * method expects a workitem* to store the result into the item 'ai.result' as a
-     * List of string values.
-     * <p>
-     * The optional parameter 'resultItemName' defines an item to store the result
-     * string.
+     * This method returns the result message of an OpenAI API completions JSON
+     * result string.
+     * The String is expected in the OpenAI API completion result format. For
+     * backward compatibility the method also supports the old Llama.cpp format
      * 
-     * @param workitem        - the workitem to store the text result
-     * @param resultItemName  - optional item name to store the text result
-     * @param resultEventType - optional event type send to all CDI Event observers
-     *                        for the LLMResultEvent
+     * @param jsonCompletionResult - a JSON String holding the completion result
+     * @param resultEventType      - optional event type send to all CDI Event
+     *                             observers for the LLMResultEvent
+     * @param workitem             - workitem instance for an ImixsAIResultEvent
      * @throws PluginException
      */
-    public void processPromptResult(String completionResult, ItemCollection workitem, String resultItemName,
-            String resultEventType) throws PluginException {
+    public String processPromptResult(String jsonCompletionResult, String resultEventType, ItemCollection workitem)
+            throws PluginException {
 
         // Parse the JSON result
-        JsonReader jsonReader = Json.createReader(new StringReader(completionResult));
+        JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
         JsonObject parsedJsonObject = jsonReader.readObject();
         jsonReader.close();
 
@@ -377,19 +375,13 @@ public class OpenAIAPIService implements Serializable {
         // Clean result
         promptResult = promptResult.trim();
 
-        // Store result in workitem
-        workitem.appendItemValue(ITEM_AI_RESULT, promptResult);
-
-        if (resultItemName != null && !resultItemName.isEmpty()) {
-            workitem.setItemValue(resultItemName, promptResult);
-            workitem.setItemValue(ITEM_AI_RESULT_ITEM, resultItemName);
-        }
-
         // Fire CDI event (Adapters can resolve the result)
         if (resultEventType != null && !resultEventType.isEmpty()) {
             ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(promptResult, resultEventType, workitem);
             llmResultEventObservers.fire(llmResultEvent);
         }
+
+        return promptResult;
     }
 
     @Deprecated
