@@ -622,11 +622,7 @@ public class ClusterService {
                     .sorted((a, b) -> Float.compare(b.getScore(), a.getScore()))
                     .limit(maxResults)
                     .peek(match -> {
-                        System.out.println("--------------");
-                        System.out.println("- $UniqueID: " + match.getUniqueId());
-                        System.out.println("- Relevance Score: " + match.getScore());
-                        System.out.println("");
-                        System.out.println("- Best Matching Content: ");
+                        System.out.println("☑️ $UniqueID: " + match.getUniqueId() + " Score=" + match.getScore());
                         System.out.println(match.getContent());
                         System.out.println("");
                     })
