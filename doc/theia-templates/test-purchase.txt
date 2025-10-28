@@ -1,0 +1,7 @@
+ @AppTester I whant to design a new purchase process for my company
+
+ ---
+
+ @AppTester Yes, we need a purchase process for our production line to order material. Depending on the kind of the material and the costs
+ the process need to be approved by the management. At the end of the process the creator gets an e-mail notification that 
+ he is allowed to order the material. 
