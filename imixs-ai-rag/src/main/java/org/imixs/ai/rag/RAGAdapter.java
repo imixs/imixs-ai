@@ -16,7 +16,6 @@ package org.imixs.ai.rag;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -25,6 +24,7 @@ import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.cluster.RetrievalResult;
 import org.imixs.ai.rag.events.RAGEventService;
+import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.ai.workflow.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
@@ -118,6 +118,9 @@ public class RAGAdapter implements SignalAdapter {
     @Inject
     private ClusterService clusterService;
 
+    @Inject
+    protected ImixsAIPromptService imixsAIPromptService;
+
     /**
      * Default Constructor
      */
@@ -188,7 +191,7 @@ public class RAGAdapter implements SignalAdapter {
         boolean llmAPIDebug = false;
         try {
             for (ItemCollection indexDefinition : llmIndexDefinitions) {
-                llmAPIEndpoint = parseLLMEndpointByBPMN(indexDefinition);
+                llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
                     throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
@@ -251,7 +254,7 @@ public class RAGAdapter implements SignalAdapter {
         boolean llmAPIDebug = false;
         try {
             for (ItemCollection indexDefinition : llmRetrievalfDefinitions) {
-                llmAPIEndpoint = parseLLMEndpointByBPMN(indexDefinition);
+                llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
                 String itemRef = indexDefinition.getItemValueString("reference-item");
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
@@ -306,46 +309,6 @@ public class RAGAdapter implements SignalAdapter {
         } catch (ClusterException e) {
             throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR, e.getMessage(), e);
         }
-    }
-
-    /**
-     * This helper method parses the ml api endpoint either provided by a model
-     * definition or a imixs.property or an environment variable.
-     * <p>
-     * If not api endpoint is defined by the model the adapter uses the default api
-     * endpoint.
-     * 
-     * @param llmPrompt
-     * @return
-     * @throws PluginException
-     */
-    private String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
-        boolean debug = logger.isLoggable(Level.FINE);
-        String llmAPIEndpoint = null;
-
-        // Test if the model provides a API Endpoint.
-        llmAPIEndpoint = null;
-        if (llmPrompt != null) {
-            llmAPIEndpoint = llmPrompt.getItemValueString("endpoint");
-        }
-
-        // switch to default api endpoint?
-        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-            // set defautl api endpoint if defined
-            if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
-                llmAPIEndpoint = serviceEndpoint.get();
-            }
-        }
-        if (debug) {
-            logger.info("......llm api endpoint " + llmAPIEndpoint);
-        }
-
-        // adapt text...
-        llmAPIEndpoint = workflowService.adaptText(llmAPIEndpoint, null);
-        if (!llmAPIEndpoint.endsWith("/")) {
-            llmAPIEndpoint = llmAPIEndpoint + "/";
-        }
-        return llmAPIEndpoint;
     }
 
 }

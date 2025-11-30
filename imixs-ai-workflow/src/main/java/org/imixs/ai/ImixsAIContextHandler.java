@@ -76,18 +76,26 @@ public class ImixsAIContextHandler implements Serializable {
     private JsonObject options;
 
     /**
-     * Default constructor reads an existing conversation from the item
-     * 'itemNameChatHistory'.
+     * Default constructor
      */
-    private ImixsAIContextHandler() {
+    public ImixsAIContextHandler() {
         init();
     }
 
     // reset context
     public void init() {
-        context = null;
-        workItem = null;
+        context = new ArrayList<ItemCollection>();
+        workItem = new ItemCollection();
         this.options = Json.createObjectBuilder().build();
+    }
+
+    /**
+     * The the workitem context
+     * 
+     * @param workItem
+     */
+    public void setWorkItem(ItemCollection workItem) {
+        this.workItem = workItem;
     }
 
     /**
@@ -155,8 +163,8 @@ public class ImixsAIContextHandler implements Serializable {
      * The method fires a prompt event to all registered PromptEvent Observer
      * classes. This allows adaptors to customize the final prompt.
      * <p>
-     * If the prompt definition contains options, the method updates the options
-     * of the current Context.
+     * If the prompt definition contains options, the method updates the options of
+     * the current Context.
      * 
      * 
      * @param promptTemplate - a imixs-ai prompt XML-Template
@@ -173,6 +181,7 @@ public class ImixsAIContextHandler implements Serializable {
                     ERROR_INVALID_PARAMETER,
                     "Workitem is not set - call importContext !");
         }
+
         String prompt = null;
         String role = null;
         // Extract Meta Information from XML....
@@ -181,34 +190,49 @@ public class ImixsAIContextHandler implements Serializable {
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
 
-            // extract prompt and role
-            NodeList modelNodes = doc.getElementsByTagName("prompt");
-            if (modelNodes.getLength() > 0) {
-                Element modelNode = (Element) modelNodes.item(0);
-                prompt = modelNode.getTextContent();
-                role = modelNode.getAttribute("role");
-                if (role.isBlank()) {
-                    role = ROLE_USER;
-                }
-            }
-
-            if (prompt == null || prompt.isEmpty()) {
-                throw new PluginException(
-                        ImixsAIContextHandler.class.getSimpleName(),
-                        ERROR_PROMPT_TEMPLATE,
-                        "Missing prompt tag in prompt template!");
-            }
-
             // check prompt_options
-            modelNodes = doc.getElementsByTagName("prompt_options");
-            if (modelNodes.getLength() > 0) {
-                Node modelNode = modelNodes.item(0);
+            NodeList optionNodes = doc.getElementsByTagName("prompt_options");
+            if (optionNodes.getLength() > 0) {
+                Node modelNode = optionNodes.item(0);
                 String promptOptions = modelNode.getTextContent();
                 if (!promptOptions.isBlank()) {
                     logger.info("Update PromptOptions: " + promptOptions);
                     this.setOptions(promptOptions);
                 }
 
+            }
+
+            // extract each prompt and role
+            NodeList promptNodes = doc.getElementsByTagName("prompt");
+            for (int i = 0; i < promptNodes.getLength(); i++) {
+
+                Element modelNode = (Element) promptNodes.item(i);
+                prompt = modelNode.getTextContent();
+                role = modelNode.getAttribute("role");
+                if (role.isBlank()) {
+                    role = ROLE_USER;
+                }
+
+                // Fire Prompt Event...
+                if (llmPromptEventObservers != null) {
+                    ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workItem);
+                    try {
+                        llmPromptEventObservers.fire(llmPromptEvent);
+                    } catch (ObserverException e) {
+                        // catch Adapter Exceptions
+                        if (e.getCause() instanceof AdapterException) {
+                            throw (AdapterException) e.getCause();
+                        }
+
+                    }
+                    logger.finest(llmPromptEvent.getPromptTemplate());
+
+                    // finally add the prompt Template
+                    addMessage(role, llmPromptEvent.getPromptTemplate(), null, null);
+                } else {
+                    // add blank prompt template (no observers found!)
+                    addMessage(role, prompt, null, null);
+                }
             }
 
         } catch (IOException | ParserConfigurationException | SAXException e) {
@@ -218,21 +242,6 @@ public class ImixsAIContextHandler implements Serializable {
                     "Unable to extract meta data from prompt template: " + e.getMessage(), e);
         }
 
-        // Fire Prompt Event...
-        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workItem);
-        try {
-            llmPromptEventObservers.fire(llmPromptEvent);
-        } catch (ObserverException e) {
-            // catch Adapter Exceptions
-            if (e.getCause() instanceof AdapterException) {
-                throw (AdapterException) e.getCause();
-            }
-
-        }
-        logger.finest(llmPromptEvent.getPromptTemplate());
-
-        // finally add the prompt Template
-        addMessage(role, llmPromptEvent.getPromptTemplate(), null, null);
         return this;
     }
 
@@ -336,6 +345,9 @@ public class ImixsAIContextHandler implements Serializable {
      * Get chat history for UI display
      */
     public List<ItemCollection> getContext() {
+        if (context == null) {
+            context = new ArrayList<ItemCollection>();
+        }
         return context;
     }
 

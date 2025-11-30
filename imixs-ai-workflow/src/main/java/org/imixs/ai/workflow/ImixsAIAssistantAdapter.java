@@ -40,21 +40,18 @@ import jakarta.json.JsonObject;
  * 
  * <li><strong>Event Template:</strong> Contains specific instructions for the
  * current action as also context business data (WHAT should I do NOW)</li>
- * <li><strong>Business Data:</strong> Provides process variables from
- * workflow fields and additional context or instructions from the user</li>
+ * <li><strong>Business Data:</strong> Provides process variables from workflow
+ * fields and additional context or instructions from the user</li>
  * </ul>
  * <p>
- * This modular approach ensures clean separation of concerns:
- * - Role definition happens only once in the initial task template
- * - Event templates focus purely on specific actions
- * - All templates can be maintained independently
+ * This modular approach ensures clean separation of concerns: - Role definition
+ * happens only once in the initial task template - Event templates focus purely
+ * on specific actions - All templates can be maintained independently
  * <p>
- * Template Association in BPMN:
- * - Tasks are connected to DataObjects containing task-specific context
- * templates
- * - Events are connected to DataObjects containing action-specific instruction
- * templates
- * - The adapter automatically loads and combines all relevant templates
+ * Template Association in BPMN: - Tasks are connected to DataObjects containing
+ * task-specific context templates - Events are connected to DataObjects
+ * containing action-specific instruction templates - The adapter automatically
+ * loads and combines all relevant templates
  * <p>
  * The final prompt structure follows this OpenAI Message pattern:
  * 
@@ -89,8 +86,7 @@ import jakarta.json.JsonObject;
  * The {@code result-item} holds the message history.
  * <p>
  * The {@code result-event} is a optional custom event send to all CDI Event
- * observers
- * for a LLMResultEvent
+ * observers for a LLMResultEvent
  * 
  * @author Ralph Soika
  * @version 1.0
@@ -105,6 +101,9 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
 
     @Inject
     ImixsAIContextHandler imixsAIContextHandler;
+
+    @Inject
+    ImixsAIPromptService imixsAIPromptService;
 
     /**
      * Default Constructor
@@ -129,7 +128,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
 
         if (llmPromptDefinitions != null) {
             for (ItemCollection promptDefinition : llmPromptDefinitions) {
-                llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+                llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
                 llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                 llmAPIResultItem = promptDefinition.getItemValueString("result-item");
                 if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {

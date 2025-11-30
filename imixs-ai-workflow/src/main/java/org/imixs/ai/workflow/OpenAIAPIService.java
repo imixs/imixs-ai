@@ -329,9 +329,9 @@ public class OpenAIAPIService implements Serializable {
 
     /**
      * This method returns the result message of an OpenAI API completions JSON
-     * result string.
-     * The String is expected in the OpenAI API completion result format. For
-     * backward compatibility the method also supports the old Llama.cpp format
+     * result string. The String is expected in the OpenAI API completion result
+     * format. For backward compatibility the method also supports the old Llama.cpp
+     * format
      * 
      * @param jsonCompletionResult - a JSON String holding the completion result
      * @param resultEventType      - optional event type send to all CDI Event

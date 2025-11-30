@@ -16,7 +16,6 @@ package org.imixs.ai.workflow;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -102,6 +101,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     @Inject
     protected OpenAIAPIService llmService;
 
+    @Inject
+    protected ImixsAIPromptService imixsAIPromptService;
+
     /**
      * Default Constructor
      */
@@ -154,7 +156,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
              */
             if (llmPromptDefinitions != null) {
                 for (ItemCollection promptDefinition : llmPromptDefinitions) {
-                    llmAPIEndpoint = parseLLMEndpointByBPMN(promptDefinition);
+                    llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
                     llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                     llmAPIResultItem = promptDefinition.getItemValueString("result-item");
                     if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
@@ -234,49 +236,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
             logger.info("===> Total Processing Time=" + (System.currentTimeMillis() - processingTime) + "ms");
         }
         return workitem;
-    }
-
-    /**
-     * This helper method parses the ml api endpoint either provided by a model
-     * definition or a imixs.property or an environment variable.
-     * <p>
-     * If not api endpoint is defined by the model the adapter uses the default api
-     * endpoint.
-     * 
-     * @param llmPrompt
-     * @return
-     * @throws PluginException
-     */
-    protected String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
-        boolean debug = logger.isLoggable(Level.FINE);
-        String llmAPIEndpoint = null;
-
-        // Test if the model provides a API Endpoint.
-        llmAPIEndpoint = null;
-        if (llmPrompt != null) {
-            llmAPIEndpoint = llmPrompt.getItemValueString("endpoint");
-        }
-
-        // switch to default api endpoint?
-        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-            // set defautl api endpoint if defined
-            if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
-                llmAPIEndpoint = serviceEndpoint.get();
-            }
-        }
-        if (debug) {
-            logger.info("......llm api endpoint " + llmAPIEndpoint);
-        }
-
-        // adapt text...
-        llmAPIEndpoint = workflowService.adaptText(llmAPIEndpoint, null);
-
-        if (!llmAPIEndpoint.endsWith("/")) {
-            llmAPIEndpoint = llmAPIEndpoint + "/";
-        }
-
-        return llmAPIEndpoint;
-
     }
 
 }

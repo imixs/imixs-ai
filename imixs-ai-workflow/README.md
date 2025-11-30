@@ -8,7 +8,9 @@ The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJB
 
 - **LLM-Service** <br/>A service EJB interacting with a Imixs-AI service endpoint <br/>
 
-- **LLM-Controller** <br/> The CDI bean 'LLMController' is used for user interaction like data input, data verification and data confirmation. <br/>
+- **LLM-Controller** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
+
+- **ImixsAIContextHandler** <br/> A CDI bean to setup a LLM chat conversation.
 
 ## The LLMAdapter
 
@@ -156,6 +158,33 @@ The configuration will trigger a LLMResultEvent with the event type 'JSON'. A CD
         }
     }
   ...
+```
+
+## The ImixsAIContextHandler
+
+The ImixsAIContextHandler is a builder class for conversations with an LLM. The class holds the context for a conversation based on a history of
+_system_, _user_ and _assistant_ messages. The context is stored in a List of ItemCollection instances that can be persisted and managed by the
+Imixs-Workflow engine.
+
+The class supports methods to add system messages, user questions with metadata, and assistant answers. In addition the ImixsAIContextHandler provides methods to convert a conversation into a OpenAI API-compatible message format.
+
+A provided prompt template may look like this example:
+
+```xml
+<imixs-ai name="PROMPT">
+  <debug>true</debug>
+  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+  <result-event>BOOLEAN</result-event>
+  <PromptDefinition>
+    <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
+    <prompt role="system"><![CDATA[
+       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>
+    </prompt>
+    <prompt role="user"><![CDATA[
+       <itemvalue>$workflowsummary</itemvalue> ]]>
+    </prompt>
+  </PromptDefinition>
+</imixs-ai>
 ```
 
 # Suggest Items
