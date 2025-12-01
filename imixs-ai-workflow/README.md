@@ -187,6 +187,23 @@ A provided prompt template may look like this example:
 </imixs-ai>
 ```
 
+You can add a prompt definition template programmatically:
+
+**Note:**
+
+```java
+ imixsAIContextHandler.addPromptDefinition(myTemplate);
+```
+
+and you can add additional prompt messages in a sequence:
+
+```java
+ imixsAIContextHandler.addMessage(ImixsAIContextHandler.ROLE_USER, userPrompt,
+                        workflowService.getSessionContext().getCallerPrincipal().getName(), null);
+```
+
+**Note:** Adding a 'System' message will reset the current context. If you want to maintain a long conversation you may only add the system message once in the beginning!
+
 # Suggest Items
 
 The llm-config can contain an optional suggest configuration providing a item list and a suggest mode.
