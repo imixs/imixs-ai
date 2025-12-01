@@ -100,6 +100,9 @@ public class ImixsAIContextHandler implements Serializable {
 
     /**
      * Add a message and role to the conversation
+     * <p>
+     * If the message is a SYSTEM message, the context will be cleared before. Not
+     * two system messages are allowed in one context!
      * 
      * @throws PluginException
      */
@@ -113,6 +116,12 @@ public class ImixsAIContextHandler implements Serializable {
                     ImixsAIContextHandler.ERROR_INVALID_PARAMETER,
                     "Missing Role parameter - system|user|assistant required!");
         }
+
+        // reset context?
+        if (ROLE_SYSTEM.equals(role)) {
+            resetContext();
+        }
+
         message.setItemValue(ITEM_ROLE, role);
         message.setItemValue(ITEM_MESSAGE, content);
         if (timestamp != null) {
@@ -125,6 +134,13 @@ public class ImixsAIContextHandler implements Serializable {
 
         context.add(message);
         return this;
+    }
+
+    /**
+     * This method reset the current context.
+     */
+    private void resetContext() {
+        context = new ArrayList<ItemCollection>();
     }
 
     /**
@@ -196,7 +212,7 @@ public class ImixsAIContextHandler implements Serializable {
                 Node modelNode = optionNodes.item(0);
                 String promptOptions = modelNode.getTextContent();
                 if (!promptOptions.isBlank()) {
-                    logger.info("Update PromptOptions: " + promptOptions);
+                    logger.fine("Update PromptOptions: " + promptOptions);
                     this.setOptions(promptOptions);
                 }
 

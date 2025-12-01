@@ -89,7 +89,67 @@ public class TestAIContextHandler {
             assertNotNull(promptUser);
             assertEquals("user", promptUser.getItemValueString("chat.role").toLowerCase());
             message = promptUser.getItemValueString("chat.message");
-            assertTrue(message.contains("EU member"));
+            assertTrue(message.contains("Germany"));
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+
+    }
+
+    /**
+     * Test parsing a PromptDefinition with two prompt messages
+     * 
+     * The prompt includes two system prompt. It is Expected that only the latest
+     * prompts after the last system prompt are included into the context!
+     */
+    @Test
+    public void testPromptDefinitionMultiSystem() {
+
+        String promptDef = "<imixs-ai name=\"CONDITION\">\n" + //
+                "  <debug>true</debug>\n" + //
+                "  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>\n" + //
+                "  <result-event>BOOLEAN</result-event>\n" + //
+                "  <PromptDefinition>\n" + //
+                "    <prompt_options>{\"n_predict\": 16, \"temperature\": 0 }</prompt_options>\n" + //
+                "    <prompt role=\"system\"><![CDATA[\n" + //
+                "       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>\n" + //
+                "    </prompt>\n" + //
+                "    <prompt role=\"user\"><![CDATA[\n" + //
+                "       Is Germany an EU member country? ]]>\n" + //
+                "    </prompt>\n" + //
+                "    <prompt role=\"system\"><![CDATA[\n" + //
+                "       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>\n" + //
+                "    </prompt>\n" + //
+                "    <prompt role=\"user\"><![CDATA[\n" + //
+                "       Is Italy an EU member country? ]]>\n" + //
+                "    </prompt>\n" + //
+
+                "  </PromptDefinition>\n" + //
+                "</imixs-ai>";
+
+        try {
+
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            // we expect two prompt messages
+            List<ItemCollection> context = imixsAIContextHandler.getContext();
+            assertNotNull(context);
+            assertEquals(2, context.size());
+
+            // test system
+            ItemCollection promptSystem = imixsAIContextHandler.getContext().get(0);
+            assertNotNull(promptSystem);
+            assertEquals("system", promptSystem.getItemValueString("chat.role").toLowerCase());
+            String message = promptSystem.getItemValueString("chat.message");
+            assertTrue(message.contains("sales expert"));
+
+            // test user
+            ItemCollection promptUser = imixsAIContextHandler.getContext().get(1);
+            assertNotNull(promptUser);
+            assertEquals("user", promptUser.getItemValueString("chat.role").toLowerCase());
+            message = promptUser.getItemValueString("chat.message");
+            assertTrue(message.contains("Italy"));
 
         } catch (PluginException | AdapterException e) {
             fail(e);
