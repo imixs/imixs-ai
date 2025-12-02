@@ -123,7 +123,23 @@ public class ImixsAIContextHandler implements Serializable {
         }
 
         message.setItemValue(ITEM_ROLE, role);
+
+        // Fire Prompt Event if EventObservers available...
+        if (llmPromptEventObservers != null) {
+            ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(content, workItem);
+            try {
+                llmPromptEventObservers.fire(llmPromptEvent);
+            } catch (ObserverException e) {
+                // catch Adapter Exceptions
+                if (e.getCause() instanceof AdapterException) {
+                    AdapterException ae = (AdapterException) e.getCause();
+                    throw new PluginException(ae);
+                }
+            }
+            content = llmPromptEvent.getPromptTemplate();
+        }
         message.setItemValue(ITEM_MESSAGE, content);
+
         if (timestamp != null) {
             message.setItemValue(ITEM_DATE, timestamp);
         }
@@ -228,27 +244,7 @@ public class ImixsAIContextHandler implements Serializable {
                 if (role.isBlank()) {
                     role = ROLE_USER;
                 }
-
-                // Fire Prompt Event...
-                if (llmPromptEventObservers != null) {
-                    ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workItem);
-                    try {
-                        llmPromptEventObservers.fire(llmPromptEvent);
-                    } catch (ObserverException e) {
-                        // catch Adapter Exceptions
-                        if (e.getCause() instanceof AdapterException) {
-                            throw (AdapterException) e.getCause();
-                        }
-
-                    }
-                    logger.finest(llmPromptEvent.getPromptTemplate());
-
-                    // finally add the prompt Template
-                    addMessage(role, llmPromptEvent.getPromptTemplate(), null, null);
-                } else {
-                    // add blank prompt template (no observers found!)
-                    addMessage(role, prompt, null, null);
-                }
+                addMessage(role, prompt, null, null);
             }
 
         } catch (IOException | ParserConfigurationException | SAXException e) {
