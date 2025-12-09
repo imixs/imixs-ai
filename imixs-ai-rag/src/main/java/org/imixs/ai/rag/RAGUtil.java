@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  */
 public class RAGUtil {
 
-    private static Logger logger = Logger.getLogger(RAGAdapter.class.getName());
+    private static Logger logger = Logger.getLogger(RAGRetrievalAdapter.class.getName());
 
     /**
      * This helper method creates smaller text chunks from a large markup text.

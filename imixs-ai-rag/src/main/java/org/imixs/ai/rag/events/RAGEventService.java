@@ -139,7 +139,7 @@ public class RAGEventService {
                         switch (eventLogEntry.getTopic()) {
                         case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE + ".lock":
                             // update workflow status
-                            clusterService.updateMetaData(eventLogEntry.getRef(), workitem.getModelVersion(),
+                            clusterService.updateMetaData(eventLogEntry.getRef(), workitem.getWorkflowGroup(),
                                     workitem.getTaskID());
                             break;
                         case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_INDEX + ".lock":
@@ -170,7 +170,7 @@ public class RAGEventService {
                                 List<Float> indexResult = llmService.postEmbedding(chunk, llmAPIEndpoint, debug);
                                 // write to cassandra
                                 clusterService.insertVector(workitem.getUniqueID(),
-                                        workitem.getModelVersion(),
+                                        workitem.getWorkflowGroup(), // .getModelVersion(),
                                         workitem.getTaskID(),
                                         chunk,
                                         indexResult);

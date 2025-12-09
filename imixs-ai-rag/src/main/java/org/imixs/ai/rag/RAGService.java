@@ -15,165 +15,67 @@
 package org.imixs.ai.rag;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.cluster.RetrievalResult;
 import org.imixs.ai.rag.events.RAGEventService;
 import org.imixs.ai.workflow.ImixsAIPromptService;
-import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.ai.workflow.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.SignalAdapter;
+import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.EventLogService;
-import org.imixs.workflow.engine.WorkflowService;
+import org.imixs.workflow.exceptions.AccessDeniedException;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 
+import jakarta.annotation.security.DeclareRoles;
+import jakarta.annotation.security.RunAs;
+import jakarta.ejb.Stateless;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
- * The RAGAdapter is used for Retrieval-Augmented Generation workflows.
+ * The RAGService provides methods to index, update or delete or retrieval data
+ * from the vector database.
  * <p>
- * The adapter operates in two modes:
- * <p>
- * In the 'INDEX' mode the adapter evaluates an associated imixs-ai prompt
- * definition and generates - based on the given prompt template - a text to be
- * indexed in the RAG database.
+ * The service reacts on Document Delete events and automatically removes an
+ * existing index. The deletion is handled by the RAGEventService
  * 
- * <pre>
- * {@code
-<imixs-ai name="INDEX">
-    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
-    <debug>true</debug>
-</imixs-ai>
- * }
- * </pre>
- * <p>
- * In the 'RETRIEVAL' mode, the adapter evaluates an associated imixs-ai prompt
- * definition to get retrieval embeddings from the RAG database.
- * 
- * <pre>
- * {@code
-<imixs-ai name="RETRIEVAL">
-    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
-    <item-ref>[ITEMNAME]</item-ref>
-    <debug>true</debug>
-</imixs-ai>
- * }
- * </pre>
- * 
- * In both modes the Endpoint defines the Rest API endpoint of the llama-cpp
- * http server or any compatible OpenAI / Open API rest service endpoint.
- * <p>
- * The Prompt Template is based on the concepts of Imixs-AI:
- * 
- * <pre>
- * {@code
-<?xml version="1.0" encoding="UTF-8"?>
-<IndexDefinition>
-    < index_options>{"n_predict": 4096, "temperature": 0}< /index_options>
-    <![CDATA[<text><itemvalue>$workflowgroup</itemvalue>: <itemvalue>$workflowstatus</itemvalue>
-        # Summary
-        <itemvalue>$workflowsummary</itemvalue>
-        <itemvalue>offer.summary</itemvalue>
-    ]]></text>
-</IndexDefinition> 
- * }
- * </pre>
- * 
- * The index Process is
- * 
- * @author Ralph Soika
+ * @see RAGEventService
+ * @see DocumentEvent
  * @version 1.0
+ * @author rsoika
  *
  */
-public class RAGAdapter implements SignalAdapter {
+@DeclareRoles({ "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
+@RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
+@Stateless
+public class RAGService {
 
-    public static final String ML_ENTITY = "entity";
+    private static Logger logger = Logger.getLogger(RAGService.class.getName());
+
     public static final String API_ERROR = "API_ERROR";
 
     public static final String RAG_INDEX = "INDEX";
+    public static final String RAG_UPDATE = "UPDATE";
+    public static final String RAG_DELETE = "DELETE";
     public static final String RAG_RETRIEVAL = "RETRIEVAL";
-
-    private static Logger logger = Logger.getLogger(RAGAdapter.class.getName());
-
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
-
-    @Inject
-    private WorkflowService workflowService;
-
-    @Inject
-    EventLogService eventLogService;
-
-    @Inject
-    private OpenAIAPIService llmService;
+    public static final String RAG_DISABLED = "DISABLED";
 
     @Inject
     private ClusterService clusterService;
 
     @Inject
-    protected ImixsAIPromptService imixsAIPromptService;
+    private EventLogService eventLogService;
 
-    /**
-     * Default Constructor
-     */
-    public RAGAdapter() {
-        super();
-    }
-
-    /**
-     * CDI Constructor to inject WorkflowService
-     * 
-     * @param workflowService
-     */
     @Inject
-    public RAGAdapter(WorkflowService workflowService) {
-        super();
-        this.workflowService = workflowService;
-    }
+    private OpenAIAPIService llmService;
 
-    public void setWorkflowService(WorkflowService workflowService) {
-        this.workflowService = workflowService;
-    }
-
-    /**
-     * This method parses the LLM Event definitions.
-     * 
-     * For each PROMPT the method posts a context data (e.g text from an attachment)
-     * to the Imixs-AI Analyse service endpoint
-     * 
-     * @throws PluginException
-     */
-    public ItemCollection execute(ItemCollection workitem, ItemCollection event)
-            throws AdapterException, PluginException {
-
-        logger.finest("...running api adapter...");
-
-        // read optional configuration form the model or imixs.properties....
-        List<ItemCollection> llmIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-                RAG_INDEX, workitem, false);
-        List<ItemCollection> llmRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-                RAG_RETRIEVAL, workitem, false);
-
-        // verify if we have an INDEX configuration
-        if (llmIndexDefinitions != null && llmIndexDefinitions.size() > 0) {
-            createIndex(llmIndexDefinitions, workitem, event);
-        }
-
-        // verify if we have an RETRIEVAL configuration
-        if (llmRetrievalDefinitions != null && llmRetrievalDefinitions.size() > 0) {
-            createRetrieval(llmRetrievalDefinitions, workitem, event);
-        }
-
-        return workitem;
-    }
+    @Inject
+    protected ImixsAIPromptService imixsAIPromptService;
 
     /**
      * Creates a RAG Index for a Workitem based on IndexDefinitions
@@ -184,7 +86,7 @@ public class RAGAdapter implements SignalAdapter {
      * @throws PluginException
      * @throws AdapterException
      */
-    private void createIndex(List<ItemCollection> llmIndexDefinitions, ItemCollection workitem, ItemCollection event)
+    public void createIndex(List<ItemCollection> llmIndexDefinitions, ItemCollection workitem, ItemCollection event)
             throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
         String llmAPIEndpoint = null;
@@ -194,7 +96,7 @@ public class RAGAdapter implements SignalAdapter {
                 llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                    throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
+                    throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), API_ERROR,
                             "imixs-ai configuration error: no llm service endpoint defined!");
                 }
                 if ("true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"))) {
@@ -202,10 +104,16 @@ public class RAGAdapter implements SignalAdapter {
                 }
 
                 logger.info("├── post RAG index request: " + llmAPIEndpoint);
-                String promptTemplate = llmService.loadPromptTemplate(event);
+                String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                 indexDefinition.setItemValue("promptTemplate", promptTemplate);
                 indexDefinition.setItemValue("debug", llmAPIDebug);
                 indexDefinition.setItemValue("endpoint", llmAPIEndpoint);
+
+                // logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
+                // logger.info("│ ├── reference-item: " + itemRef);
+                // logger.info("│ ├── max-results: " + maxResults);
+                // logger.info("│ ├── modelgroups: " + modelGroups);
+                // logger.info("│ ├── tasks: " + tasks);
 
                 if (llmAPIDebug) {
                     logger.info("│   ├── PromptTemplate: ");
@@ -216,7 +124,7 @@ public class RAGAdapter implements SignalAdapter {
                 String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                 if (llmPrompt.isBlank()) {
                     throw new PluginException(
-                            RAGAdapter.class.getSimpleName(), API_ERROR,
+                            RAGRetrievalAdapter.class.getSimpleName(), API_ERROR,
                             "Unable to parse prompt for RAG indexing");
                 }
                 indexDefinition.setItemValue("prompt", llmPrompt);
@@ -239,44 +147,75 @@ public class RAGAdapter implements SignalAdapter {
     }
 
     /**
+     * DocumentEvent listener to delete an existing index. The method sends a RAG
+     * delete event. The deletion is handled by the RAGEventService
+     */
+    public void onDocumentEvent(@Observes DocumentEvent documentEvent) throws AccessDeniedException {
+
+        // do not run on snapshots
+        if (documentEvent.getDocument().getType().startsWith("snapshot-")) {
+            // no op!
+            return;
+        }
+
+        if (DocumentEvent.ON_DOCUMENT_DELETE == documentEvent.getEventType()) {
+            // do not run on Snapshots!
+            eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE,
+                    documentEvent.getDocument().getUniqueID());
+        }
+    }
+
+    /**
      * Creates a RAG retrieval for a WorkItem based on RetrievalDefinitions
      * 
-     * @param llmRetrievalfDefinitions
+     * @param llmRetrievalDefinitions
      * @param workitem
      * @param event
      * @throws PluginException
      * @throws AdapterException
      */
-    private void createRetrieval(List<ItemCollection> llmRetrievalfDefinitions, ItemCollection workitem,
+    public void createRetrieval(List<ItemCollection> llmRetrievalDefinitions, ItemCollection workitem,
             ItemCollection event) throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
         String llmAPIEndpoint = null;
         boolean llmAPIDebug = false;
         try {
-            for (ItemCollection indexDefinition : llmRetrievalfDefinitions) {
+            for (ItemCollection indexDefinition : llmRetrievalDefinitions) {
                 llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
+                logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
                 String itemRef = indexDefinition.getItemValueString("reference-item");
+                String modelGroups = indexDefinition.getItemValueString("modelgroups");
+                String tasks = indexDefinition.getItemValueString("tasks");
+                int maxResults = indexDefinition.getItemValueInteger("max-results");
+                if (maxResults <= 0) {
+                    // default
+                    logger.warning("│   ├── max-results is not set, default=1");
+                    maxResults = 1;
+                }
                 // do we have a valid endpoint?
                 if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                    throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
+                    throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), API_ERROR,
                             "imixs-ai configuration error: no llm service endpoint defined!");
                 }
                 if (itemRef.isEmpty()) {
-                    throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR,
+                    throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), API_ERROR,
                             "imixs-ai configuration error: no reference-item defined!");
                 }
                 if ("true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"))) {
                     llmAPIDebug = true;
                 }
 
-                logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
-                String promptTemplate = llmService.loadPromptTemplate(event);
+                logger.info("│   ├── reference-item: " + itemRef);
+                logger.info("│   ├── max-results: " + maxResults);
+                logger.info("│   ├── modelgroups: " + modelGroups);
+                logger.info("│   ├── tasks: " + tasks);
+                String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                 logger.info("│   ├── PromptTemplate: ");
                 logger.info(promptTemplate);
                 String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                 if (llmPrompt.isBlank()) {
                     throw new PluginException(
-                            RAGAdapter.class.getSimpleName(), API_ERROR,
+                            RAGRetrievalAdapter.class.getSimpleName(), RAGService.API_ERROR,
                             "Unable to parse prompt for RAG indexing");
                 }
                 if (llmAPIDebug) {
@@ -291,7 +230,8 @@ public class RAGAdapter implements SignalAdapter {
                     logger.info("├── ⇨ " + embeddings.size() + " floats stored in RAG db.");
                 }
                 // search cassandra
-                List<RetrievalResult> retrievalResultList = clusterService.searchEmbeddings(embeddings, 5);
+                List<RetrievalResult> retrievalResultList = clusterService.searchEmbeddings(embeddings, maxResults,
+                        modelGroups, tasks);
                 List<String> listOfIds = retrievalResultList.stream()
                         .map(RetrievalResult::getUniqueId)
                         .collect(Collectors.toList());
@@ -307,8 +247,7 @@ public class RAGAdapter implements SignalAdapter {
             logger.severe("├── ⚠️ Failed to post embeddings: " + e.getMessage());
             throw e;
         } catch (ClusterException e) {
-            throw new PluginException(RAGAdapter.class.getSimpleName(), API_ERROR, e.getMessage(), e);
+            throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), API_ERROR, e.getMessage(), e);
         }
     }
-
 }
