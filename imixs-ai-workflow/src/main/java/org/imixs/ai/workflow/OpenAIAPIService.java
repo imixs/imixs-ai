@@ -208,28 +208,28 @@ public class OpenAIAPIService implements Serializable {
         return llmPromptEvent.getPromptTemplate();
     }
 
-    /**
-     * This method returns the prompt template form a BPMN DataObject associated
-     * with the current Event object.
-     *
-     * @param event
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    public String loadPromptTemplate(ItemCollection event) {
-        List<?> dataObjects = event.getItemValue("dataObjects");
+    // /**
+    // * This method returns the prompt template form a BPMN DataObject associated
+    // * with the current Event object.
+    // *
+    // * @param event
+    // * @return
+    // */
+    // @SuppressWarnings("unchecked")
+    // public String loadPromptTemplate(ItemCollection event) {
+    // List<?> dataObjects = event.getItemValue("dataObjects");
 
-        if (dataObjects == null || dataObjects.size() == 0) {
-            logger.warning("No data object for prompt template found");
-        }
+    // if (dataObjects == null || dataObjects.size() == 0) {
+    // logger.warning("No data object for prompt template found");
+    // }
 
-        // take the first data object....
-        List<String> data = (List<String>) dataObjects.get(0);
-        // String name = "" + data.get(0);
-        String prompt = "" + data.get(1);
-        return prompt;
+    // // take the first data object....
+    // List<String> data = (List<String>) dataObjects.get(0);
+    // // String name = "" + data.get(0);
+    // String prompt = "" + data.get(1);
+    // return prompt;
 
-    }
+    // }
 
     /**
      * This helper method builds a json prompt object including options params.

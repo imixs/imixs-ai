@@ -1,6 +1,7 @@
 package org.imixs.ai.workflow;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -14,10 +15,10 @@ import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
-/*
-
-The ImixsAIPromptService EJB provides helper methods to parse a Imixs AI Prompt definition 
-*/
+/**
+ * The ImixsAIPromptService EJB provides helper methods to parse a Imixs AI
+ * Prompt definition
+ */
 @Stateless
 @LocalBean
 public class ImixsAIPromptService implements Serializable {
@@ -76,4 +77,31 @@ public class ImixsAIPromptService implements Serializable {
 
     }
 
+    /**
+     * This method returns the prompt template form a BPMN DataObject associated
+     * with the current Event or Task object.
+     *
+     * @param element
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    public String loadPromptTemplateByModelElement(ItemCollection element) {
+        List<List<String>> dataObjects = element.getItemValue("dataObjects");
+
+        if (dataObjects == null || dataObjects.size() == 0) {
+            logger.warning("No data object for prompt template found");
+        }
+
+        // take the first data object with a prompt definition....
+        for (List<String> dataObject : dataObjects) {
+            String name = "" + dataObject.get(0);
+            String _prompt = "" + dataObject.get(1);
+            if (_prompt.contains("<PromptDefinition>")) {
+                return _prompt;
+
+            }
+        }
+
+        return null;
+    }
 }

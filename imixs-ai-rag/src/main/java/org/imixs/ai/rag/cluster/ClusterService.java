@@ -16,8 +16,6 @@ package org.imixs.ai.rag.cluster;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -351,7 +349,7 @@ public class ClusterService {
         String query = "CREATE TABLE IF NOT EXISTS document_vectors (\n" + //
                 "  id text,\n" + //
                 "  chunk_id uuid,\n" + //
-                "  model_version text,\n" + //
+                "  model_group text,\n" + //
                 "  task_id int,\n" + //
                 "  content_chunk text,\n" + //
                 "  content_vector VECTOR <FLOAT, " + DIMENSIONS + ">,\n" + //
@@ -365,8 +363,8 @@ public class ClusterService {
         session.execute(query);
 
         // Additional indexes for metadata filtering
-        query = "CREATE INDEX IF NOT EXISTS idx_model_version " + //
-                " ON document_vectors(model_version) USING 'sai';";
+        query = "CREATE INDEX IF NOT EXISTS idx_model_group " + //
+                " ON document_vectors(model_group) USING 'sai';";
         session.execute(query);
         query = "CREATE INDEX IF NOT EXISTS idx_task_id  " + //
                 " ON document_vectors(task_id) USING 'sai';";
@@ -381,19 +379,19 @@ public class ClusterService {
      * data.
      * 
      * @param uniqueID
-     * @param modelVersion
+     * @param modelGroup
      * @param taskId
      * @param content
      * @param vector
      * @throws ClusterException
      */
-    public void insertVector(String uniqueID, String modelVersion, int taskId, String content, List<Float> vector)
+    public void insertVector(String uniqueID, String modelGroup, int taskId, String content, List<Float> vector)
             throws ClusterException {
 
         // Prepare statement?
         if (insertVectorStmt == null) {
             String insertQuery = "INSERT INTO document_vectors "
-                    + "(id, chunk_id, model_version, task_id, content_chunk, content_vector) VALUES (?, ?, ?, ?, ?, ?)";
+                    + "(id, chunk_id, model_group, task_id, content_chunk, content_vector) VALUES (?, ?, ?, ?, ?, ?)";
             insertVectorStmt = session.prepare(insertQuery);
         }
 
@@ -403,7 +401,7 @@ public class ClusterService {
             // CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(vector);
 
-            BoundStatement boundStmt = insertVectorStmt.bind(uniqueID, chunk_id, modelVersion, taskId, content,
+            BoundStatement boundStmt = insertVectorStmt.bind(uniqueID, chunk_id, modelGroup, taskId, content,
                     cqlVector);
             session.execute(boundStmt);
 
@@ -488,14 +486,19 @@ public class ClusterService {
      * only the chunk with the highest similarity score is returned. The results are
      * sorted by relevance score in descending order.
      * <p>
-     * The params 'modelVrsions' and 'taskIds' are optional and can be used to
-     * refine the search result to specific process instances only.
+     * The params 'models' and 'tasks' are optional and can be used to refine the
+     * search result to specific process instances only.
      * 
-     * @param queryEmbedding The embedding vector of the search query as a list of
-     *                       float values. The dimensionality must match the
-     *                       DIMENSIONS constant used in the database schema.
+     * @param embedding  The embedding vector of the search query as a list of float
+     *                   values. The dimensionality must match the DIMENSIONS
+     *                   constant used in the database schema.
+     * @param maxResults Maximum number of results to return
+     * @param models     Comma-separated model patterns, supports wildcards (e.g.,
+     *                   "customer*, invoice-1.0")
+     * @param tasks      Comma-separated task IDs and/or ranges (e.g., "1400, 1410,
+     *                   1000:1300")
      * @return A list of {@link RetrievalResult} objects containing the most
-     *         relevant documents, limited to a maximum of 5 results. Each result
+     *         relevant documents, limited to a maximum of results. Each result
      *         includes the document ID, the best matching content chunk, and the
      *         similarity score. The list is sorted by similarity score in
      *         descending order (most relevant first).
@@ -503,108 +506,35 @@ public class ClusterService {
      *                          processing the embedding vector
      * 
      * @see RetrievalResult
-     * @since 1.0
+     * @since 1.1
      */
     public List<RetrievalResult> searchEmbeddings(List<Float> embedding,
             int maxResults,
-            List<String> modelVersions,
-            List<Integer> taskIds,
-            Integer taskIdRangeStart,
-            Integer taskIdRangeEnd) throws ClusterException {
+            String modelgroups,
+            String tasks) throws ClusterException {
 
         if (maxResults <= 0) {
             throw new ClusterException(ClusterException.CLUSTER_ERROR,
                     "maxResults must be greater than 0, but was: " + maxResults);
         }
-        // Calculate a reasonable DB limit based on maxResults
-        // Factor 3-4 times to have enough chunks for deduplication.
-        int searchLimit = Math.min(maxResults * 4, SEARCH_LIMIT_MAX); // Max 100
 
-        StringBuilder queryBuilder = new StringBuilder();
-        queryBuilder.append("SELECT id, model_version, task_id, content_chunk, ")
-                .append("similarity_cosine(content_vector, ?) ")
-                .append("FROM document_vectors ");
-
-        List<String> whereConditions = new ArrayList<>();
-        // Model version filtering (with wildcard support)
-        if (modelVersions != null && !modelVersions.isEmpty()) {
-            List<String> modelConditions = new ArrayList<>();
-            for (String modelVersion : modelVersions) {
-                if (modelVersion.endsWith("*")) {
-                    // Wildcard search using LIKE
-                    modelConditions.add("model_version LIKE ?");
-                } else {
-                    // Exact match
-                    modelConditions.add("model_version = ?");
-                }
-            }
-            whereConditions.add("(" + String.join(" OR ", modelConditions) + ")");
-        }
-
-        // Task ID filtering - either list or range
-        if (taskIds != null && !taskIds.isEmpty()) {
-            whereConditions.add("task_id IN " + formatInClause(taskIds.size()));
-        } else if (taskIdRangeStart != null && taskIdRangeEnd != null) {
-            whereConditions.add("task_id >= ? AND task_id <= ?");
-        } else if (taskIdRangeStart != null) {
-            whereConditions.add("task_id >= ?");
-        } else if (taskIdRangeEnd != null) {
-            whereConditions.add("task_id <= ?");
-        }
-
-        if (!whereConditions.isEmpty()) {
-            queryBuilder.append("WHERE ").append(String.join(" AND ", whereConditions)).append(" ");
-        }
-
-        queryBuilder.append("ORDER BY content_vector ANN OF ? LIMIT ").append(searchLimit);
-        // Prepare statement (with caching)
-        String statementKey = buildStatementKey(searchLimit, modelVersions, taskIds,
-                taskIdRangeStart, taskIdRangeEnd);
-        PreparedStatement searchStmt = searchVectorStatements.get(statementKey);
-        if (searchStmt == null) {
-            searchStmt = session.prepare(queryBuilder.toString());
-            searchVectorStatements.put(statementKey, searchStmt);
-        }
+        // Build query
+        QueryBuilder queryBuilder = new QueryBuilder(maxResults, modelgroups, tasks);
+        String query = queryBuilder.buildQuery();
+        logger.info("│   ├── query = " + query);
+        // Get or create prepared statement
+        PreparedStatement stmt = searchVectorStatements.computeIfAbsent(
+                query, k -> session.prepare(k));
 
         try {
             // use CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(embedding);
-            // Build parameters list
-            List<Object> params = new ArrayList<>();
-            params.add(cqlVector);  // First parameter for similarity calculation
-
-            // Add model version parameters
-            if (modelVersions != null && !modelVersions.isEmpty()) {
-                for (String modelVersion : modelVersions) {
-                    if (modelVersion.endsWith("*")) {
-                        // Convert wildcard to LIKE pattern
-                        params.add(modelVersion.substring(0, modelVersion.length() - 1) + "%");
-                    } else {
-                        params.add(modelVersion);
-                    }
-                }
-            }
-
-            // Add task ID parameters
-            if (taskIds != null && !taskIds.isEmpty()) {
-                params.addAll(taskIds);
-            } else if (taskIdRangeStart != null && taskIdRangeEnd != null) {
-                params.add(taskIdRangeStart);
-                params.add(taskIdRangeEnd);
-            } else if (taskIdRangeStart != null) {
-                params.add(taskIdRangeStart);
-            } else if (taskIdRangeEnd != null) {
-                params.add(taskIdRangeEnd);
-            }
-
-            params.add(cqlVector);
-
-            ResultSet resultRows = session.execute(searchStmt.bind(params.toArray()));
+            ResultSet rows = session.execute(stmt.bind(queryBuilder.buildParams(cqlVector)));
 
             // track best Similarity per uniqueID
             Map<String, RetrievalResult> bestMatches = new HashMap<>();
 
-            for (Row row : resultRows) {
+            for (Row row : rows) {
                 String id = row.getString(0);
                 String contentChunk = row.getString(3);
                 Float similarity = row.getFloat(4);
@@ -614,10 +544,11 @@ public class ClusterService {
                 if (existingMatch == null || similarity > existingMatch.getScore()) {
                     // better match found!
                     bestMatches.put(id, new RetrievalResult(id, contentChunk, similarity));
-                    logger.info("│   ├── Found/Updated document: " + id + " with score: " + similarity);
+                    logger.info("│   ├── Found document: " + id + " (score=" + similarity + ")");
                 }
             }
-            // Sortiere nach Score (absteigend) und gebe Top 5 zurück
+
+            // Sort by score descending, limit results
             List<RetrievalResult> result = bestMatches.values().stream()
                     .sorted((a, b) -> Float.compare(b.getScore(), a.getScore()))
                     .limit(maxResults)
@@ -637,39 +568,17 @@ public class ClusterService {
         }
     }
 
-    public List<RetrievalResult> searchEmbeddings(List<Float> embedding,
-            int maxResults) throws ClusterException {
-
-        return searchEmbeddings(embedding, maxResults, null, null, null, null);
-    }
-
-    // Range-based search
-    public List<RetrievalResult> searchEmbeddingsWithTaskRange(List<Float> embedding, int maxResults,
-            List<String> modelVersions,
-            int taskIdStart, int taskIdEnd)
-            throws ClusterException {
-        return searchEmbeddings(embedding, maxResults, modelVersions, null, taskIdStart, taskIdEnd);
-    }
-
-    // Wildcard model search
-    public List<RetrievalResult> searchEmbeddingsWithModelWildcard(List<Float> embedding, int maxResults,
-            String modelPattern,
-            List<Integer> taskIds)
-            throws ClusterException {
-        return searchEmbeddings(embedding, maxResults, Arrays.asList(modelPattern), taskIds, null, null);
-    }
-
     /**
      * Update the workflow meta data. The method returns true if a index with the
      * given uniqueId was found
      * 
      * @param uniqueId
-     * @param modelVersion
+     * @param modelGroup
      * @param taskId
      * @return true if an update was performed
      * @throws ClusterException
      */
-    public boolean updateMetaData(String uniqueId, String modelVersion, int taskId)
+    public boolean updateMetaData(String uniqueId, String modelGroup, int taskId)
             throws ClusterException {
 
         // Prepare statements if not already done
@@ -679,7 +588,7 @@ public class ClusterService {
         }
 
         if (updateChunkStmt == null) {
-            String updateQuery = "UPDATE document_vectors SET model_version = ?, task_id = ? WHERE id = ? AND chunk_id = ?";
+            String updateQuery = "UPDATE document_vectors SET model_group = ?, task_id = ? WHERE id = ? AND chunk_id = ?";
             updateChunkStmt = session.prepare(updateQuery);
         }
         try {
@@ -700,13 +609,13 @@ public class ClusterService {
             // 2. Jede gefundene chunk_id einzeln updaten
             int updateCount = 0;
             for (UUID chunkId : chunkIds) {
-                BoundStatement updateBoundStmt = updateChunkStmt.bind(modelVersion, taskId, uniqueId, chunkId);
+                BoundStatement updateBoundStmt = updateChunkStmt.bind(modelGroup, taskId, uniqueId, chunkId);
                 session.execute(updateBoundStmt);
                 updateCount++;
             }
 
             logger.info("│   ├── Updated metadata for " + updateCount + " entries with uniqueID: " +
-                    uniqueId + " (model: " + modelVersion + ", task: " + taskId + ")");
+                    uniqueId + " (model: " + modelGroup + ", task: " + taskId + ")");
             return true;
 
         } catch (Exception e) {
@@ -716,48 +625,4 @@ public class ClusterService {
 
     }
 
-    /**
-     * Helper method to prepare a IN clause
-     * 
-     * @param size
-     * @return
-     */
-    private String formatInClause(int size) {
-        return "(" + String.join(",", Collections.nCopies(size, "?")) + ")";
-    }
-
-    /**
-     * Helper method to build a key for specific select statement with parameters.
-     * This key is used to cache prepared statements
-     * 
-     * @param dbLimit
-     * @param modelVersions
-     * @param taskIds
-     * @param taskIdRangeStart
-     * @param taskIdRangeEnd
-     * @return
-     */
-    private String buildStatementKey(int dbLimit, List<String> modelVersions, List<Integer> taskIds,
-            Integer taskIdRangeStart, Integer taskIdRangeEnd) {
-        StringBuilder keyBuilder = new StringBuilder("search_").append(dbLimit);
-
-        if (modelVersions != null) {
-            keyBuilder.append("_mv").append(modelVersions.size());
-            // Add wildcard indicator
-            long wildcardCount = modelVersions.stream().mapToLong(mv -> mv.endsWith("*") ? 1 : 0).sum();
-            keyBuilder.append("w").append(wildcardCount);
-        }
-
-        if (taskIds != null && !taskIds.isEmpty()) {
-            keyBuilder.append("_ti").append(taskIds.size());
-        } else if (taskIdRangeStart != null || taskIdRangeEnd != null) {
-            keyBuilder.append("_tr");
-            if (taskIdRangeStart != null)
-                keyBuilder.append("s");
-            if (taskIdRangeEnd != null)
-                keyBuilder.append("e");
-        }
-
-        return keyBuilder.toString();
-    }
 }

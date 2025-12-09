@@ -145,14 +145,14 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     // do we have a system template?
 
                     ItemCollection task = modelManager.loadTask(workitem, model);
-                    String taskPromptTemplate = loadPromptTemplateByModelElement(task);
+                    String taskPromptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(task);
                     if (taskPromptTemplate != null && !taskPromptTemplate.isBlank()) {
                         imixsAIContextHandler.addPromptDefinition(taskPromptTemplate);
                     }
 
                     // Build Event Template
                     workitem.replaceItemValue("$event.name", event.getItemValueString("name"));
-                    String eventPromptTemplate = loadPromptTemplateByModelElement(event);
+                    String eventPromptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                     imixsAIContextHandler.addPromptDefinition(eventPromptTemplate);
 
                     logger.fine("Task Template: " + taskPromptTemplate);
@@ -192,30 +192,4 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
         return workitem;
     }
 
-    /**
-     * Loads a prompt template associated with a event or task
-     * 
-     * @param element
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    private String loadPromptTemplateByModelElement(ItemCollection element) {
-        List<List<String>> dataObjects = element.getItemValue("dataObjects");
-
-        if (dataObjects == null || dataObjects.size() == 0) {
-            logger.warning("No data object for prompt template found");
-        }
-
-        // take the first data object with a prompt definition....
-        for (List<String> dataObject : dataObjects) {
-            String name = "" + dataObject.get(0);
-            String _prompt = "" + dataObject.get(1);
-            if (_prompt.contains("<PromptDefinition>")) {
-                return _prompt;
-
-            }
-        }
-
-        return null;
-    }
 }

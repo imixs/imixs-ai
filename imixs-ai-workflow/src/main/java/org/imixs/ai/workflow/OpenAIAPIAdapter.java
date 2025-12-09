@@ -171,7 +171,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     logger.info("post Llama-cpp request: " + llmAPIEndpoint);
 
                     // Build the prompt template....
-                    String promptTemplate = llmService.loadPromptTemplate(event);
+                    String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                     String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                     // if we have a prompt we call the llm api endpoint
                     if (llmPrompt != null && !llmPrompt.isBlank()) {
