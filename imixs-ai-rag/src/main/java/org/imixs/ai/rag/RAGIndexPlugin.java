@@ -31,7 +31,8 @@ import jakarta.inject.Inject;
  * The RAGIndexPlugin automatically index, updates or remove the workflow meta
  * data as embeddings. Embeddings are created by the {@link RAGEventService}.
  * <p>
- * The plugin can be controlled by its mode.
+ * The plugin can be controlled by an `<imixs-ai>` definition in the following
+ * modes.
  * <ul>
  * <li>INDEX - index a workitem</li>
  * <li>UPDATE - default: update the workflow metadata only for a indexed
@@ -45,9 +46,9 @@ import jakarta.inject.Inject;
  * 
  * <pre>
   {@code
-   <rag-index name="DISABLE">
+   <imixs-ai name="DISABLE">
       <debug>false</debug>  
-   </rag-index>
+   </imixs-ai>
     }
  * </pre>
  * <p>
@@ -86,9 +87,6 @@ public class RAGIndexPlugin extends AbstractPlugin {
 				RAGService.RAG_INDEX, workitem, false);
 		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
 				RAGService.RAG_DISABLED, workitem, false);
-		// List<ItemCollection> ragUpdateDefinitions =
-		// workflowService.evalWorkflowResultXML(event, "imixs-ai",
-		// RAGService.RAG_UPDATE, workitem, false);
 		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
 				RAGService.RAG_DELETE, workitem, false);
 
