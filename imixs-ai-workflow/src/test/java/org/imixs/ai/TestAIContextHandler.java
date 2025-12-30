@@ -45,6 +45,7 @@ public class TestAIContextHandler {
     @BeforeEach
     public void setUp() throws PluginException, ModelException {
         imixsAIContextHandler = new ImixsAIContextHandler();
+        imixsAIContextHandler.setWorkItem(new ItemCollection());
     }
 
     /**

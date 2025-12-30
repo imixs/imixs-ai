@@ -9,6 +9,12 @@ __pycache__/
 # Maven
 target/
 
+# Eclipse
+.settings/
+.classpath/
+.classpath
+.project
+
 # ignore all model files
 models/
 

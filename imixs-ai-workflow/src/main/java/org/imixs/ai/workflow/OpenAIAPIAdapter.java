@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.WorkflowService;
@@ -82,7 +83,7 @@ import jakarta.json.JsonObject;
 public class OpenAIAPIAdapter implements SignalAdapter {
 
     public static final String ML_ENTITY = "entity";
-    public static final String API_ERROR = "API_ERROR";
+
     public static final String LLM_PROMPT = "PROMPT";
     public static final String LLM_SUGGEST = "SUGGEST";
 
@@ -103,6 +104,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
     @Inject
     protected ImixsAIPromptService imixsAIPromptService;
+
+    @Inject
+    protected ImixsAIContextHandler imixsAIContextHandler;
 
     /**
      * Default Constructor
@@ -165,14 +169,19 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
                     // do we have a valid endpoint?
                     if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                        throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), API_ERROR,
+                        throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), OpenAIAPIService.ERROR_API,
                                 "imixs-ai llm service endpoint is empty!");
                     }
                     logger.info("post Llama-cpp request: " + llmAPIEndpoint);
 
                     // Build the prompt template....
+
                     String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
-                    String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+
+                    // String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
+                    imixsAIContextHandler.setWorkItem(workitem);
+                    imixsAIContextHandler.addPromptDefinition(promptTemplate);
+                    String llmPrompt = imixsAIContextHandler.toString();
                     // if we have a prompt we call the llm api endpoint
                     if (llmPrompt != null && !llmPrompt.isBlank()) {
                         if (llmAPIDebug) {

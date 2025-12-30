@@ -2,50 +2,34 @@
 
 The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJBs to integrate the Imixs-AI framework into the workflow processing life cycle.
 
-- **LLMAdapter**<br/>The Workflow Adapter class 'LLMAdapter' is used within the processing life cycle on a workflow instance to execute a LLM prompt. The adapter builds the prompt based on a given Prompt Template and evaluates the result object. <br/>
+- **LLM-Service** <br/>The Imixs-AI backend service EJB interacting with a LLM service endpoint based on [Open AI API](https://github.com/openai/openai-openapi) <br/>
 
-- **LLM-Definition** <br/>A data structure holding the information of a single LLM service endpoint <br/>
+- **LLM-Definition** <br/>A data structure holding the information of a single LLM service endpoint including LLM options and the prompt template<br/>
 
-- **LLM-Service** <br/>A service EJB interacting with a Imixs-AI service endpoint <br/>
+- **LLMAdapter**<br/>A generic Workflow Adapter class used within the processing life cycle on a workflow instance to execute a LLM prompt template. The adapter builds the prompt based on a given Prompt Template and evaluates the result object. <br/>
 
 - **LLM-Controller** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
 
 - **ImixsAIContextHandler** <br/> A CDI bean to setup a LLM chat conversation.
 
-## The LLMAdapter
+## The OpenAIAPIAdapter
 
-The adapter _'org.imixs.llm.workflow.LLMAdapter'_ is used to send a prompt to the MML Service endpoint. The LLMAdaper automatically builds the prompt based on a prompt-template and stores the result into the corresponding workitem.
+The adapter class `org.imixs.llm.workflow.OpenAIAPIAdapter` is used to send a prompt to the LLM Service endpoint. The LLMAdapter automatically builds the prompt based on a prompt definition template and stores the result into the corresponding workitem.
 
-### Configuration by Properties
+### Configuration
 
-The LLMAdapter can be configured by the following imixs.properties
-
-- _llm.service.endpoint_ - defines the service endpoint of tha Imixs-AI service
-
-The parameters can be set in the imixs.properties or as environment variables:
-
-    LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
-
-These parameters can be overwritten by the model.
-
-### Configuration by the Model
-
-The main prompt configuration of the LLMAdapter is done through the model by defining a workflow result item named '_llm-config_'.
-
-<img src="../doc/images/imixs-llm-adapter-config.png" />
-
-See the following example:
+The configuration of the OpenAIAPIAdapter is done through the model by defining a workflow result xml tag named `<imixs-ai>`:
 
 ```xml
-<llm-config name="PROMPT">
- <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
-
- <result-item>....</result-item>
- <result-event>....</result-event>
-</llm-config>
+<imixs-ai name="PROMPT">
+ <debug>true</debug>
+  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+  <result-item>....</result-item>
+  <result-event>....</result-event>
+</imixs-ai>
 ```
 
-Properties:
+The `OpenAIAPIAdapter` can be configured by the following properties:
 
 | Property       | Type | Description                                                                |
 | -------------- | ---- | -------------------------------------------------------------------------- |
@@ -53,77 +37,74 @@ Properties:
 | `result-item`  | Text | Item name to store the result returned by the LLM Server                   |
 | `result-event` | Text | Optional event identifier to process the result returned by the LLM Server |
 
-**Note:** The llm-config name `PROMPT` is mandatory. It defines the prompt definition and the service endpoint.
+**Note:** The `imixs-ai` name `PROMPT` is mandatory.
 
-### The Prompt Definition
+- _llm.service.endpoint_ - defines the service endpoint of tha Imixs-AI service
 
-The prompt definition can be defined by a BPMN Data item containing the prompt template. The Prompt Template is defined by a XML document containing the model ID and teh prompt. See the following example:
+The `endpoint` parameter can optional defined in the imixs.properties or as environment variables:
+
+    LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
+
+These parameters can be overwritten by the model.
+
+### The Prompt Definition Template
+
+The prompt definition contains the prompt messages and optional 'prompt_options'.
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-    <PromptData>
-        <model_id>mistral-7b-instruct-v0.2.Q4_K_M.gguf</model_id>
-        <prompt><![CDATA[<s>
-    [INST] You are a clerk in a logistics company and you job is to check invoices documents. [/INST]
-
-
-    <filecontent>^.+\.([pP][dD][fF])$</filecontent>
-
-    </s>
-    [INST] Extract the language the invoice is written in and the company name.
-
-    Output the information in a JSON object.
-    Create only the json object. Do not provide explanations or notes.
-
-    Example JSON Object:
-
-    {
-        "language": "German",
-        "company.name": "Kraxi GmbH",
-    }
-    [/INST]
-
-    ]]>
+<imixs-ai name="PROMPT">
+  <debug>true</debug>
+  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+  <result-event>BOOLEAN</result-event>
+  <PromptDefinition>
+    <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
+    <prompt role="system"><![CDATA[
+       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>
     </prompt>
-</PromptData>
+    <prompt role="user"><![CDATA[
+       <itemvalue>$workflowsummary</itemvalue> ]]>
+    </prompt>
+  </PromptDefinition>
+</imixs-ai>
 ```
 
-**Note:** The prompt layout itself is defined by the Large Language Model and can diversify for each LLM.
+Optional the the prompt definition can also be defined by a separated BPMN DataObject. The DataObject is associated with the corresponding BPMN Event element:
 
-## The Build-Events
+<img src="../doc/images/imixs-llm-adapter-config.png" />
 
-Before a prompt is send to the llama-cpp service endpoint, the prompt-template is processed by Imixs-AI by so called PromptBuilder classes. These are CDI beans reacting on the `LLMPromptEvent` and are responsible to adapt the content of a prompt-template with content provided by the current workitem. There are some standard PromptBuilder classes that can be used out of the box:
+The prompt definition layout is based on the Open AI OpenAPI chat template defining the prompt as a sequence of prompt messages with one of the roles 'system', 'user', 'assistant'.
 
-### LLMIAdaptTextBuilder
+```xml
+<PromptDefinition>
+  <prompt role="system">You are a computer expert.</prompt>
+  <prompt role="user">How long is a byte?</prompt>
+</PromptDefinition>
+```
 
-The `LLMIAdaptTextBuilder` can be used to adapt all kind of text elements supported by the [Imixs-Workflow Adapt Text Feature](https://www.imixs.org/doc/engine/adapttext.html). For example you add item values to any part of the prompt-template
+It is recommended to use at least on system-message and one user-message. See the following example:
 
-    <itemvalue>invoice.summary</itemvalue>
+```xml
+<PromptDefinition>
+  <prompt_options>{"n_predict": 4096, "temperature": 0}</prompt_options>
+  <prompt role="system"><![CDATA[
+You are a clerk in a logistics company and you job is to check invoices documents. [/INST]
 
-to place the 'invoice.summary' item into the template,
+Extract the language the invoice is written in and the company name.
 
-    <username>$editor</username>
+Output the information in a JSON object.
+Create only the json object. Do not provide explanations or notes.
 
-to place the userid of the current editor into the template.
+Example JSON Object:
 
-Find more about Text adapters:
-
-- [Imixs-Workflow Adapt Text](https://www.imixs.org/doc/engine/adapttext.html)
-- [Imixs-Office-Workflow Text Adapter](https://doc.office-workflow.com/textadapter/index.html)
-
-### LLMFileContextBuilder
-
-The `LLMFileContextBuilder` is used to place the content of files attached to the current workitem into the prompt-template. The Builder scans for all files matching a given filename or regular expression and adds the file content into the prompt-template. For example:
-
-    <FILECONTEXT>example.txt</FILECONTEXT>
-
-will place the content of the attached file `example.txt' into the prompt-template, or
-
-    <FILECONTEXT>^.+\.([pP][dD][fF])$</FILECONTEXT>
-
-will place the content of all PDF files into the prompt-template.
-
-You can place the `<FILECONTEXT>` tag multiple times into one prompt-template.
+{
+    "language": "German",
+    "company.name": "Kraxi GmbH",
+}
+]]>
+  </prompt>
+  <prompt role="user"><![CDATA[<filecontent>^.+\.([pP][dD][fF])$</filecontent>]]></prompt>
+</PromptDefinition>
+```
 
 ## The Result-Events
 
@@ -204,7 +185,7 @@ and you can add additional prompt messages in a sequence:
 
 **Note:** Adding a 'System' message will reset the current context. If you want to maintain a long conversation you may only add the system message once in the beginning!
 
-# Suggest Items
+## Suggest Items
 
 The llm-config can contain an optional suggest configuration providing a item list and a suggest mode.
 
@@ -219,59 +200,112 @@ The field 'items' contains a list of item names. This list will be stored in the
 An UI can use this information for additional input support (e.g. a suggest list)
 The field 'mode' provides a suggest mode for a UI component. The information is stored in the item `ai.suggest.mode`
 
+## The ImixsAIAssistantAdapter
+
+The adapter class `org.imixs.llm.workflow.ImixsAIAssistantAdapter` is an alterative adapter class to separate the prompt messages by different BPMN model elements.
+The Adapter is used to assist a more complex business process with LLMs implementing a continuous consistent prompt template by combining multiple template layers:
+
+<img src="../doc/images/assist-adapter.png" />
+
+- **Task Template:** A DataObject with a prompt definition associated with a Task element. It defines the initial AI 'system' role and describes the process goals, the process context and available next steps within the process. (WHO am I, WHAT do I do, HOW do I work)
+
+- **Event Template:** A DataObject with a prompt definition associated with an Event element containing specific instructions for the current action as also context business data (WHAT should I do NOW)
+
+Each DataObject can hold **Business Data** to provide process variables from workflow fields and additional context or instructions from the user
+
+This modular approach ensures clean separation of concerns:
+
+- Role definition happens only once in the initial task template
+- Event templates focus purely on specific actions
+- All templates can be maintained independently
+
+The Template Association in BPMN is done by Tasks and Events connected to DataObjects containing. The final prompt structure follows this OpenAI Message pattern:
+
+```
+    "messages": [
+        {
+            "role": "system",
+            "content": TASK TEMPLATE
+        },
+        {
+            "role": "user",
+            "content": EVENT TEMPLATE
+        }
+    ]
+```
+
+The Adapter can be configured similar to the OpenAIAPIAdatper class:
+
+```xml
+ <imixs-ai name="ASSISTANT">
+   <endpoint>https://localhost:8080/</endpoint>
+   <result-item>request.response.text</result-item>
+   <result-event>JSON</result-event>
+ </imixs-ai>
+```
+
+The `result-item` holds the message history.
+
 # Prompt Engineering
 
-If you work with prompt templates including very complex text data like business documents it is important that you make use of the `BOS Token` (Begin of String) and the `EOS token` (End Of String). These tokens indicate to the model that this context is a full completion/exchange and the completion is already finished.
+## Prompt Events
 
-Example
+Before a prompt is send to the llama-cpp service endpoint, the prompt-template is processed by Imixs-AI by so called PromptBuilder classes. These are CDI beans reacting on the `LLMPromptEvent` and are responsible to adapt the content of a prompt-template with content provided by the current workitem. There are some standard PromptBuilder classes that can be used out of the box:
 
-```
-<s>[INST] You are a clerk in a logistics company and you job is to check invoices documents. [/INST]
+### LLMIAdaptTextBuilder
 
-<FILECONTEXT>^.+\.([pP][dD][fF])$</FILECONTEXT>
+The `LLMIAdaptTextBuilder` can be used to adapt all kind of text elements supported by the [Imixs-Workflow Adapt Text Feature](https://www.imixs.org/doc/engine/adapttext.html). For example you add item values to any part of the prompt-template
 
-</s>
-[INST] Extract the language the invoice is written in and the company name of the creditor.
-Output the information in a JSON object. Create only the json object. Do not provide explanations or notes.
-Example JSON Object:
-{
-  "invoice.language": "English",
-  "cdtr.name": "Kraxi GmbH",
-} [/INST]
-```
+    <itemvalue>invoice.summary</itemvalue>
 
-Note that it is recommended to use new-lines between the beginning and and of a file context.
+to place the 'invoice.summary' item into the template,
+
+    <username>$editor</username>
+
+to place the userid of the current editor into the template.
+
+Find more about Text adapters:
+
+- [Imixs-Workflow Adapt Text](https://www.imixs.org/doc/engine/adapttext.html)
+- [Imixs-Office-Workflow Text Adapter](https://doc.office-workflow.com/textadapter/index.html)
+
+### LLMFileContextBuilder
+
+The `LLMFileContextBuilder` is used to place the content of files attached to the current workitem into the prompt-template. The Builder scans for all files matching a given filename or regular expression and adds the file content into the prompt-template. For example:
+
+    <FILECONTEXT>example.txt</FILECONTEXT>
+
+will place the content of the attached file `example.txt' into the prompt-template, or
+
+    <FILECONTEXT>^.+\.([pP][dD][fF])$</FILECONTEXT>
+
+will place the content of all PDF files into the prompt-template.
+
+You can place the `<FILECONTEXT>` tag multiple times into one prompt-template.
 
 ## BOS and EOS
 
-Take care about the correct usage of BOS and EOS and other marker Strings like `<s>`, `</s>` or `[INST]`.
-These strings often expect an additional space character!
-
-```
-<s>[INST] This is my instruction. [/INST]
-```
-
-Note the spaces in this example!.
+Usually it is not necessary to use the LLMs BOS and EOS markers as this is covered automatically by the Open AI Open API server. It is recommended to use the chat-message layout as explained before.
 
 ## Few Shot Learning
 
 If you use the 'few shot learning' take care about your examples. Ensure that your examples match exactly the instruction and the format given in the instruction. If not this can cause bad results and at least a longer processing time!
 
-# Integration
+# Security
 
 As Imixs-AI-Workflow is based on the Open AI API the integration is done by a corresponding LLM endpoint. However an LLM is in most cases protected by a security layer or Access Token. There are two ways to connect an LLM endpoint while considering the security aspect - API Token or BASIC autentication.
 
-## API Token
+### API Token
 
 To access an LLM endpoint with an API token the environment variable `LLM_SERVICE_API_KEY` need to be defined globally for the workflow instance.
 The Imixs-AI-Workflow detects the token and automatically establishes a Bearer Token Authentication against the given API Endpoint.
 
-## BASIC Authentication
+### BASIC Authentication
 
 Optional a basic authentication can be used to connect to the LLM Service. In this case the environment variables
 `LLM_SERVICE_ENDPOINT_USER` and `LLM_SERVICE_ENDPOINT_PASSWORD` need to be defined globally for the application.
 
-## Debug Mode
+# Debug Mode
 
 You can activate a debug mode to print out prompt processing information during a workflow processing life cycle.
 

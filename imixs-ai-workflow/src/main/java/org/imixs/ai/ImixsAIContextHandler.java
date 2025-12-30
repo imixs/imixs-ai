@@ -63,7 +63,7 @@ public class ImixsAIContextHandler implements Serializable {
     public static final String ROLE_USER = "user";
     public static final String ROLE_ASSISTANT = "assistant";
 
-    private ItemCollection workItem;
+    private ItemCollection workItem = null;
     private String itemNameContext;
 
     @Inject
@@ -85,7 +85,6 @@ public class ImixsAIContextHandler implements Serializable {
     // reset context
     public void init() {
         context = new ArrayList<ItemCollection>();
-        workItem = new ItemCollection();
         this.options = Json.createObjectBuilder().build();
     }
 
@@ -211,7 +210,7 @@ public class ImixsAIContextHandler implements Serializable {
             throw new PluginException(
                     ImixsAIContextHandler.class.getSimpleName(),
                     ERROR_INVALID_PARAMETER,
-                    "Workitem is not set - call importContext !");
+                    "Workitem is not set - call importContext or set workitem!");
         }
 
         String prompt = null;
