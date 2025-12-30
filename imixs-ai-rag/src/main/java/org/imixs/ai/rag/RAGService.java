@@ -104,16 +104,17 @@ public class RAGService {
                 }
 
                 logger.info("├── post RAG index request: " + llmAPIEndpoint);
-                String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
-                indexDefinition.setItemValue("promptTemplate", promptTemplate);
+
                 indexDefinition.setItemValue("debug", llmAPIDebug);
                 indexDefinition.setItemValue("endpoint", llmAPIEndpoint);
 
-                // logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
-                // logger.info("│ ├── reference-item: " + itemRef);
-                // logger.info("│ ├── max-results: " + maxResults);
-                // logger.info("│ ├── modelgroups: " + modelGroups);
-                // logger.info("│ ├── tasks: " + tasks);
+                // load the prompt template if no template is defined by the index definition!
+                String promptTemplate = indexDefinition.getItemValueString("promptTemplate");
+                if (promptTemplate.isBlank()) {
+                    // try to load template from model....
+                    promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
+                    indexDefinition.setItemValue("promptTemplate", promptTemplate);
+                }
 
                 if (llmAPIDebug) {
                     logger.info("│   ├── PromptTemplate: ");
@@ -250,4 +251,83 @@ public class RAGService {
             throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), API_ERROR, e.getMessage(), e);
         }
     }
+
+    /**
+     * This method generates a default RAG Prompt Template to index a workitem. The
+     * prompt will include: Status, Group, Model Summary Abstract, File Content
+     * 
+     * @param workitem
+     * @return
+     */
+    // public String createDefaultPromptTemplate(ItemCollection workitem) {
+    // String result = "";
+
+    // result = result + workitem.getWorkflowGroup() + ": "
+    // + workitem.getItemValueString(WorkflowKernel.WORKFLOWSTATUS) + "\n\n";
+
+    // result = result + workitem.getItemValueString("") + "\n\n";
+    // result = result + workitem.getItemValueString("") + "\n\n";
+
+    // String fileContent = "";
+    // List<FileData> fileDataList = workitem.getFileData();
+    // for (FileData fileData : fileDataList) {
+    // String content = (String) fileData.getAttribute("text");
+    // if (content != null && !content.isBlank()) {
+    // fileContent = fileContent + fileData.getName() + " : \n\n";
+    // fileContent = fileContent + content + "\n\n";
+
+    // }
+    // }
+
+    // if (!fileContent.isBlank()) {
+    // result = result + "Documents: \n\n" + fileContent;
+    // }
+
+    // // collect history
+    // result = result + "Processing History: \n\n" + fileContent;
+    // List<List<?>> history =
+    // workitem.getItemValue(HistoryPlugin.ITEM_HISTORY_LOG);
+    // // Collections.reverse(history);
+    // // do we have real history entries?
+    // if (history.size() > 0 && history.get(0) instanceof List) {
+    // for (List<?> entries : history) {
+    // String entry = "";
+    // Date date = (Date) entries.get(0);
+    // String message = (String) entries.get(1);
+    // String user = (String) entries.get(2);
+    // result = result + "Date: " + date + " User: " + user + " : " + message;
+    // }
+    // }
+
+    // /* collect comments */
+    // List<Map<String, List<Object>>> comments =
+    // workitem.getItemValue("txtCommentLog");
+    // for (Map<String, List<Object>> comment : comments) {
+
+    // ItemCollection itemCol = new ItemCollection(comment);
+    // Date date = itemCol.getItemValueDate("datcomment");
+
+    // String message = itemCol.getItemValueString("txtcomment");
+    // String user = itemCol.getItemValueString("nameditor");
+
+    // ItemCollection entry = new ItemCollection();
+    // entry.replaceItemValue("date", date);
+    // entry.replaceItemValue("user", user);
+    // entry.replaceItemValue("message", message);
+    // entry.replaceItemValue("type", "comment");
+
+    // addChronicleEntry(originChronicleList, entry);
+    // }
+    // //
+
+    // // <itemvalue
+    // // ></itemvalue>: <itemvalue></itemvalue>
+    // // <itemvalue></itemvalue>
+
+    // // # Summary
+    // // <itemvalue>$workflowabstract</itemvalue>
+
+    // return result;
+
+    // }
 }
