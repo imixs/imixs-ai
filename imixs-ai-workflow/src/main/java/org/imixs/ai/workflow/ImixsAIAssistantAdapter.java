@@ -26,7 +26,6 @@ import org.imixs.workflow.exceptions.PluginException;
 import org.openbpmn.bpmn.BPMNModel;
 
 import jakarta.inject.Inject;
-import jakarta.json.JsonObject;
 
 /**
  * The ImixsAIAssistantAdapter is used to assist a business process with LLMs
@@ -122,7 +121,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
         String llmAPIEndpoint = null;
         String llmAPIResultEvent = null;
         String llmAPIResultItem = null;
-        boolean llmAPIDebug = false;
+        // boolean llmAPIDebug = false;
         List<ItemCollection> llmPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
                 LLM_ASSIST, workitem, false);
 
@@ -131,9 +130,9 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                 llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
                 llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                 llmAPIResultItem = promptDefinition.getItemValueString("result-item");
-                if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
-                    llmAPIDebug = true;
-                }
+                // if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
+                // llmAPIDebug = true;
+                // }
 
                 // Build template
                 try {
@@ -155,21 +154,15 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     String eventPromptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                     imixsAIContextHandler.addPromptDefinition(eventPromptTemplate);
 
+                    logger.setLevel(imixsAIContextHandler.getLogLevel());
                     logger.fine("Task Template: " + taskPromptTemplate);
                     logger.fine("Event Template: " + eventPromptTemplate);
 
                     // postPromptCompletion
-                    JsonObject jsonPrompt = imixsAIContextHandler.getOpenAIMessageObject();
-                    if (llmAPIDebug) {
-                        logger.info("│   ├── 📥 Completion Request: ");
-                        logger.info(jsonPrompt.toString());
-                    }
-                    String completionResult = llmService.postPromptCompletion(jsonPrompt, llmAPIEndpoint);
+                    // JsonObject jsonPrompt = imixsAIContextHandler.getOpenAIMessageObject();
+
+                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
                     // process the ai.result....
-                    if (llmAPIDebug) {
-                        logger.info("│   ├── ☑️ Completion Result: ");
-                        logger.info(completionResult);
-                    }
                     String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
                             workitem);
                     // store the result message

@@ -33,6 +33,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ModelService;
@@ -290,7 +291,9 @@ public class OpenAIAPIService implements Serializable {
      * @param prompt_options
      * @return
      */
-    public JsonObject buildJsonPromptObjectV1(String prompt, boolean stream, String prompt_options) {
+    public JsonObject buildJsonPromptObjectV1(ImixsAIContextHandler imixsAIContextHandler) {
+
+        JsonObject messageObject = imixsAIContextHandler.getOpenAIMessageObject();
 
         JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
 
@@ -298,27 +301,27 @@ public class OpenAIAPIService implements Serializable {
         JsonArrayBuilder messagesArrayBuilder = Json.createArrayBuilder();
         JsonObjectBuilder userMessageBuilder = Json.createObjectBuilder();
         userMessageBuilder.add("role", "user");
-        userMessageBuilder.add("content", prompt);
+        userMessageBuilder.add("content", imixsAIContextHandler.toString());
         messagesArrayBuilder.add(userMessageBuilder);
         jsonObjectBuilder.add("messages", messagesArrayBuilder);
 
         // Default model – könnte man auch per prompt_options überschreiben
         // jsonObjectBuilder.add("model", "gpt-4o-mini");
 
-        if (stream) {
-            jsonObjectBuilder.add("stream", true);
-        }
+        // if (stream) {
+        // jsonObjectBuilder.add("stream", true);
+        // }
 
         // Do we have additional options?
-        if (prompt_options != null && !prompt_options.isEmpty()) {
-            JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
-            JsonObject parsedJsonObject = jsonReader.readObject();
-            jsonReader.close();
+        // if (prompt_options != null && !prompt_options.isEmpty()) {
+        // JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
+        // JsonObject parsedJsonObject = jsonReader.readObject();
+        // jsonReader.close();
 
-            for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
-                jsonObjectBuilder.add(entry.getKey(), entry.getValue());
-            }
-        }
+        // for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
+        // jsonObjectBuilder.add(entry.getKey(), entry.getValue());
+        // }
+        // }
 
         JsonObject jsonObject = jsonObjectBuilder.build();
 
@@ -443,13 +446,21 @@ public class OpenAIAPIService implements Serializable {
      * @param apiEndpoint      - optional service endpoint
      * @throws PluginException
      */
-    public String postPromptCompletion(JsonObject jsonPromptObject, String apiEndpoint)
+    public String postPromptCompletion(ImixsAIContextHandler imixsAIContextHandler, String apiEndpoint)
             throws PluginException {
         String response = null;
-
+        long processingTime = System.currentTimeMillis();
         try {
             HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
+
+            boolean debug = false;
+            if (imixsAIContextHandler.getLogLevel().intValue() < 800) {
+                debug = true;
+            }
+            if (debug) {
+                logger.info("├── POST Completion: " + conn.getURL().toString());
+            }
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -458,8 +469,12 @@ public class OpenAIAPIService implements Serializable {
             conn.setDoOutput(true);
 
             // Write the JSON object to the output stream
-            String jsonString = jsonPromptObject.toString();
-            logger.fine("JSON Object=" + jsonString);
+            String jsonString = imixsAIContextHandler.getOpenAIMessageObject().toString();
+
+            if (debug) {
+                logger.info("│   ├── 📥 Completion Request: ");
+                logger.info(jsonString);
+            }
 
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
@@ -478,18 +493,23 @@ public class OpenAIAPIService implements Serializable {
                         responseBody.append(responseLine.trim() + "\n");
                     }
                     response = responseBody.toString();
-                    logger.fine("Response Body :: " + response);
+                    if (debug) {
+                        logger.info("│   ├── 📤 Completion Result: ");
+                        logger.info(response);
+                    }
+
                 }
             } else {
-                logger.severe("│   ├── ⚠️ postCompletion failed - '" + apiEndpoint
-                        + OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS + "' ");
+                logger.severe("└──  ⚠️ postCompletion failed -  HTTP Result=" + responseCode);
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         OpenAIAPIService.ERROR_PROMPT_INFERENCE,
                         "HTTP Result " + responseCode);
             }
             // Close the connection
             conn.disconnect();
-            logger.fine("===== postPromptCompletion completed");
+            if (debug) {
+                logger.info("└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
+            }
             return response;
 
         } catch (IOException e) {

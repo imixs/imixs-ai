@@ -27,7 +27,6 @@ import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.inject.Inject;
-import jakarta.json.JsonObject;
 
 /**
  * The OpenAIAPIAdapter is used for text completion requests by a LLMs.
@@ -145,8 +144,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         String llmAPIResultItem = null;
         boolean llmAPIDebug = false;
         long processingTime = System.currentTimeMillis();
-
-        logger.finest("...running api adapter...");
+        logger.finest("├── Running OpenAIAPIAdapter...");
 
         // read optional configuration form the model or imixs.properties....
         try {
@@ -172,7 +170,10 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                         throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), OpenAIAPIService.ERROR_API,
                                 "imixs-ai llm service endpoint is empty!");
                     }
-                    logger.info("post Llama-cpp request: " + llmAPIEndpoint);
+
+                    if (llmAPIDebug) {
+                        logger.info("├── Running OpenAIAPIAdapter mode=PROMPT.... ");
+                    }
 
                     // Build the prompt template....
 
@@ -181,35 +182,29 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     // String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                     imixsAIContextHandler.setWorkItem(workitem);
                     imixsAIContextHandler.addPromptDefinition(promptTemplate);
-                    String llmPrompt = imixsAIContextHandler.toString();
+                    // String llmPrompt = imixsAIContextHandler.toString();
                     // if we have a prompt we call the llm api endpoint
-                    if (llmPrompt != null && !llmPrompt.isBlank()) {
-                        if (llmAPIDebug) {
-                            logger.info("===> Total Prompt Length = " + llmPrompt.length());
-                            logger.info("===> Prompt: ");
-                            logger.info(llmPrompt);
-                        }
-                        // postPromptCompletion
-                        JsonObject jsonPrompt = llmService.buildJsonPromptObjectV1(llmPrompt, false,
-                                workitem.getItemValueString("ai.prompt.prompt_options"));
-                        String completionResult = llmService.postPromptCompletion(jsonPrompt, llmAPIEndpoint);
-                        // process the ai.result....
-                        if (llmAPIDebug) {
-                            logger.info("===> Completion Result: ");
-                            logger.info(completionResult);
-                        }
-                        String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
-                                workitem);
+                    // if (llmPrompt != null && !llmPrompt.isBlank()) {
+                    // postPromptCompletion
+                    // JsonObject jsonPrompt =
+                    // llmService.buildJsonPromptObjectV1(imixsAIContextHandler, false,
+                    // workitem.getItemValueString("ai.prompt.prompt_options"));
+                    // String completionResult = llmService.postPromptCompletion(jsonPrompt,
+                    // llmAPIEndpoint,llmAPIDebug);
+                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
+                    // process the ai.result....
+                    String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
+                            workitem);
 
-                        // store the result message
-                        if (llmAPIResultItem != null && !llmAPIResultItem.isEmpty()) {
-                            workitem.setItemValue(llmAPIResultItem, resultMessage);
-                        }
-
-                    } else {
-                        logger.finest(
-                                "......no prompt definition found for " + workitem.getUniqueID());
+                    // store the result message
+                    if (llmAPIResultItem != null && !llmAPIResultItem.isEmpty()) {
+                        workitem.setItemValue(llmAPIResultItem, resultMessage);
                     }
+
+                    // } else {
+                    // logger.finest(
+                    // "......no prompt definition found for " + workitem.getUniqueID());
+                    // }
                 }
 
             }
@@ -217,6 +212,10 @@ public class OpenAIAPIAdapter implements SignalAdapter {
             // verify if we also have an optional SUGGEST configuration (only one definition
             // is supported!)
             if (llmSuggestDefinitions != null && llmSuggestDefinitions.size() > 0) {
+                if (llmAPIDebug) {
+                    logger.info("├── Running OpenAIAPIAdapter mode=SUGGEST.... ");
+                }
+
                 ItemCollection suggestDefinition = llmSuggestDefinitions.get(0);
                 String llmSuggestItems = suggestDefinition.getItemValueString("items");
                 String llmSuggestMode = suggestDefinition.getItemValueString("mode");
@@ -242,7 +241,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
         }
 
         if (llmAPIDebug) {
-            logger.info("===> Total Processing Time=" + (System.currentTimeMillis() - processingTime) + "ms");
+            logger.info("└── OpenAIAPIAdapter completed in " + (System.currentTimeMillis() - processingTime) + "ms");
         }
         return workitem;
     }

@@ -67,7 +67,7 @@ public class ImixsAIPromptService implements Serializable {
 
         // switch to default api endpoint?
         if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-            // set defautl api endpoint if defined
+            // set default api endpoint if defined
             if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
                 llmAPIEndpoint = serviceEndpoint.get();
             }
