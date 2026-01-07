@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -454,13 +455,7 @@ public class OpenAIAPIService implements Serializable {
             HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
 
-            boolean debug = false;
-            if (imixsAIContextHandler.getLogLevel().intValue() < 800) {
-                debug = true;
-            }
-            if (debug) {
-                logger.info("├── POST Completion: " + conn.getURL().toString());
-            }
+            imixsAIContextHandler.log(Level.FINE, "├── POST Completion: " + conn.getURL().toString());
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -471,10 +466,8 @@ public class OpenAIAPIService implements Serializable {
             // Write the JSON object to the output stream
             String jsonString = imixsAIContextHandler.getOpenAIMessageObject().toString();
 
-            if (debug) {
-                logger.info("│   ├── 📥 Completion Request: ");
-                logger.info(jsonString);
-            }
+            imixsAIContextHandler.log(Level.FINE, "│   ├── 📥 Completion Request: ");
+            imixsAIContextHandler.log(Level.FINE, jsonString);
 
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
@@ -493,10 +486,9 @@ public class OpenAIAPIService implements Serializable {
                         responseBody.append(responseLine.trim() + "\n");
                     }
                     response = responseBody.toString();
-                    if (debug) {
-                        logger.info("│   ├── 📤 Completion Result: ");
-                        logger.info(response);
-                    }
+
+                    imixsAIContextHandler.log(Level.FINE, "│   ├── 📤 Completion Result: ");
+                    imixsAIContextHandler.log(Level.FINE, response);
 
                 }
             } else {
@@ -507,9 +499,10 @@ public class OpenAIAPIService implements Serializable {
             }
             // Close the connection
             conn.disconnect();
-            if (debug) {
-                logger.info("└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
-            }
+
+            imixsAIContextHandler.log(Level.FINE,
+                    "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
+
             return response;
 
         } catch (IOException e) {
