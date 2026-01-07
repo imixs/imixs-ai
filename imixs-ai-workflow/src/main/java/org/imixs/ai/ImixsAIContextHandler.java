@@ -3,6 +3,7 @@ package org.imixs.ai;
 import java.io.IOException;
 import java.io.Serializable;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -13,6 +14,12 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
@@ -107,6 +114,41 @@ public class ImixsAIContextHandler implements Serializable {
 
     public void setLogLevel(java.util.logging.Level logLevel) {
         this.logLevel = logLevel;
+    }
+
+    /**
+     * Extract and apply logging level form prompt definition
+     * 
+     * @param doc
+     */
+    private void parseLogLevel(Document doc) {
+        NodeList loggingNodes = doc.getElementsByTagName("loglevel");
+        if (loggingNodes.getLength() > 0) {
+            Node loggingNode = loggingNodes.item(0);
+            String logLevelStr = loggingNode.getTextContent().trim();
+            if (!logLevelStr.isBlank()) {
+                try {
+                    // convert to java.util.logging.Level
+                    logLevel = java.util.logging.Level.parse(logLevelStr.toUpperCase());
+                    // Setze das Level für diesen Logger
+                    logger.setLevel(logLevel);
+                    logger.config("Logger level set to: " + logLevel.getName());
+                } catch (IllegalArgumentException e) {
+                    logger.warning("Invalid log level '" + logLevelStr +
+                            "' in XML. Using default level.");
+                }
+            }
+        }
+    }
+
+    /**
+     * Custom log method that respects the configured logLevel.
+     * Always uses logger.info() but checks the desired level first.
+     */
+    public void log(Level level, String message) {
+        if (level.intValue() >= logLevel.intValue()) {
+            logger.info(message);
+        }
     }
 
     public boolean isStream() {
@@ -242,6 +284,7 @@ public class ImixsAIContextHandler implements Serializable {
             Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
 
             parseLogLevel(doc);
+            log(Level.FINE, "├── addPromptDefinition...");
 
             // check prompt_options
             NodeList optionNodes = doc.getElementsByTagName("prompt_options");
@@ -249,10 +292,9 @@ public class ImixsAIContextHandler implements Serializable {
                 Node modelNode = optionNodes.item(0);
                 String promptOptions = modelNode.getTextContent();
                 if (!promptOptions.isBlank()) {
-                    logger.fine("Update PromptOptions: " + promptOptions);
+                    log(Level.FINE, "│   ├── update PromptOptions: " + promptOptions);
                     this.setOptions(promptOptions);
                 }
-
             }
 
             // extract each prompt and role
@@ -260,7 +302,8 @@ public class ImixsAIContextHandler implements Serializable {
             for (int i = 0; i < promptNodes.getLength(); i++) {
 
                 Element modelNode = (Element) promptNodes.item(i);
-                prompt = modelNode.getTextContent();
+                // prompt = modelNode.getTextContent();
+                prompt = getElementContent(modelNode); // Handles all cases
                 role = modelNode.getAttribute("role");
                 if (role.isBlank()) {
                     role = ROLE_USER;
@@ -268,7 +311,7 @@ public class ImixsAIContextHandler implements Serializable {
                 addMessage(role, prompt, null, null);
             }
 
-        } catch (IOException | ParserConfigurationException | SAXException e) {
+        } catch (IOException | ParserConfigurationException | SAXException | TransformerException e) {
             throw new PluginException(
                     ImixsAIContextHandler.class.getSimpleName(),
                     ImixsAIContextHandler.ERROR_PROMPT_TEMPLATE,
@@ -279,37 +322,43 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
-     * Extract and apply logging level form prompt definition
-     * 
-     * @param doc
-     */
-    private void parseLogLevel(Document doc) {
-        NodeList loggingNodes = doc.getElementsByTagName("loglevel");
-        if (loggingNodes.getLength() > 0) {
-            Node loggingNode = loggingNodes.item(0);
-            String logLevelStr = loggingNode.getTextContent().trim();
-            if (!logLevelStr.isBlank()) {
-                try {
-                    // convert to java.util.logging.Level
-                    logLevel = java.util.logging.Level.parse(logLevelStr.toUpperCase());
+     * Returns the content of an element - handles both plain text/CDATA and child
+     * elements
+     **/
+    public static String getElementContent(Element element) throws TransformerException {
+        // Check if element contains any child elements
+        NodeList children = element.getChildNodes();
+        boolean hasChildElements = false;
 
-                    // Setze das Level für diesen Logger
-                    logger.setLevel(logLevel);
-
-                    // Optional: Setze auch für die Eltern-Handler
-                    // java.util.logging.Logger parentLogger = logger.getParent();
-                    // if (parentLogger != null) {
-                    // parentLogger.setLevel(level);
-                    // }
-
-                    logger.config("Logger level set to: " + logLevel.getName());
-
-                } catch (IllegalArgumentException e) {
-                    logger.warning("Invalid log level '" + logLevelStr +
-                            "' in XML. Using default level.");
-                }
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
+                hasChildElements = true;
+                break;
             }
         }
+
+        if (hasChildElements) {
+            // Serialize child nodes to preserve XML structure
+            return getInnerXml(element);
+        } else {
+            // Plain text or CDATA - getTextContent() works perfectly
+            return element.getTextContent();
+        }
+    }
+
+    /** Returns the inner XML of an element (all child nodes serialized) */
+    public static String getInnerXml(Element element) throws TransformerException {
+        Transformer transformer = TransformerFactory.newInstance().newTransformer();
+        transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+
+        StringWriter writer = new StringWriter();
+        NodeList children = element.getChildNodes();
+
+        for (int i = 0; i < children.getLength(); i++) {
+            transformer.transform(new DOMSource(children.item(i)), new StreamResult(writer));
+        }
+
+        return writer.toString();
     }
 
     /**
@@ -398,7 +447,7 @@ public class ImixsAIContextHandler implements Serializable {
             builder.add("stream", true);
         }
         JsonObject result = builder.build();
-        logger.fine("Generated JSON: " + result.toString());
+        log(Level.FINEST, "│   ├── generated JSON: " + result.toString());
         return result;
     }
 
