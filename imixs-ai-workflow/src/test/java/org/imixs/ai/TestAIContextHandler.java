@@ -157,4 +157,89 @@ public class TestAIContextHandler {
         }
 
     }
+
+    /**
+     * Test getElementContent with plain text (no XML structure)
+     */
+    @Test
+    public void testGetElementContentPlainText() {
+        String promptDef = "<imixs-ai>\n" + //
+                "  <PromptDefinition>\n" + //
+                "    <prompt role=\"user\">This is plain text without any XML tags</prompt>\n" + //
+                "  </PromptDefinition>\n" + //
+                "</imixs-ai>";
+
+        try {
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            List<ItemCollection> context = imixsAIContextHandler.getContext();
+            assertEquals(1, context.size());
+
+            String message = context.get(0).getItemValueString("chat.message");
+            assertEquals("This is plain text without any XML tags", message);
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+    }
+
+    /**
+     * Test getElementContent with child XML elements (no CDATA)
+     * Expected: XML structure is preserved in the message
+     */
+    @Test
+    public void testGetElementContentWithChildElements() {
+        String promptDef = "<imixs-ai>\n" + //
+                "  <PromptDefinition>\n" + //
+                "    <prompt role=\"user\"><FILECONTEXT>^.+\\.([pP][dD][fF])$</FILECONTEXT></prompt>\n" + //
+                "  </PromptDefinition>\n" + //
+                "</imixs-ai>";
+
+        try {
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            List<ItemCollection> context = imixsAIContextHandler.getContext();
+            assertEquals(1, context.size());
+
+            String message = context.get(0).getItemValueString("chat.message");
+            // XML structure should be preserved
+            assertTrue(message.contains("<FILECONTEXT>"));
+            assertTrue(message.contains("</FILECONTEXT>"));
+            assertTrue(message.contains("^.+\\.([pP][dD][fF])$"));
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+    }
+
+    /**
+     * Test getElementContent with mixed content (text and XML elements)
+     * Expected: Both text and XML structure are preserved
+     */
+    @Test
+    public void testGetElementContentMixedContent() {
+        String promptDef = "<imixs-ai>\n" + //
+                "  <PromptDefinition>\n" + //
+                "    <prompt role=\"user\">Process this <FILECONTEXT>*.pdf</FILECONTEXT> and also <FORMAT>JSON</FORMAT> please</prompt>\n"
+                + //
+                "  </PromptDefinition>\n" + //
+                "</imixs-ai>";
+
+        try {
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            List<ItemCollection> context = imixsAIContextHandler.getContext();
+            assertEquals(1, context.size());
+
+            String message = context.get(0).getItemValueString("chat.message");
+            // All parts should be preserved
+            assertTrue(message.contains("Process this"));
+            assertTrue(message.contains("<FILECONTEXT>*.pdf</FILECONTEXT>"));
+            assertTrue(message.contains("<FORMAT>JSON</FORMAT>"));
+            assertTrue(message.contains("please"));
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+    }
 }
