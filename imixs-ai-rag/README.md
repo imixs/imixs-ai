@@ -20,6 +20,8 @@ To index a workitem the `org.imixs.ai.RAGIndexPlugin` is used. The plugin expect
 <imixs-ai name="INDEX">
   <endpoint>https://llama.cpp2.imixs.com/</endpoint>
   <debug>true</debug>
+  <!-- optional -->
+  <category></category>
 </imixs-ai>
 ```
 

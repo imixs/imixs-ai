@@ -16,7 +16,12 @@ The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJB
 
 The adapter class `org.imixs.llm.workflow.OpenAIAPIAdapter` is used to send a prompt to the LLM Service endpoint. The `OpenAIAPIAdapter` automatically builds the prompt based on a prompt definition template and stores the result into the corresponding workitem.
 
-### Configuration
+The adapter supports two different modes
+
+- PROMPT - to send a prompt to a LLM endpoint
+- SUGGEST - providing a list of items related to the last LLM interaction
+
+### PROMPT Mode
 
 The configuration of the `OpenAIAPIAdapter` is done through the model by defining a workflow result xml tag named `<imixs-ai>`:
 
@@ -36,13 +41,13 @@ The `imixs-ai` name `PROMPT` is mandatory. The `OpenAIAPIAdapter` can be configu
 | `endpoint`     | URL     | Rest API endpoint for the llama-cpp server                                 |
 | `result-item`  | Text    | Item name to store the result returned by the LLM Server                   |
 | `result-event` | Text    | Optional event identifier to process the result returned by the LLM Server |
-| 'debug'        | Boolean | Optional to print debug information                                        |
+| `debug`        | Boolean | Optional to print debug information                                        |
 
 The `endpoint` parameter can optional defined in the imixs.properties or as environment variables:
 
     LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
 
-### The Prompt Definition Template
+#### The Prompt Definition Template
 
 The prompt is defined in a so called `PromptDefinition`.
 The prompt definition contains the prompt messages and optional 'prompt_options'.
@@ -77,7 +82,7 @@ The prompt definition layout is based on the OpenAI API chat template, defining 
 </PromptDefinition>
 ```
 
-### The CDI Event ImixsAIPromptEvent
+#### The CDI Event ImixsAIPromptEvent
 
 During processing the prompt definition, the Imixs `OpenAIAPIService` fires a CDI event of the type `org.imixs.ai.workflow.ImixsAIPromptEvent` before a prompt is processed. The event allows an application to add dynamic application data into the prompt. The ImixsAIPromptEvent contains the prompt template and the workitem. An observer CDI Bean can update and extend the given prompt.
 
@@ -101,7 +106,7 @@ public class MyPromptAdapter {
 }
 ```
 
-## The CDI Event ImixsAIResultEvent
+#### The CDI Event ImixsAIResultEvent
 
 To process the result returned by the LLM in a customized way you can implement an CDI Obeserver Bean reacting on the event class `org.imixs.ai.workflow.ImixsAIResultEvent`.
 The CDI event is fired after the completion result message was received by the `OpenAIAPIService`. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
@@ -135,6 +140,21 @@ public class MyResultEventHandler {
     }
   ...
 ```
+
+### SUGGEST Mode
+
+The imixs-ai configuration can contain an optional suggest-mode providing a item list and a suggest mode.
+
+```xml
+<imixs-ai name="SUGGEST">
+   <items>invoice.number,cdtr.name</items>
+   <mode>ON|OFF</mode>
+</imixs-ai>
+```
+
+The field `items` contains a list of item names. This list will be stored in the item `ai.suggest.items`.
+An UI can use this information for additional input support (e.g. a suggest list)
+The field 'mode' provides a suggest mode for a UI component. The information is stored in the item `ai.suggest.mode`
 
 ## The ImixsAIContextHandler
 
@@ -179,21 +199,6 @@ and you can add additional prompt messages in a sequence:
 ```
 
 **Note:** Adding a 'System' message will reset the current context. If you want to maintain a long conversation you may only add the system message once in the beginning!
-
-## Suggest Items
-
-The llm-config can contain an optional suggest configuration providing a item list and a suggest mode.
-
-```xml
-<imixs-ai name="SUGGEST">
-   <items>invoice.number,cdtr.name</items>
-   <mode>ON|OFF</mode>
-</imixs-ai>
-```
-
-The field 'items' contains a list of item names. This list will be stored in the item `ai.suggest.items`.
-An UI can use this information for additional input support (e.g. a suggest list)
-The field 'mode' provides a suggest mode for a UI component. The information is stored in the item `ai.suggest.mode`
 
 ## The ImixsAIAssistantAdapter
 
