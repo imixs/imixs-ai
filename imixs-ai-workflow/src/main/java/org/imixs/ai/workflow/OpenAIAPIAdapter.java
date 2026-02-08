@@ -178,19 +178,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     // Build the prompt template....
 
                     String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
-
-                    // String llmPrompt = llmService.buildPrompt(promptTemplate, workitem);
                     imixsAIContextHandler.setWorkItem(workitem);
                     imixsAIContextHandler.addPromptDefinition(promptTemplate);
-                    // String llmPrompt = imixsAIContextHandler.toString();
-                    // if we have a prompt we call the llm api endpoint
-                    // if (llmPrompt != null && !llmPrompt.isBlank()) {
-                    // postPromptCompletion
-                    // JsonObject jsonPrompt =
-                    // llmService.buildJsonPromptObjectV1(imixsAIContextHandler, false,
-                    // workitem.getItemValueString("ai.prompt.prompt_options"));
-                    // String completionResult = llmService.postPromptCompletion(jsonPrompt,
-                    // llmAPIEndpoint,llmAPIDebug);
+
                     String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
                     // process the ai.result....
                     String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
@@ -201,10 +191,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                         workitem.setItemValue(llmAPIResultItem, resultMessage);
                     }
 
-                    // } else {
-                    // logger.finest(
-                    // "......no prompt definition found for " + workitem.getUniqueID());
-                    // }
                 }
 
             }

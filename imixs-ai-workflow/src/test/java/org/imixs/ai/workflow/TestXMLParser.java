@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.logging.Logger;
 
-import org.imixs.ai.xml.ImixsAIResultXMLAdapter;
+import org.imixs.ai.handler.XMLResultEventHandler;
 import org.imixs.workflow.ItemCollection;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +45,7 @@ public class TestXMLParser {
 
         String value = "1090,00";
 
-        String result = ImixsAIResultXMLAdapter.cleanDoubleFormatting(value);
+        String result = XMLResultEventHandler.cleanDoubleFormatting(value);
         System.out.println("Result=" + value);
 
         try {

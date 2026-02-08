@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.json;
+package org.imixs.ai.handler;
 
 import java.io.StringReader;
 import java.time.LocalDate;
@@ -53,42 +53,19 @@ import jakarta.json.JsonValue;
  * <p>
  * Example of a result object:
  * 
- * <pre>
-  {@code
- 
-  {
-    "company.name": "Foo & Co. KG",
-    "invoice.number": "111121307",
-    "invoice.date": "2024-03-04",
-    "invoice.total": 256.95,
-    "cdtr.iban": [
-        "DE87 3704 0000 0110 8208 00",
-        "DE48 3707 0060 0105 333 00"
-    ],
-    "cdtr.bic": [
-        "CXXXDEFFXXX",
-        "DYYYDEDKXXX"
-    ],
-    "invoice.positions": [
-        {
-        "description": "NZ100/07706 1 parts",
-        "quantity": 1,
-        "unitprice": 16.00,
-        "totalprice": 16.00
-        },
-        {
-        "description": "A9999/33975 2 ",
-        "quantity": 1,
-        "unitprice": 762.00,
-        "totalprice": 762.00
-        }
-    ]
-  } 
-}</pre>
+ * <pre> {@code
+ * 
+ * { "company.name": "Foo & Co. KG", "invoice.number": "111121307",
+ * "invoice.date": "2024-03-04", "invoice.total": 256.95, "cdtr.iban": [ "DE87
+ * 3704 0000 0110 8208 00", "DE48 3707 0060 0105 333 00" ], "cdtr.bic": [
+ * "CXXXDEFFXXX", "DYYYDEDKXXX" ], "invoice.positions": [ { "description":
+ * "NZ100/07706 1 parts", "quantity": 1, "unitprice": 16.00, "totalprice": 16.00
+ * }, { "description": "A9999/33975 2 ", "quantity": 1, "unitprice": 762.00,
+ * "totalprice": 762.00 } ] } }</pre>
  * 
  */
-public class ImixsAIResultJSONAdapter {
-    private static Logger logger = Logger.getLogger(ImixsAIResultJSONAdapter.class.getName());
+public class JSONResultEventHandler {
+    private static Logger logger = Logger.getLogger(JSONResultEventHandler.class.getName());
 
     public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {

@@ -210,29 +210,6 @@ public class OpenAIAPIService implements Serializable {
         return llmPromptEvent.getPromptTemplate();
     }
 
-    // /**
-    // * This method returns the prompt template form a BPMN DataObject associated
-    // * with the current Event object.
-    // *
-    // * @param event
-    // * @return
-    // */
-    // @SuppressWarnings("unchecked")
-    // public String loadPromptTemplate(ItemCollection event) {
-    // List<?> dataObjects = event.getItemValue("dataObjects");
-
-    // if (dataObjects == null || dataObjects.size() == 0) {
-    // logger.warning("No data object for prompt template found");
-    // }
-
-    // // take the first data object....
-    // List<String> data = (List<String>) dataObjects.get(0);
-    // // String name = "" + data.get(0);
-    // String prompt = "" + data.get(1);
-    // return prompt;
-
-    // }
-
     /**
      * This helper method builds a json prompt object including options params.
      * 
@@ -514,6 +491,78 @@ public class OpenAIAPIService implements Serializable {
 
         }
 
+    }
+
+    /**
+     * RAG Support - builds a prompt for embeddings from a Imixs prompt template
+     * <p>
+     * This method builds a prompt for embeddings based on a prompt template. The
+     * method first extracts the prompt from the prompt template. Next the method
+     * fires a prompt event to all registered PromptEvent Observer classes. This
+     * allows adaptors to customize the prompt.
+     * 
+     * Finally the method stores the prompt_options in the item
+     * 'ai.prompt.prompt_options'
+     * 
+     * 
+     * @param promptTemplate - a imixs-ai prompt XML-Template
+     * @param workitem       - the workitem to be processed
+     * @return the plain prompt to be send to the llm endpoint
+     * @throws PluginException
+     * @throws AdapterException
+     */
+    public String buildEmbeddingsPrompt(String promptTemplate, ItemCollection workitem)
+            throws PluginException, AdapterException {
+
+        String prompt = null;
+        // Extract Meta Information from XML....
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+
+            // extract prompt
+            NodeList modelNodes = doc.getElementsByTagName("prompt");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                prompt = modelNode.getTextContent();
+            }
+
+            if (prompt == null || prompt.isEmpty()) {
+                throw new PluginException(
+                        OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_TEMPLATE,
+                        "Missing prompt tag in embedding prompt template!");
+            }
+
+            // prompt_options
+            modelNodes = doc.getElementsByTagName("prompt_options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
+            }
+
+        } catch (IOException | ParserConfigurationException | SAXException e) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Unable to extract meta data from embedding prompt template: " + e.getMessage(), e);
+        }
+
+        // Fire Prompt Event...
+        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
+        try {
+            llmPromptEventObservers.fire(llmPromptEvent);
+        } catch (ObserverException e) {
+            // catch Adapter Exceptions
+            if (e.getCause() instanceof AdapterException) {
+                throw (AdapterException) e.getCause();
+            }
+
+        }
+        logger.finest(llmPromptEvent.getPromptTemplate());
+
+        return llmPromptEvent.getPromptTemplate();
     }
 
     /**

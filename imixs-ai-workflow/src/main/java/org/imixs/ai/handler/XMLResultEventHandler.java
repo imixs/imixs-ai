@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.xml;
+package org.imixs.ai.handler;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -80,8 +80,8 @@ import jakarta.enterprise.event.Observes;
 }</pre>
  * 
  */
-public class ImixsAIResultXMLAdapter {
-    private static Logger logger = Logger.getLogger(ImixsAIResultXMLAdapter.class.getName());
+public class XMLResultEventHandler {
+    private static Logger logger = Logger.getLogger(XMLResultEventHandler.class.getName());
 
     public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {

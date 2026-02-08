@@ -9,15 +9,33 @@ The main table has the following definition:
 
 ```sql
 CREATE TABLE IF NOT EXISTS document_vectors (
-    id text,
-    chunk_id uuid,
-    content_chunk text,
-    content_vector VECTOR <FLOAT, " + DIMENSIONS + ">,
-    PRIMARY KEY (id, chunk_id)
+        id text,
+        chunk_id uuid,
+        category text,
+        model_group text,
+        task_id int,
+        content_chunk text,
+        content_vector VECTOR <FLOAT, " + DIMENSIONS + ">,
+        PRIMARY KEY (id, chunk_id)
 );
 ```
 
 The default dimensions for float vector is based on the LLM used for indexing. 'nomic-embed-text-v2-moe' is a sentence-transformers model to map sentences & paragraphs to a 768 dimensional dense vector space. Find more details in the section [RAG](RAG.md).
+
+**Indices**
+
+Additional the following indices exist:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_category
+    ON document_vectors(category) USING 'sai';
+CREATE INDEX IF NOT EXISTS edv_ann_index
+    ON document_vectors(content_vector) USING 'sai';
+CREATE INDEX IF NOT EXISTS idx_model_group
+    ON document_vectors(model_group) USING 'sai';
+CREATE INDEX IF NOT EXISTS idx_task_id
+    ON document_vectors(task_id) USING 'sai';
+```
 
 The following section explains the schema in more detail.
 
@@ -251,6 +269,20 @@ Select a keyspace be name to interact with this keyspace:
 Show tables schemas in current keyspace:
 
     cqlsh:embeddings> DESC TABLES;
+
+**Select a single row:**
+
+To select a row by the $UniqueID:
+
+```
+cqlsh:embeddings> select id,chunk_id,model_version,task_id from document_vectors WHERE id='a0edf8ea-f8a9-48d8-9cd1-adb365a47a0d';
+
+ id                                   | chunk_id                             | model_version  | task_id
+--------------------------------------+--------------------------------------+----------------+---------
+ a0edf8ea-f8a9-48d8-9cd1-adb365a47a0d | ef82be60-f6b2-4b38-9bd7-edb88c377cb2 | product-en-1.0 |    1200
+
+(1 rows)
+```
 
 **Drop Keyspace:**
 

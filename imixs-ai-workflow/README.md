@@ -14,41 +14,37 @@ The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJB
 
 ## The OpenAIAPIAdapter
 
-The adapter class `org.imixs.llm.workflow.OpenAIAPIAdapter` is used to send a prompt to the LLM Service endpoint. The LLMAdapter automatically builds the prompt based on a prompt definition template and stores the result into the corresponding workitem.
+The adapter class `org.imixs.llm.workflow.OpenAIAPIAdapter` is used to send a prompt to the LLM Service endpoint. The `OpenAIAPIAdapter` automatically builds the prompt based on a prompt definition template and stores the result into the corresponding workitem.
 
 ### Configuration
 
-The configuration of the OpenAIAPIAdapter is done through the model by defining a workflow result xml tag named `<imixs-ai>`:
+The configuration of the `OpenAIAPIAdapter` is done through the model by defining a workflow result xml tag named `<imixs-ai>`:
 
 ```xml
 <imixs-ai name="PROMPT">
- <debug>true</debug>
   <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
   <result-item>....</result-item>
   <result-event>....</result-event>
+  <debug>true</debug>
 </imixs-ai>
 ```
 
-The `OpenAIAPIAdapter` can be configured by the following properties:
+The `imixs-ai` name `PROMPT` is mandatory. The `OpenAIAPIAdapter` can be configured by the following properties:
 
-| Property       | Type | Description                                                                |
-| -------------- | ---- | -------------------------------------------------------------------------- |
-| `endpoint`     | URL  | Rest API endpoint for the llama-cpp server                                 |
-| `result-item`  | Text | Item name to store the result returned by the LLM Server                   |
-| `result-event` | Text | Optional event identifier to process the result returned by the LLM Server |
-
-**Note:** The `imixs-ai` name `PROMPT` is mandatory.
-
-- _llm.service.endpoint_ - defines the service endpoint of tha Imixs-AI service
+| Property       | Type    | Description                                                                |
+| -------------- | ------- | -------------------------------------------------------------------------- |
+| `endpoint`     | URL     | Rest API endpoint for the llama-cpp server                                 |
+| `result-item`  | Text    | Item name to store the result returned by the LLM Server                   |
+| `result-event` | Text    | Optional event identifier to process the result returned by the LLM Server |
+| 'debug'        | Boolean | Optional to print debug information                                        |
 
 The `endpoint` parameter can optional defined in the imixs.properties or as environment variables:
 
     LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
 
-These parameters can be overwritten by the model.
-
 ### The Prompt Definition Template
 
+The prompt is defined in a so called `PromptDefinition`.
 The prompt definition contains the prompt messages and optional 'prompt_options'.
 
 ```xml
@@ -72,7 +68,7 @@ Optional the the prompt definition can also be defined by a separated BPMN DataO
 
 <img src="../doc/images/imixs-llm-adapter-config.png" />
 
-The prompt definition layout is based on the Open AI OpenAPI chat template defining the prompt as a sequence of prompt messages with one of the roles 'system', 'user', 'assistant'.
+The prompt definition layout is based on the OpenAI API chat template, defining the prompt as a sequence of prompt messages with one of the roles `system`, `user`, `assistant`.
 
 ```xml
 <PromptDefinition>
@@ -81,55 +77,54 @@ The prompt definition layout is based on the Open AI OpenAPI chat template defin
 </PromptDefinition>
 ```
 
-It is recommended to use at least on system-message and one user-message. See the following example:
+### The CDI Event ImixsAIPromptEvent
 
-```xml
-<PromptDefinition>
-  <prompt_options>{"n_predict": 4096, "temperature": 0}</prompt_options>
-  <prompt role="system"><![CDATA[
-You are a clerk in a logistics company and you job is to check invoices documents. [/INST]
+During processing the prompt definition, the Imixs `OpenAIAPIService` fires a CDI event of the type `org.imixs.ai.workflow.ImixsAIPromptEvent` before a prompt is processed. The event allows an application to add dynamic application data into the prompt. The ImixsAIPromptEvent contains the prompt template and the workitem. An observer CDI Bean can update and extend the given prompt.
 
-Extract the language the invoice is written in and the company name.
+**Example:**
 
-Output the information in a JSON object.
-Create only the json object. Do not provide explanations or notes.
+The following example replaces the placehodler `{orderid}` with an application specific value.
 
-Example JSON Object:
-
-{
-    "language": "German",
-    "company.name": "Kraxi GmbH",
+```java
+public class MyPromptAdapter {
+    public void onEvent(@Observes ImixsAIPromptEvent event) {
+        if (event.getWorkitem() == null) {
+            return;
+        }
+        String prompt = event.getPromptTemplate();
+        // replace placeholder
+        String oderID=myService.getOrderID();
+        prompt = prompt.replace("{orderid}", orderID);
+        // update the prompt tempalte
+        event.setPromptTemplate(prompt);
+    }
 }
-]]>
-  </prompt>
-  <prompt role="user"><![CDATA[<filecontent>^.+\.([pP][dD][fF])$</filecontent>]]></prompt>
-</PromptDefinition>
 ```
 
-## The Result-Events
+## The CDI Event ImixsAIResultEvent
 
-To process the result returned by the LLM in an individual way you can specify a optional result-adapter-class. This class is expected as a CDI bean which is triggered by CDI events send from the LLMWorkflow Service during prompt processing
+To process the result returned by the LLM in a customized way you can implement an CDI Obeserver Bean reacting on the event class `org.imixs.ai.workflow.ImixsAIResultEvent`.
+The CDI event is fired after the completion result message was received by the `OpenAIAPIService`. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
 
-The Events are defined by the classes:
+Depending on the `result-event` specified in the `imixs-ai` definition, a CDI bean can react on a specific result event.
 
-- **LLMResultEvent** - a CDI event fired by the LLMWorkflow. This even can be used in a observer pattern to provide alternative text processing after the LLM result is available.
-
-Depending on the event type a CDI bean can react on a LLMResultEvent or ignore it.
+**Example:**
 
 Example of a definition
 
 ```xml
-<llm-config name="PROMPT">
+<imixs-ai name="PROMPT">
   <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
   <result-event>JSON</result-event>
-</llm-config>
+</imixs-ai>
 ```
 
 The configuration will trigger a LLMResultEvent with the event type 'JSON'. A CDI Bean can react on this event type:
 
 ```java
+public class MyResultEventHandler {
   ...
-    public void onEvent(@Observes LLMResultEvent event) {
+    public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {
             return;
         }
@@ -190,10 +185,10 @@ and you can add additional prompt messages in a sequence:
 The llm-config can contain an optional suggest configuration providing a item list and a suggest mode.
 
 ```xml
-<llm-config name="SUGGEST">
+<imixs-ai name="SUGGEST">
    <items>invoice.number,cdtr.name</items>
    <mode>ON|OFF</mode>
-</llm-config>
+</imixs-ai>
 ```
 
 The field 'items' contains a list of item names. This list will be stored in the item `ai.suggest.items`.
@@ -310,8 +305,8 @@ Optional a basic authentication can be used to connect to the LLM Service. In th
 You can activate a debug mode to print out prompt processing information during a workflow processing life cycle.
 
 ```xml
-<llm-config name="PROMPT">
+<imixs-ai name="PROMPT">
    ......
    <debug>true</debug>
-</llm-con
+</imixs-ai>
 ```
