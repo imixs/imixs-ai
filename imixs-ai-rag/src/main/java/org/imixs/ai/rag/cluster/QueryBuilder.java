@@ -9,12 +9,13 @@ import com.datastax.oss.driver.api.core.data.CqlVector;
 
 /**
  * Internal builder for constructing vector search queries. Handles parsing of
- * modelgroup patterns and task filters, builds the CQL query, and manages the
- * statement parameters.
+ * category, modelgroup patterns and task filters, builds the CQL query, and
+ * manages the statement parameters.
  */
 public class QueryBuilder {
 
     private final List<String> modelGroups = new ArrayList<>();
+    private final List<String> categories = new ArrayList<>();
     private final List<Integer> taskIds = new ArrayList<>();
     private Integer taskRangeStart;
     private Integer taskRangeEnd;
@@ -24,13 +25,16 @@ public class QueryBuilder {
      * Creates a new query builder.
      *
      * @param maxResults  Maximum results requested (used to calculate DB limit)
+     * @param category    Optional category filter (null = all categories, "" =
+     *                    primary data)
      * @param modelgroups Comma-separated modelgroup patterns (e.g., "Invoice,
      *                    Credit Note")
      * @param tasks       Comma-separated task IDs and/or ranges (e.g., "1400, 1410,
      *                    1000:1300")
      */
-    QueryBuilder(int maxResults, String modelgroups, String tasks) throws ClusterException {
+    QueryBuilder(int maxResults, String category, String modelgroups, String tasks) throws ClusterException {
         this.searchLimit = Math.min(maxResults * 4, ClusterService.SEARCH_LIMIT_MAX);
+        parseCategories(category);
         parseModels(modelgroups);
         parseTasks(tasks);
     }
@@ -45,6 +49,15 @@ public class QueryBuilder {
                 .append("FROM document_vectors ");
 
         List<String> conditions = new ArrayList<>();
+
+        // Category conditions (wie Model Groups!)
+        if (!categories.isEmpty()) {
+            List<String> categoryConditions = new ArrayList<>();
+            for (String cat : categories) {
+                categoryConditions.add("category = ?");
+            }
+            conditions.add("(" + String.join(" OR ", categoryConditions) + ")");
+        }
 
         // Model Group conditions
         if (!modelGroups.isEmpty()) {
@@ -83,6 +96,11 @@ public class QueryBuilder {
         // First vector for similarity calculation
         params.add(vector);
 
+        // Category parameters
+        for (String category : categories) {
+            params.add(category);
+        }
+
         // Model parameters
         for (String modelgroup : modelGroups) {
             params.add(modelgroup);
@@ -113,6 +131,18 @@ public class QueryBuilder {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .forEach(modelGroups::add);
+    }
+
+    private void parseCategories(String categoryString) {
+        if (categoryString == null) {
+            return;  // null = search all categories
+        }
+        // Split and process - keep empty strings for primary data
+        String[] parts = categoryString.split(",");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            categories.add(trimmed);  // Add even if empty string (for primary data)
+        }
     }
 
     private void parseTasks(String tasks) throws ClusterException {
@@ -173,5 +203,4 @@ public class QueryBuilder {
     private String formatInClause(int size) {
         return "(" + String.join(",", Collections.nCopies(size, "?")) + ")";
     }
-
 }

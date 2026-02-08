@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag.events;
+package org.imixs.ai.rag.index;
 
 import static org.imixs.workflow.engine.AsyncEventSchedulerConfig.ASYNCEVENT_PROCESSOR_DEADLOCK;
 import static org.imixs.workflow.engine.AsyncEventSchedulerConfig.ASYNCEVENT_PROCESSOR_ENABLED;
@@ -39,16 +39,20 @@ import jakarta.ejb.TimerService;
 import jakarta.inject.Inject;
 
 /**
- * The RAGEventScheduler starts a scheduler service to process RAG events in an
- * asynchronous way by calling the RAGEventService.
+ * The IndexScheduler starts a scheduler service to process RAG events in an
+ * asynchronous way by calling the IndexOperator.
  * <p>
- * The AsyncEventScheduler runs on a non-persistent ejb timer with the same
- * interval settings as the AsyncEventProcessor
+ * The IndexScheduler runs on a non-persistent ejb timer with the same interval
+ * settings as the AsyncEventProcessor
  * <p>
- * RAGEventScheduler 'ASYNCEVENT_PROCESSOR_INTERVAL' and an optional delay
- * defined by 'ASYNCEVENT_PROCESSOR_INITIALDELAY'. To enable the processor
- * 'ASYNCEVENT_PROCESSOR_ENABLED' must be set to true (default=false).
- * 'ASYNCEVENT_PROCESSOR_DEADLOCK' deadlock timeout
+ * Parameters:
+ * <ul>
+ * <li>'ASYNCEVENT_PROCESSOR_INTERVAL' - scheduler interval</li>
+ * <li>'ASYNCEVENT_PROCESSOR_INITIALDELAY' -optional delay defined by.</li>
+ * <li>'ASYNCEVENT_PROCESSOR_ENABLED' - must be set to true to enable</li>
+ * (default=false).
+ * <li>'ASYNCEVENT_PROCESSOR_DEADLOCK' - the processor deadlock timeout</li>
+ * </ul>
  * <p>
  * In a clustered environment this timer runs in each cluster member that
  * contains the EJB. So this means the non-persistent EJB Timer scales
@@ -63,7 +67,7 @@ import jakarta.inject.Inject;
 @RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Startup
 @Singleton
-public class RAGEventScheduler {
+public class IndexScheduler {
 
     // enabled
     @Inject
@@ -85,13 +89,13 @@ public class RAGEventScheduler {
     @ConfigProperty(name = ASYNCEVENT_PROCESSOR_DEADLOCK, defaultValue = "60000")
     long deadLockInterval;
 
-    private static final Logger logger = Logger.getLogger(RAGEventScheduler.class.getName());
+    private static final Logger logger = Logger.getLogger(IndexScheduler.class.getName());
 
     @Resource
     TimerService timerService;
 
     @Inject
-    RAGEventService ragEventService;
+    IndexOperator indexOperator;
 
     @Inject
     EventLogService eventLogService;
@@ -99,21 +103,19 @@ public class RAGEventScheduler {
     @PostConstruct
     public void init() {
         if (enabled) {
-
             // Registering a non-persistent Timer Service.
             final TimerConfig timerConfig = new TimerConfig();
-            timerConfig.setInfo("Imixs-Workflow AsyncEventScheduler");
+            timerConfig.setInfo("Imixs-Workflow IndexScheduler");
             timerConfig.setPersistent(false);
             timerService.createIntervalTimer(initialDelay, interval, timerConfig);
-            logger.log(Level.INFO, "├── ✅ Started RAGEventScheduler - initalDelay={0}  inverval={1}",
+            logger.log(Level.INFO, "├── ✅ Started IndexScheduler - initalDelay={0}  inverval={1}",
                     new Object[] { initialDelay, interval });
-
         }
     }
 
     /**
-     * The method delegates the event processing to the stateless ejb
-     * AsyncEventProcessor.
+     * The method delegates the event processing to the IndexOperator (stateless
+     * ejb).
      * <p>
      * Before processing the eventLog the method releases possible dead locks first.
      * Both methods are running in separate transactions
@@ -122,10 +124,11 @@ public class RAGEventScheduler {
     @Timeout
     public void run(Timer timer) {
         eventLogService.releaseDeadLocks(deadLockInterval,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
-        ragEventService.processEventLog();
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_PROMPT,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
+        indexOperator.processEventLog();
     }
 
 }

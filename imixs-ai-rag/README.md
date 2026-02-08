@@ -1,7 +1,15 @@
 # Imixs AI RAG
 
-The Imixs AI RAG module provides a system for retrieval augmented generation (RAG). This system can be used to index workflow business- and metadata (generation) as also to search for similarity (retrieval) for a given text. The system is based on Apache Cassandra 4.0 which provides a distributed database system with high availability and scalability.
-This module provides the Cassandra RAG services and also the adapter and plugin classes for an integration into a Imixs-Workflow instance.
+The Imixs AI RAG module provides a knowledge base system for storing, indexing and retrieving workflow business data and metadata. The system uses Retrieval Augmented Generation (RAG) techniques to enable semantic search and similarity matching for given text queries.
+
+The knowledge base is built on Apache Cassandra 4.0, providing a distributed database system with high availability and scalability. This architecture ensures that the knowledge base can grow with your data needs while maintaining fast query performance.
+
+This module provides:
+
+- Cassandra-based RAG services for knowledge storage and retrieval
+- Adapter and plugin classes for seamless integration into Imixs-Workflow instances
+- Semantic search capabilities for workflow data
+
 For more details about the database schema see the section [Database](./doc/DATABASE.md)
 
 ## Integration
@@ -18,7 +26,7 @@ To index a workitem the `org.imixs.ai.RAGIndexPlugin` is used. The plugin expect
 
 ```xml
 <imixs-ai name="INDEX">
-  <endpoint>https://llama.cpp2.imixs.com/</endpoint>
+  <endpoint>https://llama.cpp.imixs.com/</endpoint>
   <debug>true</debug>
   <!-- optional -->
   <category></category>
@@ -53,9 +61,11 @@ The RAG System does not only store the embeddings but also the following Workflo
 
 ### Update
 
-To update the workflow metadata only the `org.imixs.ai.rag.RAGIndexlugin` can be run in the 'UPDATE' mode. This is the default mode and does not need an explizit configuration. This means the RAGIndexPlugin automatically updates the workflow metadata in each processing life-cycle.
+To update the workflow metadata only, the `org.imixs.ai.rag.RAGIndexlugin` can be run in the 'UPDATE' mode. This is the default mode and does not need an explizit configuration. In this mode the RAGIndexPlugin automatically updates the workflow metadata in each processing life-cycle.
 
-This plugin updates the $workflowGroup and the $taskId. These attributes can be used during the retrieval phase (see below) The update is only be performed if an index already exists.
+This plugin updates the `$workflowGroup` and `$taskId` only. These attributes can be used during the retrieval phase (see below).
+
+**Note:** An update is only be performed if an index already exists.
 
 ### Disable
 

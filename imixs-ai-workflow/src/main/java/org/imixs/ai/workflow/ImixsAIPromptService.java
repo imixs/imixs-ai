@@ -88,6 +88,63 @@ public class ImixsAIPromptService implements Serializable {
     }
 
     /**
+     * Convenient method to load a prompt template either from a promptDefinition or
+     * a dataObject associated with a bpmn element.
+     * 
+     * @param promptDefItemCollection
+     * @param bpmnElement
+     * @return
+     * @throws PluginException
+     */
+    public String loadPromptTemplate(ItemCollection promptDefItemCollection, ItemCollection bpmnElement)
+            throws PluginException {
+        String result = null;
+        if (promptDefItemCollection != null) {
+            result = loadPromptTemplateByDefinition(promptDefItemCollection);
+        }
+        if (result == null && bpmnElement != null) {
+            return loadPromptTemplateByModelElement(bpmnElement);
+        }
+        return null;
+    }
+
+    /**
+     * This method returns the prompt template defined in a workflow result
+     * 
+     * *
+     * 
+     * <pre>
+    * {@code
+    <imixs-ai name="PROMPT">
+    <debug>true</debug>
+    <endpoint>.....</endpoint>
+    <PromptDefinition>
+        <prompt_options>{}</prompt_options>
+        <prompt role="system">... </prompt>
+    </PromptDefinition>
+    </imixs-ai>
+    * }
+    * </pre>
+     * 
+     * 
+     * 
+     * 
+     * @param promptDefinition
+     * @param bpmnElement
+     * @return the prompt template or null if not defined
+     * @throws PluginException
+     */
+    public String loadPromptTemplateByDefinition(ItemCollection promptDefinition)
+            throws PluginException {
+        String content = promptDefinition.getItemValueString("promptDefinition");
+        if (!content.isBlank()) {
+            return "<PromptDefinition>" + content + "</PromptDefinition>";
+        } else {
+            return null;
+        }
+    }
+
+    /**
      * This method returns the prompt template form a BPMN DataObject associated
      * with the current Event or Task object.
      *
@@ -122,9 +179,9 @@ public class ImixsAIPromptService implements Serializable {
     }
 
     /**
-     * This method validates a given prompt definition. The method a list of role
-     * based prompt tags e.g. `<prompt role='user'>...</prompt>` The tag
-     * `<prompt_options>` is optional.
+     * This method validates a given prompt definition. The method is parsing a list
+     * of role based prompt tags e.g. `<prompt role='user'>...</prompt>` and the
+     * optional tag `<prompt_options>`.
      * 
      * @param _prompt
      */

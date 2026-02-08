@@ -12,13 +12,15 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag;
+package org.imixs.ai.rag.util;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.imixs.ai.rag.workflow.RAGRetrievalAdapter;
 
 /**
  * The RAGUtil provides methods to chunk markup text

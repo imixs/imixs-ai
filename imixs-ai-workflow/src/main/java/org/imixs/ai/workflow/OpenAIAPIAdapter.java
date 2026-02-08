@@ -177,7 +177,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
                     // Build the prompt template....
 
-                    String promptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
+                    String promptTemplate = imixsAIPromptService.loadPromptTemplate(promptDefinition, event);
                     imixsAIContextHandler.setWorkItem(workitem);
                     imixsAIContextHandler.addPromptDefinition(promptTemplate);
 

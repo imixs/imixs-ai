@@ -144,9 +144,9 @@ public class ClusterService {
     private CqlSession session;
 
     private PreparedStatement insertVectorStmt;
-    // private PreparedStatement searchVectorStmt;
     private final Map<String, PreparedStatement> searchVectorStatements = new HashMap<>();
-    private PreparedStatement selectVectorStmt;
+    private PreparedStatement selectVectorAllCategoriesStmt = null;
+    private PreparedStatement selectVectorByCategoryStmt = null;
     private PreparedStatement removeVectorStmt;
     private PreparedStatement selectChunksStmt = null;
     private PreparedStatement updateChunkStmt = null;
@@ -349,6 +349,7 @@ public class ClusterService {
         String query = "CREATE TABLE IF NOT EXISTS document_vectors (\n" + //
                 "  id text,\n" + //
                 "  chunk_id uuid,\n" + //
+                "  category text,\n" + //
                 "  model_group text,\n" + //
                 "  task_id int,\n" + //
                 "  content_chunk text,\n" + //
@@ -359,10 +360,13 @@ public class ClusterService {
 
         logger.info("│   ├── verify index...");
         query = "CREATE INDEX IF NOT EXISTS edv_ann_index\n" + //
-                "  ON document_vectors(content_vector) USING 'sai';";
+                " ON document_vectors(content_vector) USING 'sai';";
         session.execute(query);
 
         // Additional indexes for metadata filtering
+        query = "CREATE INDEX IF NOT EXISTS idx_category " + //
+                " ON document_vectors(category) USING 'sai';";
+        session.execute(query);
         query = "CREATE INDEX IF NOT EXISTS idx_model_group " + //
                 " ON document_vectors(model_group) USING 'sai';";
         session.execute(query);
@@ -375,106 +379,59 @@ public class ClusterService {
 
     /**
      * Inserts an embedding together with a content chunk into the database. The
-     * uniqueID is the reference to the corresponding workitem holding the full meta
-     * data.
+     * uniqueID is the reference to the corresponding workitem holding the full
+     * metadata.
      * 
-     * @param uniqueID
-     * @param modelGroup
-     * @param taskId
-     * @param content
-     * @param vector
+     * @param uniqueID   the document ID
+     * @param category   the content category (null or empty string for primary
+     *                   data)
+     * @param modelGroup the workflow model group
+     * @param taskId     the workflow task ID
+     * @param content    the text chunk
+     * @param vector     the embedding vector
      * @throws ClusterException
      */
-    public void insertVector(String uniqueID, String modelGroup, int taskId, String content, List<Float> vector)
+    public void insertEmbeddings(String uniqueID, String category, String modelGroup,
+            int taskId, String content, List<Float> vector)
             throws ClusterException {
 
-        // Prepare statement?
+        // Default category to empty string
+        if (category == null) {
+            category = "";
+        }
+
+        // Prepare statement if not already done
         if (insertVectorStmt == null) {
             String insertQuery = "INSERT INTO document_vectors "
-                    + "(id, chunk_id, model_group, task_id, content_chunk, content_vector) VALUES (?, ?, ?, ?, ?, ?)";
+                    + "(id, chunk_id, category, model_group, task_id, content_chunk, content_vector) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
             insertVectorStmt = session.prepare(insertQuery);
         }
 
         try {
-            // Generiere UUID
+            // Generate UUID for this chunk
             UUID chunk_id = UUID.randomUUID();
-            // CqlVector
+
+            // Create CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(vector);
 
-            BoundStatement boundStmt = insertVectorStmt.bind(uniqueID, chunk_id, modelGroup, taskId, content,
+            // Bind parameters: id, chunk_id, category, model_group, task_id, content_chunk,
+            // content_vector
+            BoundStatement boundStmt = insertVectorStmt.bind(
+                    uniqueID,
+                    chunk_id,
+                    category,
+                    modelGroup,
+                    taskId,
+                    content,
                     cqlVector);
+
             session.execute(boundStmt);
 
         } catch (Exception e) {
             throw new ClusterException(ClusterException.CLUSTER_ERROR,
                     "Failed to insert embeddings into keyspace: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * Removes all embeddings for a given uniqueID. The method returns true if
-     * entries have existed.
-     * 
-     * @param uniqueID
-     * @param content
-     * @param vector
-     * @throws ClusterException
-     */
-    public boolean removeAllEmbeddings(String uniqueID) throws ClusterException {
-        // Prepare statement if not already done
-        if (removeVectorStmt == null) {
-            String deleteQuery = "DELETE FROM document_vectors WHERE id = ?";
-            removeVectorStmt = session.prepare(deleteQuery);
-        }
-
-        try {
-            // test if entries exist
-            long count = countIndexEntries(uniqueID);
-            if (count > 0) {
-                // remove all
-                BoundStatement deleteBoundStmt = removeVectorStmt.bind(uniqueID);
-                session.execute(deleteBoundStmt);
-                logger.info("│   ├── ✅ Removed " + count + " entries for uniqueID: " + uniqueID);
-                return true;
-            } else {
-                // logger.info("│ ├── ℹ️ No entries found for uniqueID: " + uniqueID);
-            }
-
-        } catch (Exception e) {
-            throw new ClusterException(ClusterException.CLUSTER_ERROR,
-                    "Failed to remove entries for uniqueID '" + uniqueID + "': " + e.getMessage(), e);
-        }
-        return false;
-    }
-
-    /**
-     * This method returns the number of index entries with the given uniqueId. The
-     * method can be used to test if index data is available.
-     * 
-     * @param uniqueId
-     * @return - count of entries, or 0 if no entries exist
-     * @throws ClusterException
-     */
-    public long countIndexEntries(String uniqueId) throws ClusterException {
-        if (selectVectorStmt == null) {
-            String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ?";
-            selectVectorStmt = session.prepare(selectQuery);
-        }
-        try {
-            // test if entries exist
-            BoundStatement selectBoundStmt = selectVectorStmt.bind(uniqueId);
-            ResultSet resultSet = session.execute(selectBoundStmt);
-            Row row = resultSet.one();
-
-            if (row != null) {
-                long count = row.getLong(0);
-                return count;
-            }
-        } catch (Exception e) {
-            throw new ClusterException(ClusterException.CLUSTER_ERROR,
-                    "Failed to lookup entries for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
-        }
-        return 0;
     }
 
     /**
@@ -486,31 +443,29 @@ public class ClusterService {
      * only the chunk with the highest similarity score is returned. The results are
      * sorted by relevance score in descending order.
      * <p>
-     * The params 'models' and 'tasks' are optional and can be used to refine the
-     * search result to specific process instances only.
+     * The params 'category', 'modelGroups', and 'tasks' are optional and can be
+     * used to refine the search result to specific process instances only.
      * 
-     * @param embedding  The embedding vector of the search query as a list of float
-     *                   values. The dimensionality must match the DIMENSIONS
-     *                   constant used in the database schema.
-     * @param maxResults Maximum number of results to return
-     * @param models     Comma-separated model patterns, supports wildcards (e.g.,
-     *                   "customer*, invoice-1.0")
-     * @param tasks      Comma-separated task IDs and/or ranges (e.g., "1400, 1410,
-     *                   1000:1300")
+     * @param embedding   The embedding vector of the search query as a list of
+     *                    float values
+     * @param maxResults  Maximum number of results to return
+     * @param category    Optional category filter (null = search all categories, ""
+     *                    = primary data only)
+     * @param modelGroups Comma-separated model patterns, supports wildcards (e.g.,
+     *                    "customer*, invoice-1.0")
+     * @param tasks       Comma-separated task IDs and/or ranges (e.g., "1400, 1410,
+     *                    1000:1300")
      * @return A list of {@link RetrievalResult} objects containing the most
-     *         relevant documents, limited to a maximum of results. Each result
-     *         includes the document ID, the best matching content chunk, and the
-     *         similarity score. The list is sorted by similarity score in
-     *         descending order (most relevant first).
-     * @throws ClusterException if the database query fails or if there's an error
-     *                          processing the embedding vector
+     *         relevant documents
+     * @throws ClusterException if the database query fails
      * 
      * @see RetrievalResult
-     * @since 1.1
+     * @since 1.1.4
      */
     public List<RetrievalResult> searchEmbeddings(List<Float> embedding,
             int maxResults,
-            String modelgroups,
+            String category,
+            String modelGroups,
             String tasks) throws ClusterException {
 
         if (maxResults <= 0) {
@@ -518,31 +473,39 @@ public class ClusterService {
                     "maxResults must be greater than 0, but was: " + maxResults);
         }
 
-        // Build query
-        QueryBuilder queryBuilder = new QueryBuilder(maxResults, modelgroups, tasks);
+        // DEBUG
+        logger.info("│   ├── searchEmbeddings called with category: "
+                + (category == null ? "NULL" : "'" + category + "'"));
+
+        // Build query with optional category filter
+        QueryBuilder queryBuilder = new QueryBuilder(maxResults, category, modelGroups, tasks);
         String query = queryBuilder.buildQuery();
         logger.info("│   ├── query = " + query);
-        // Get or create prepared statement
+
+        // Get or create prepared statement (cached by query string)
         PreparedStatement stmt = searchVectorStatements.computeIfAbsent(
                 query, k -> session.prepare(k));
 
         try {
-            // use CqlVector
+            // Create CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(embedding);
+
+            // Bind parameters (QueryBuilder handles category conditionally)
             ResultSet rows = session.execute(stmt.bind(queryBuilder.buildParams(cqlVector)));
 
-            // track best Similarity per uniqueID
+            // Track best similarity per uniqueID (deduplication)
             Map<String, RetrievalResult> bestMatches = new HashMap<>();
 
             for (Row row : rows) {
                 String id = row.getString(0);
                 String contentChunk = row.getString(3);
                 Float similarity = row.getFloat(4);
-                // test if we already have a match
+
+                // Test if we already have a match
                 RetrievalResult existingMatch = bestMatches.get(id);
 
                 if (existingMatch == null || similarity > existingMatch.getScore()) {
-                    // better match found!
+                    // Better match found!
                     bestMatches.put(id, new RetrievalResult(id, contentChunk, similarity));
                     logger.info("│   ├── Found document: " + id + " (score=" + similarity + ")");
                 }
@@ -625,4 +588,149 @@ public class ClusterService {
 
     }
 
+    /**
+     * Removes all embeddings for a given uniqueID. The method returns true if
+     * entries have existed.
+     * 
+     * @param uniqueID
+     * @param content
+     * @param vector
+     * @throws ClusterException
+     */
+    public boolean removeAllEmbeddings(String uniqueID) throws ClusterException {
+        // Prepare statement if not already done
+        if (removeVectorStmt == null) {
+            String deleteQuery = "DELETE FROM document_vectors WHERE id = ?";
+            removeVectorStmt = session.prepare(deleteQuery);
+        }
+
+        try {
+            // test if entries exist
+            long count = countIndexEntries(uniqueID, null);
+            if (count > 0) {
+                // remove all
+                BoundStatement deleteBoundStmt = removeVectorStmt.bind(uniqueID);
+                session.execute(deleteBoundStmt);
+                logger.info("│   ├── ✅ Removed " + count + " entries for uniqueID: " + uniqueID);
+                return true;
+            } else {
+                // logger.info("│ ├── ℹ️ No entries found for uniqueID: " + uniqueID);
+            }
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to remove entries for uniqueID '" + uniqueID + "': " + e.getMessage(), e);
+        }
+        return false;
+    }
+
+    /**
+     * Removes all embeddings for a given uniqueID and category. Returns true if
+     * entries existed.
+     * 
+     * @param uniqueID the document ID
+     * @param category the content category (empty string for primary data)
+     * @return true if entries were deleted
+     * @throws ClusterException
+     */
+    public boolean removeEmbeddingsByCategory(String uniqueID, String category)
+            throws ClusterException {
+
+        // Default category
+        if (category == null) {
+            category = "";
+        }
+
+        try {
+            // Step 1: Find all chunk_ids for this uniqueID and category
+            String selectQuery = "SELECT chunk_id FROM document_vectors WHERE id = ? AND category = ?";
+            PreparedStatement selectStmt = session.prepare(selectQuery);
+            BoundStatement selectBoundStmt = selectStmt.bind(uniqueID, category);
+            ResultSet resultSet = session.execute(selectBoundStmt);
+
+            List<UUID> chunkIds = new ArrayList<>();
+            for (Row row : resultSet) {
+                chunkIds.add(row.getUuid("chunk_id"));
+            }
+
+            if (chunkIds.isEmpty()) {
+                logger.info("│   ├── ℹ️ No entries found for uniqueID: " + uniqueID
+                        + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+                return false;
+            }
+
+            // Step 2: Delete each chunk individually (using PRIMARY KEY)
+            String deleteQuery = "DELETE FROM document_vectors WHERE id = ? AND chunk_id = ?";
+            PreparedStatement deleteStmt = session.prepare(deleteQuery);
+
+            int deleteCount = 0;
+            for (UUID chunkId : chunkIds) {
+                BoundStatement deleteBoundStmt = deleteStmt.bind(uniqueID, chunkId);
+                session.execute(deleteBoundStmt);
+                deleteCount++;
+            }
+
+            logger.info("│   ├── ✅ Removed " + deleteCount + " entries for uniqueID: "
+                    + uniqueID + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+            return true;
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to remove entries: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * This method returns the number of index entries with the given uniqueId. The
+     * method can be used to test if index data is available.
+     * 
+     * @param uniqueId the document ID
+     * @param category optional category filter (null = count ALL categories, "" =
+     *                 primary data only)
+     * @return count of entries, or 0 if no entries exist
+     * @throws ClusterException
+     */
+    private long countIndexEntries(String uniqueId, String category) throws ClusterException {
+
+        if (category == null) {
+            // Count ALL categories
+            if (selectVectorAllCategoriesStmt == null) {
+                String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ?";
+                selectVectorAllCategoriesStmt = session.prepare(selectQuery);
+            }
+            try {
+                BoundStatement selectBoundStmt = selectVectorAllCategoriesStmt.bind(uniqueId);
+                ResultSet resultSet = session.execute(selectBoundStmt);
+                Row row = resultSet.one();
+
+                if (row != null) {
+                    return row.getLong(0);
+                }
+            } catch (Exception e) {
+                throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                        "Failed to lookup entries for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
+            }
+        } else {
+            // Count specific category
+            if (selectVectorByCategoryStmt == null) {
+                String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ? AND category = ?";
+                selectVectorByCategoryStmt = session.prepare(selectQuery);
+            }
+            try {
+                BoundStatement selectBoundStmt = selectVectorByCategoryStmt.bind(uniqueId, category);
+                ResultSet resultSet = session.execute(selectBoundStmt);
+                Row row = resultSet.one();
+
+                if (row != null) {
+                    return row.getLong(0);
+                }
+            } catch (Exception e) {
+                throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                        "Failed to lookup entries for uniqueID '" + uniqueId + "' and category '" + category + "': "
+                                + e.getMessage(),
+                        e);
+            }
+        }
+        return 0;
+    }
 }

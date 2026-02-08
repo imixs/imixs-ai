@@ -12,21 +12,21 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag.events;
+package org.imixs.ai.rag.index;
 
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
-import org.imixs.ai.workflow.OpenAIAPIService;
+import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.AsyncEventScheduler;
 import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.engine.jpa.EventLog;
+import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.annotation.security.DeclareRoles;
@@ -39,18 +39,18 @@ import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 
 /**
- * The RAGEventService is responsible to process Imixs-AI RAG events in an
- * asynchronous batch process. The RAGEventService automatically lookup eventLog
- * entries of the topic "rag.event.*". The RAGEventService is called only by the
- * RAGEventScheduler which is implementing a ManagedScheduledExecutorService.
+ * The IndexOperator is responsible to process Imixs-AI RAG events in an
+ * asynchronous batch process. The IndexOperator automatically lookup eventLog
+ * entries of the topic "rag.event.*". The IndexOperator is called only by the
+ * IndexScheduler.
  * <p>
- * The RAGEventService reacts on events from the following types:
+ * The IndexOperator reacts on events from the following types:
  * <ul>
  * <li>rag.event.index - index a new workitem</li>
  * <li>rag.event.update - update the meta data only</li>
+ * <li>rag.event.prompt - call a llm completion process</li>
  * <li>rag.event.delete - delete an entry</li>
  * </ul>
- * The processor look up the workItem by the $uniqueId.
  * <p>
  * To prevent concurrent processes to handle the same workitems the batch
  * process uses a Optimistic lock strategy. After fetching new event log entries
@@ -59,8 +59,10 @@ import jakarta.persistence.OptimisticLockException;
  * process is dealing with these entries. After completing the processing step
  * the eventlog entry will be removed.
  * <p>
- * To avoid ad deadlock the processor set an expiration time on the lock, so the
+ * To avoid a deadlock the processor set an expiration time on the lock, so the
  * lock will be auto-released after 1 minute (batch.processor.deadlock).
+ * 
+ * 
  * 
  * @see AsyncEventScheduler
  * @version 1.0
@@ -71,13 +73,14 @@ import jakarta.persistence.OptimisticLockException;
 @RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Stateless
 @LocalBean
-public class RAGEventService {
+public class IndexOperator {
 
     public static final String EVENTLOG_TOPIC_RAG_EVENT_INDEX = "rag.event.index";
-    public static final String EVENTLOG_TOPIC_RAG_EVENT_DELETE = "rag.event.delete";
     public static final String EVENTLOG_TOPIC_RAG_EVENT_UPDATE = "rag.event.update";
+    public static final String EVENTLOG_TOPIC_RAG_EVENT_PROMPT = "rag.event.prompt";
+    public static final String EVENTLOG_TOPIC_RAG_EVENT_DELETE = "rag.event.delete";
 
-    private static final Logger logger = Logger.getLogger(RAGEventService.class.getName());
+    private static final Logger logger = Logger.getLogger(IndexOperator.class.getName());
 
     @Inject
     EventLogService eventLogService;
@@ -89,13 +92,25 @@ public class RAGEventService {
     private ClusterService clusterService;
 
     @Inject
-    private OpenAIAPIService llmService;
+    private IndexService indexService;
+
+    @Inject
+    protected ImixsAIPromptService imixsAIPromptService;
 
     /**
      * The method lookups for RAG event log entries and updates the RAG index
-     * information
+     * information. The method reacts on the following event type:
+     * <ul>
+     * <li>'rag.event.index'</li>
+     * <li>'rag.event.update'</li>
+     * <li>'rag.event.prompt'</li>
+     * <li>'rag.event.delete'</li>
+     * </ul>
      * <p>
-     * Each eventLogEntry provides optional a prompt template
+     * Each eventLogEntry provides optional a prompt template.
+     * <p>
+     * The event 'rag.event.prompt' first calls the llm service and than creats an
+     * index event
      * 
      */
     @TransactionAttribute(value = TransactionAttributeType.REQUIRES_NEW)
@@ -104,9 +119,9 @@ public class RAGEventService {
 
         // test for new event log entries by timeout...
         List<EventLog> events = eventLogService.findEventsByTimeout(100,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
-                RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
 
         if (events.size() > 0) {
             logger.log(Level.INFO, "├── 🔃 processing {0} RAG events....", events.size());
@@ -120,7 +135,7 @@ public class RAGEventService {
                     if (eventLogService.lock(eventLogEntry)) {
 
                         // Delete Event?
-                        if (eventLogEntry.getTopic().equals(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE
+                        if (eventLogEntry.getTopic().equals(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE
                                 + ".lock")) {
                             // remove embeddings
                             clusterService.removeAllEmbeddings(eventLogEntry.getRef());
@@ -136,48 +151,20 @@ public class RAGEventService {
                             eventLogService.removeEvent(eventLogEntry.getId());
                             continue;
                         }
+
+                        // handle event types
+                        ItemCollection indexDefinition = new ItemCollection(eventLogEntry.getData());
                         switch (eventLogEntry.getTopic()) {
-                        case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE + ".lock":
+                        case IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_UPDATE + ".lock":
                             // update workflow status
-                            clusterService.updateMetaData(eventLogEntry.getRef(), workitem.getWorkflowGroup(),
-                                    workitem.getTaskID());
+                            indexService.updateMetadata(indexDefinition, workitem);
                             break;
-                        case RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_INDEX + ".lock":
+                        case IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX + ".lock":
+                            indexService.indexWorkitem(indexDefinition, workitem);
+                            break;
 
-                            // get indexDefinition
-                            ItemCollection indexDefinition = new ItemCollection(eventLogEntry.getData());
-                            String llmAPIEndpoint = indexDefinition.getItemValueString("endpoint");
-                            boolean debug = indexDefinition.getItemValueBoolean("debug");
-                            // String llmPromptTemplate =
-                            // indexDefinition.getItemValueString("promptTemplate");
-                            String llmPrompt = indexDefinition.getItemValueString("prompt");
-
-                            if (debug) {
-                                logger.info("│   ├── Total Prompt Length = " + llmPrompt.length());
-                                logger.info("│   ├── Prompt: ");
-                                logger.info(llmPrompt);
-                            }
-
-                            // remove old embeddings
-                            clusterService.removeAllEmbeddings(workitem.getUniqueID());
-                            // chunk text....
-                            List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt);
-                            for (String chunk : chunk_list) {
-                                if (debug) {
-                                    logger.info("│   ├── 🔸 chunk: ");
-                                    logger.info(chunk);
-                                }
-                                List<Float> indexResult = llmService.postEmbedding(chunk, llmAPIEndpoint, debug);
-                                // write to cassandra
-                                clusterService.insertVector(workitem.getUniqueID(),
-                                        workitem.getWorkflowGroup(), // .getModelVersion(),
-                                        workitem.getTaskID(),
-                                        chunk,
-                                        indexResult);
-                                if (debug) {
-                                    logger.info("│   ├── ⇨ " + indexResult.size() + " floats stored in RAG db.");
-                                }
-                            }
+                        case IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_PROMPT + ".lock":
+                            indexService.promptWorkitem(indexDefinition, workitem);
                             break;
                         default:
                             // no op
@@ -194,7 +181,7 @@ public class RAGEventService {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
                     eventLogService.removeEvent(eventLogEntry.getId());
-                } catch (PluginException e) {
+                } catch (PluginException | AdapterException e) {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
                     eventLogService.removeEvent(eventLogEntry.getId());

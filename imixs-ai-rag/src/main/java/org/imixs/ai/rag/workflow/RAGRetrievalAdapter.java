@@ -12,13 +12,14 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag;
+package org.imixs.ai.rag.workflow;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.rag.index.IndexService;
 import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
@@ -79,8 +80,6 @@ import jakarta.inject.Inject;
  */
 public class RAGRetrievalAdapter implements SignalAdapter {
 
-    public static final String ML_ENTITY = "entity";
-
     private static Logger logger = Logger.getLogger(RAGRetrievalAdapter.class.getName());
 
     @Inject
@@ -94,7 +93,7 @@ public class RAGRetrievalAdapter implements SignalAdapter {
     EventLogService eventLogService;
 
     @Inject
-    private RAGService ragService;
+    private IndexService ragService;
 
     /**
      * Default Constructor
@@ -132,40 +131,14 @@ public class RAGRetrievalAdapter implements SignalAdapter {
         logger.finest("...running api adapter...");
 
         // read optional configuration form the model or imixs.properties....
-        // List<ItemCollection> ragIndexDefinitions =
-        // workflowService.evalWorkflowResultXML(event, "imixs-ai",
-        // RAGService.RAG_INDEX, workitem, false);
-        List<ItemCollection> ragRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-                RAGService.RAG_RETRIEVAL, workitem, false);
-        // List<ItemCollection> ragUpdateDefinitions =
-        // workflowService.evalWorkflowResultXML(event, "imixs-ai",
-        // RAGService.RAG_UPDATE, workitem, false);
-        // List<ItemCollection> ragDeleteDefinitions =
-        // workflowService.evalWorkflowResultXML(event, "imixs-ai",
-        // RAGService.RAG_DELETE, workitem, false);
 
-        // verify if we have an INDEX configuration
-        // if (ragIndexDefinitions != null && ragIndexDefinitions.size() > 0) {
-        // ragService.createIndex(ragIndexDefinitions, workitem, event);
-        // }
+        List<ItemCollection> ragRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+                IndexService.RAG_RETRIEVAL, workitem, false);
 
         // verify if we have an RETRIEVAL configuration
         if (ragRetrievalDefinitions != null && ragRetrievalDefinitions.size() > 0) {
             ragService.createRetrieval(ragRetrievalDefinitions, workitem, event);
         }
-
-        // delete mode?
-        // if (ragDeleteDefinitions != null && ragDeleteDefinitions.size() > 0) {
-        // eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE,
-        // workitem.getUniqueID());
-        // }
-
-        // // Update mode?
-        // if (ragUpdateDefinitions != null && ragUpdateDefinitions.size() > 0) {
-        // // default update meta information
-        // eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
-        // workitem.getUniqueID());
-        // }
 
         return workitem;
     }

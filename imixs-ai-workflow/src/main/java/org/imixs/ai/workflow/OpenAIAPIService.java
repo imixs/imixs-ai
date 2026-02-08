@@ -514,6 +514,12 @@ public class OpenAIAPIService implements Serializable {
     public String buildEmbeddingsPrompt(String promptTemplate, ItemCollection workitem)
             throws PluginException, AdapterException {
 
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Prompt template is empty, verify model configuration");
+        }
         String prompt = null;
         // Extract Meta Information from XML....
         try {

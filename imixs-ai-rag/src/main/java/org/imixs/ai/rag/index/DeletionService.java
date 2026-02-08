@@ -12,9 +12,8 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag;
+package org.imixs.ai.rag.index;
 
-import org.imixs.ai.rag.events.RAGEventService;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.exceptions.AccessDeniedException;
@@ -26,10 +25,10 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
- * The RAGDeletionService reacts on Document Delete events an automatically
- * removes an existing index. The deletion is handled by the RAGEventService
+ * The DeletionService reacts on Document Delete events an automatically removes
+ * an existing index. The deletion is handled by the RAGEventService
  * 
- * @see RAGEventService
+ * @see IndexOperator
  * @see DocumentEvent
  * @version 1.0
  * @author rsoika
@@ -38,7 +37,7 @@ import jakarta.inject.Inject;
 @DeclareRoles({ "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
 @RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Stateless
-public class RAGDeletionService {
+public class DeletionService {
 
     @Inject
     EventLogService eventLogService;
@@ -57,8 +56,9 @@ public class RAGDeletionService {
 
         if (DocumentEvent.ON_DOCUMENT_DELETE == documentEvent.getEventType()) {
             // do not run on Snapshots!
-            eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE,
+            eventLogService.createEvent(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE,
                     documentEvent.getDocument().getUniqueID());
         }
     }
+
 }

@@ -12,24 +12,25 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rag;
+package org.imixs.ai.rag.workflow;
 
 import java.util.List;
 import java.util.logging.Logger;
 
-import org.imixs.ai.rag.events.RAGEventService;
+import org.imixs.ai.rag.index.IndexOperator;
+import org.imixs.ai.rag.index.IndexService;
+import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.engine.plugins.AbstractPlugin;
-import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.inject.Inject;
 
 /**
  * The RAGIndexPlugin automatically index, updates or remove the workflow meta
- * data as embeddings. Embeddings are created by the {@link RAGEventService}.
+ * data as embeddings. Embeddings are created by the {@link IndexOperator}.
  * <p>
  * The plugin can be controlled by an `<imixs-ai>` definition in the following
  * modes.
@@ -37,6 +38,7 @@ import jakarta.inject.Inject;
  * <li>INDEX - index a workitem</li>
  * <li>UPDATE - default: update the workflow metadata only for a indexed
  * workitem</li>
+ * <li>PROMPT - send an LLM completion request and index the result</li>
  * <li>DELETE - remove the workitem from the index</li>
  * <li>DISABLED - no actaion</li>
  * 
@@ -69,7 +71,7 @@ public class RAGIndexPlugin extends AbstractPlugin {
 	private EventLogService eventLogService;
 
 	@Inject
-	private RAGService ragService;
+	protected ImixsAIPromptService imixsAIPromptService;
 
 	@Override
 	public ItemCollection run(ItemCollection workitem, ItemCollection event) throws PluginException {
@@ -84,11 +86,13 @@ public class RAGIndexPlugin extends AbstractPlugin {
 
 		// read optional configuration form the model or imixs.properties....
 		List<ItemCollection> ragIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-				RAGService.RAG_INDEX, workitem, false);
+				IndexService.RAG_INDEX, workitem, false);
 		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-				RAGService.RAG_DISABLED, workitem, false);
+				IndexService.RAG_DISABLED, workitem, false);
 		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
-				RAGService.RAG_DELETE, workitem, false);
+				IndexService.RAG_DELETE, workitem, false);
+		List<ItemCollection> ragPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+				IndexService.RAG_PROMPT, workitem, false);
 
 		// disabled?
 		if (ragDisabledDefinitions != null && ragDisabledDefinitions.size() > 0) {
@@ -96,24 +100,54 @@ public class RAGIndexPlugin extends AbstractPlugin {
 			return workitem;
 		}
 
-		try {
-			// INDEX Mode?
-			if (ragIndexDefinitions != null && ragIndexDefinitions.size() > 0) {
-				ragService.createIndex(ragIndexDefinitions, workitem, event);
+		// INDEX Mode?
+		if (ragIndexDefinitions != null) {
+			for (ItemCollection ragIndexDefinition : ragIndexDefinitions) {
+				loadPromptDefinition(ragIndexDefinition, event);
+				eventLogService.createEvent(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX, workitem.getUniqueID(),
+						ragIndexDefinition);
 			}
+		}
 
-			// DELETE mode?
-			if (ragDeleteDefinitions != null && ragDeleteDefinitions.size() > 0) {
-				eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_DELETE, workitem.getUniqueID());
-				return workitem;
+		// PROMPT mode?
+		if (ragPromptDefinitions != null) {
+			for (ItemCollection ragPromptDefinition : ragPromptDefinitions) {
+				loadPromptDefinition(ragPromptDefinition, event);
+				eventLogService.createEvent(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_PROMPT, workitem.getUniqueID(),
+						ragPromptDefinition);
 			}
+		}
 
-			// Default: UPDATE
-			eventLogService.createEvent(RAGEventService.EVENTLOG_TOPIC_RAG_EVENT_UPDATE, workitem.getUniqueID());
-			return workitem;
+		// DELETE mode?
+		if (ragDeleteDefinitions != null) {
+			for (ItemCollection radDeleteDefinition : ragDeleteDefinitions) {
+				eventLogService.createEvent(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE, workitem.getUniqueID(),
+						radDeleteDefinition);
+			}
+		}
 
-		} catch (AdapterException e) {
-			throw new PluginException(e);
+		// Default: UPDATE meta information
+		eventLogService.createEvent(IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_UPDATE, workitem.getUniqueID());
+		return workitem;
+
+	}
+
+	/**
+	 * This helper method verifies if the indexDefinition contains a prompt
+	 * definition. If not the method loads the prompt definition from the dataObject
+	 * associated with the event.
+	 * 
+	 * @param indexDefinition
+	 * @return
+	 * @throws PluginException
+	 */
+	public void loadPromptDefinition(ItemCollection indexDefinition, ItemCollection event) throws PluginException {
+		// load the prompt template from the index definition!
+		String promptDefinition = indexDefinition.getItemValueString("PromptDefinition");
+		if (promptDefinition.isBlank()) {
+			// try to load template from model....
+			promptDefinition = imixsAIPromptService.loadPromptTemplateByModelElement(event);
+			indexDefinition.setItemValue("PromptDefinition", promptDefinition);
 		}
 
 	}
