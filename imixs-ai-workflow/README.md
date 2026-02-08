@@ -2,15 +2,15 @@
 
 The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJBs to integrate the Imixs-AI framework into the workflow processing life cycle.
 
-- **LLM-Service** <br/>The Imixs-AI backend service EJB interacting with a LLM service endpoint based on [Open AI API](https://github.com/openai/openai-openapi) <br/>
+- **OpenAIAPIService** <br/>The Imixs-AI backend service EJB interacting with a LLM service endpoint based on [Open AI API](https://github.com/openai/openai-openapi) <br/>
 
-- **LLM-Definition** <br/>A data structure holding the information of a single LLM service endpoint including LLM options and the prompt template<br/>
+- **Prompt-Definition** <br/>A XML data structure holding the prompt and information of LLM service including the endpoint and LLM options<br/>
 
-- **LLMAdapter**<br/>A generic Workflow Adapter class used within the processing life cycle on a workflow instance to execute a LLM prompt template. The adapter builds the prompt based on a given Prompt Template and evaluates the result object. <br/>
-
-- **LLM-Controller** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
+- **ImixsAIAPAdapter**<br/>A generic Workflow Adapter class used within the processing life cycle on a workflow instance to execute a LLM prompt definition. The adapter builds the prompt based on a given Prompt Template and evaluates the result object. <br/>
 
 - **ImixsAIContextHandler** <br/> A CDI bean to setup a LLM chat conversation.
+
+- **ImixsAISuggestController** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
 
 ## The OpenAIAPIAdapter
 
@@ -60,10 +60,11 @@ The prompt definition contains the prompt messages and optional 'prompt_options'
   <PromptDefinition>
     <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
     <prompt role="system"><![CDATA[
-       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>
+       You are a sales expert. Your task is to summarize ingoing orders. ]]>
     </prompt>
     <prompt role="user"><![CDATA[
-       <itemvalue>$workflowsummary</itemvalue> ]]>
+       <itemvalue>$workflowsummary</itemvalue>
+        ]]>
     </prompt>
   </PromptDefinition>
 </imixs-ai>
@@ -88,7 +89,21 @@ During processing the prompt definition, the Imixs `OpenAIAPIService` fires a CD
 
 **Example:**
 
-The following example replaces the placehodler `{orderid}` with an application specific value.
+```xml
+<imixs-ai name="PROMPT">
+  <PromptDefinition>
+    <prompt role="system"><![CDATA[
+       You are a sales expert. Your task is to summarize ingoing orders. ]]>
+    </prompt>
+    <prompt role="user"><![CDATA[
+       Order: {order-data}
+        ]]>
+    </prompt>
+  </PromptDefinition>
+</imixs-ai>
+```
+
+The following example replaces the placehodler `{order-data}` with an application specific value.
 
 ```java
 public class MyPromptAdapter {
@@ -98,9 +113,9 @@ public class MyPromptAdapter {
         }
         String prompt = event.getPromptTemplate();
         // replace placeholder
-        String oderID=myService.getOrderID();
-        prompt = prompt.replace("{orderid}", orderID);
-        // update the prompt tempalte
+        String oderData=myService.getOrderData();
+        prompt = prompt.replace("{order-data}", oderData);
+        // update the prompt template
         event.setPromptTemplate(prompt);
     }
 }
@@ -139,6 +154,17 @@ public class MyResultEventHandler {
         }
     }
   ...
+```
+
+#### Debugging
+
+You can activate a debug mode to print out prompt processing information during a workflow processing life cycle.
+
+```xml
+<imixs-ai name="PROMPT">
+   ......
+   <debug>true</debug>
+</imixs-ai>
 ```
 
 ### SUGGEST Mode
@@ -304,14 +330,3 @@ The Imixs-AI-Workflow detects the token and automatically establishes a Bearer T
 
 Optional a basic authentication can be used to connect to the LLM Service. In this case the environment variables
 `LLM_SERVICE_ENDPOINT_USER` and `LLM_SERVICE_ENDPOINT_PASSWORD` need to be defined globally for the application.
-
-# Debug Mode
-
-You can activate a debug mode to print out prompt processing information during a workflow processing life cycle.
-
-```xml
-<imixs-ai name="PROMPT">
-   ......
-   <debug>true</debug>
-</imixs-ai>
-```
