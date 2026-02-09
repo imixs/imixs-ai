@@ -118,10 +118,12 @@ public class ImixsAIPromptService implements Serializable {
     <imixs-ai name="PROMPT">
     <debug>true</debug>
     <endpoint>.....</endpoint>
-    <PromptDefinition>
-        <prompt_options>{}</prompt_options>
-        <prompt role="system">... </prompt>
-    </PromptDefinition>
+    <prompt-template>
+        <PromptDefinition>
+            <prompt_options>{}</prompt_options>
+            <prompt role="system">... </prompt>
+        </PromptDefinition>
+    </prompt-template>
     </imixs-ai>
     * }
     * </pre>
@@ -129,16 +131,16 @@ public class ImixsAIPromptService implements Serializable {
      * 
      * 
      * 
-     * @param promptDefinition
+     * @param promptTemplate
      * @param bpmnElement
      * @return the prompt template or null if not defined
      * @throws PluginException
      */
-    public String loadPromptTemplateByDefinition(ItemCollection promptDefinition)
+    public String loadPromptTemplateByDefinition(ItemCollection promptTemplate)
             throws PluginException {
-        String content = promptDefinition.getItemValueString("promptDefinition");
+        String content = promptTemplate.getItemValueString("prompt-template");
         if (!content.isBlank()) {
-            return "<PromptDefinition>" + content + "</PromptDefinition>";
+            return content;
         } else {
             return null;
         }
@@ -165,16 +167,11 @@ public class ImixsAIPromptService implements Serializable {
             String name = "" + dataObject.get(0);
             String _prompt = "" + dataObject.get(1);
             if (_prompt.contains("<PromptDefinition>")) {
-
                 // validate prompt template
-
                 validatePromptTemplate(_prompt);
-
                 return _prompt;
-
             }
         }
-
         return null;
     }
 

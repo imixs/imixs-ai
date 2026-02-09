@@ -40,15 +40,18 @@ import jakarta.inject.Inject;
  * workitem</li>
  * <li>PROMPT - send an LLM completion request and index the result</li>
  * <li>DELETE - remove the workitem from the index</li>
- * <li>DISABLED - no actaion</li>
+ * <li>DISABLED - no action</li>
  * 
  * Note, the UPDATE mode is the default mode. It can be deactivated with the
  * option 'DISABLED':
  * <p>
+ * The plugin is responsible to load the prompt definition optional from the
+ * event. In case the prompt definition is defined only by a BPMN Data object,
+ * the plugin stores the prompt template into definition.
  * 
  * <pre>
   {@code
-   <imixs-ai name="DISABLE">
+   <imixs-ai name="INDEX">
       <debug>false</debug>  
    </imixs-ai>
     }
@@ -143,12 +146,9 @@ public class RAGIndexPlugin extends AbstractPlugin {
 	 */
 	public void loadPromptDefinition(ItemCollection indexDefinition, ItemCollection event) throws PluginException {
 		// load the prompt template from the index definition!
-		String promptDefinition = indexDefinition.getItemValueString("PromptDefinition");
-		if (promptDefinition.isBlank()) {
-			// try to load template from model....
-			promptDefinition = imixsAIPromptService.loadPromptTemplateByModelElement(event);
-			indexDefinition.setItemValue("PromptDefinition", promptDefinition);
-		}
+		String promptDefinition = imixsAIPromptService.loadPromptTemplate(indexDefinition, event);
+		// update the prompt-template in the definition object!
+		indexDefinition.setItemValue("prompt-template", promptDefinition);
 
 	}
 

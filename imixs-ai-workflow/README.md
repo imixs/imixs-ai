@@ -12,6 +12,10 @@ The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJB
 
 - **ImixsAISuggestController** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
 
+The Imixs-AI project provides flexible way to extend a BPMN model with LLMs.
+
+<img src="../doc/images/imixs-llm-adapter-config.png" />
+
 ## The OpenAIAPIAdapter
 
 The adapter class `org.imixs.llm.workflow.OpenAIAPIAdapter` is used to send a prompt to the LLM Service endpoint. The `OpenAIAPIAdapter` automatically builds the prompt based on a prompt definition template and stores the result into the corresponding workitem.
@@ -36,51 +40,55 @@ The configuration of the `OpenAIAPIAdapter` is done through the model by definin
 
 The `imixs-ai` name `PROMPT` is mandatory. The `OpenAIAPIAdapter` can be configured by the following properties:
 
-| Property       | Type    | Description                                                                |
-| -------------- | ------- | -------------------------------------------------------------------------- |
-| `endpoint`     | URL     | Rest API endpoint for the llama-cpp server                                 |
-| `result-item`  | Text    | Item name to store the result returned by the LLM Server                   |
-| `result-event` | Text    | Optional event identifier to process the result returned by the LLM Server |
-| `debug`        | Boolean | Optional to print debug information                                        |
+| Property          | Type    | Description                                                                |
+| ----------------- | ------- | -------------------------------------------------------------------------- |
+| `endpoint`        | URL     | Rest API endpoint for the llama-cpp server                                 |
+| `result-item`     | Text    | Item name to store the result returned by the LLM Server                   |
+| `result-event`    | Text    | Optional event identifier to process the result returned by the LLM Server |
+| `prompt-template` | XML     | Optional embedded prompt definition                                        |
+| `debug`           | Boolean | Optional to print debug information                                        |
 
 The `endpoint` parameter can optional defined in the imixs.properties or as environment variables:
 
     LLM_SERVICE_ENDPOINT=http://imixs-ai-llm:8000/
 
-#### The Prompt Definition Template
+#### The Prompt Template
 
-The prompt is defined in a so called `PromptDefinition`.
-The prompt definition contains the prompt messages and optional 'prompt_options'.
+The prompt is defined in prompt template - a XML object containing the prompt messages and optional 'prompt_options'.
+The prompt template may contain a sequence of prompt messages with one of the roles `system`, `user`, `assistant`, according to the OpenAI API chat template.
+
+```xml
+<PromptDefinition>
+  <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
+  <prompt role="system">You are a computer expert.</prompt>
+  <prompt role="user">How long is a byte?</prompt>
+</PromptDefinition>
+```
+
+A prompt template can be defined in separate BPMN DataObject associated with the corresponding BPMN event.
+
+<img src="../doc/images/imixs-llm-prompt-definition.png" />
+
+Optional the the prompt template can also be embedded into the definition by the tag `<prompt-template>`
 
 ```xml
 <imixs-ai name="PROMPT">
   <debug>true</debug>
   <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
   <result-event>BOOLEAN</result-event>
-  <PromptDefinition>
-    <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
-    <prompt role="system"><![CDATA[
-       You are a sales expert. Your task is to summarize ingoing orders. ]]>
-    </prompt>
-    <prompt role="user"><![CDATA[
-       <itemvalue>$workflowsummary</itemvalue>
-        ]]>
-    </prompt>
-  </PromptDefinition>
+  <prompt-template>
+    <PromptDefinition>
+      <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
+      <prompt role="system"><![CDATA[
+        You are a sales expert. Your task is to summarize ingoing orders. ]]>
+      </prompt>
+      <prompt role="user"><![CDATA[
+        <itemvalue>$workflowsummary</itemvalue>
+          ]]>
+      </prompt>
+    </PromptDefinition>
+  </prompt-template>
 </imixs-ai>
-```
-
-Optional the the prompt definition can also be defined by a separated BPMN DataObject. The DataObject is associated with the corresponding BPMN Event element:
-
-<img src="../doc/images/imixs-llm-adapter-config.png" />
-
-The prompt definition layout is based on the OpenAI API chat template, defining the prompt as a sequence of prompt messages with one of the roles `system`, `user`, `assistant`.
-
-```xml
-<PromptDefinition>
-  <prompt role="system">You are a computer expert.</prompt>
-  <prompt role="user">How long is a byte?</prompt>
-</PromptDefinition>
 ```
 
 #### The CDI Event ImixsAIPromptEvent
