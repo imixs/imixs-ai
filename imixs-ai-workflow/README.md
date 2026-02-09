@@ -65,10 +65,11 @@ The prompt template may contain a sequence of prompt messages with one of the ro
 </PromptDefinition>
 ```
 
-A prompt template can be defined in separate BPMN DataObject associated with the corresponding BPMN event.
+A prompt template should be defined in separate BPMN DataObject associated with the corresponding BPMN event.
 
 <img src="../doc/images/imixs-llm-prompt-definition.png" />
 
+This is the recommended way to define a prompt template.
 Optional the the prompt template can also be embedded into the definition by the tag `<prompt-template>`
 
 ```xml
@@ -79,17 +80,14 @@ Optional the the prompt template can also be embedded into the definition by the
   <prompt-template>
     <PromptDefinition>
       <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
-      <prompt role="system"><![CDATA[
-        You are a sales expert. Your task is to summarize ingoing orders. ]]>
-      </prompt>
-      <prompt role="user"><![CDATA[
-        <itemvalue>$workflowsummary</itemvalue>
-          ]]>
-      </prompt>
+      <prompt role="system">You are a sales expert. Your task is to summarize ingoing orders. </prompt>
+      <prompt role="user"><itemvalue>$workflowsummary</itemvalue></prompt>
     </PromptDefinition>
   </prompt-template>
 </imixs-ai>
 ```
+
+**Note:** In the embedded mode you must not use `<![CDATA[ ... ]]>` tags within the prompt template! This is only allowed in a DataObject.
 
 #### The CDI Event ImixsAIPromptEvent
 
