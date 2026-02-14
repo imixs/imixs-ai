@@ -12,6 +12,8 @@ The Imixs-AI-Workflow module provides Adapter classes, CDI Beans and Service EJB
 
 - **ImixsAISuggestController** <br/> A CDI bean for user interaction like data input, data verification and data confirmation. <br/>
 
+- **ConditionalAIAdapter** <br/> A CDI bean evaluating conditions against an LLM <br/>
+
 The Imixs-AI project provides flexible way to extend a BPMN model with LLMs.
 
 <img src="../doc/images/imixs-llm-adapter-config.png" />
@@ -277,6 +279,25 @@ The Adapter can be configured similar to the OpenAIAPIAdatper class:
 ```
 
 The `result-item` holds the message history.
+
+## The ConditionalAIAdapter
+
+The ConditionalAIAdapter reacts on CDI Events of type BPMNConditionEvent and evaluates a condition against an LLM
+
+The Adapter defines a Default Expression template for LLMs. The BPMNConfiguration must only include the user prompt. See the following example:
+
+```xml
+<imixs-ai name="CONDITION">
+    <debug>true</debug>
+    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+    <result-item>my.condition</result-item>
+    <prompt><![CDATA[
+       Is Germany an EU member country? ]]>
+    </prompt>
+</imixs-ai>
+```
+
+Caching: The ConditionalAIAdapter implements a caching mechanism. The adapter class stores the hash value in to the item <result-item>.hash to avoid duplicate calls against the llm with the same prompt in one processing cycle!
 
 # Prompt Engineering
 
