@@ -88,13 +88,13 @@ public class RAGIndexPlugin extends AbstractPlugin {
 		logger.finest("running RAGPlugin");
 
 		// read optional configuration form the model or imixs.properties....
-		List<ItemCollection> ragIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+		List<ItemCollection> ragIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
 				IndexService.RAG_INDEX, workitem, false);
-		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
 				IndexService.RAG_DISABLED, workitem, false);
-		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
 				IndexService.RAG_DELETE, workitem, false);
-		List<ItemCollection> ragPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+		List<ItemCollection> ragPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
 				IndexService.RAG_PROMPT, workitem, false);
 
 		// disabled?
@@ -148,7 +148,7 @@ public class RAGIndexPlugin extends AbstractPlugin {
 		// load the prompt template from the index definition!
 		String promptDefinition = imixsAIPromptService.loadPromptTemplate(indexDefinition, event);
 		// update the prompt-template in the definition object!
-		indexDefinition.setItemValue("prompt-template", promptDefinition);
+		indexDefinition.setItemValue(IndexService.ITEM_PROMPT_TEMPLATE, promptDefinition);
 
 	}
 

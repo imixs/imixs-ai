@@ -15,11 +15,9 @@
 package org.imixs.ai.rag.index;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
@@ -27,7 +25,6 @@ import org.imixs.ai.rag.cluster.RetrievalResult;
 import org.imixs.ai.rag.util.RAGUtil;
 import org.imixs.ai.rag.workflow.RAGRetrievalAdapter;
 import org.imixs.ai.workflow.ImixsAIPromptService;
-import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.ai.workflow.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.DocumentEvent;
@@ -73,7 +70,8 @@ public class IndexService {
     public static final String RAG_RETRIEVAL = "RETRIEVAL";
     public static final String RAG_DISABLED = "DISABLED";
 
-    public static final String ITEM_PROMPT_DEFINITION = "prompt.definition";
+    // public static final String ITEM_PROMPT_DEFINITION = "prompt.definition";
+    public static final String ITEM_PROMPT_TEMPLATE = "prompt-template";
 
     @Inject
     private ClusterService clusterService;
@@ -90,12 +88,12 @@ public class IndexService {
     @Inject
     protected ImixsAIPromptService imixsAIPromptService;
 
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
+    // @Inject
+    // @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
+    // Optional<String> serviceEndpoint;
 
     /**
-     * Creates a RAG Index for a Workitem based on IndexDefinitions
+     * Creates a RAG Index for a Workitem based on an IndexDefinition
      * 
      * @param llmIndexDefinitions
      * @param workitem
@@ -106,19 +104,18 @@ public class IndexService {
     public void indexWorkitem(ItemCollection indexDefinition, ItemCollection workitem)
             throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
-        String llmAPIEndpoint = null;
+        String embeddingsEndpoint = null;
         boolean debug = false;
         try {
-
-            llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
+            embeddingsEndpoint = imixsAIPromptService.parseEndpointByBPMN(indexDefinition, "embeddings");
             // do we have a valid endpoint?
-            if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
+            if (embeddingsEndpoint == null || embeddingsEndpoint.isEmpty()) {
                 throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
-                        "imixs-ai configuration error: no llm service endpoint defined!");
+                        "imixs-ai configuration error: missing tag 'endpoint-embeddings'!");
             }
             debug = indexDefinition.getItemValueBoolean("debug");
 
-            logger.info("├── post RAG index request: " + llmAPIEndpoint);
+            logger.info("├── post RAG index request: " + embeddingsEndpoint);
 
             // load the prompt template from the index definition!
             String promptTemplate = imixsAIPromptService.loadPromptTemplateByDefinition(indexDefinition);
@@ -152,17 +149,20 @@ public class IndexService {
             clusterService.removeEmbeddingsByCategory(workitem.getUniqueID(), category);
 
             // Chunk text and insert with category
-            List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt);
+            List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt, 512);
+            int chunkIndex = 1;
             for (String chunk : chunk_list) {
+                String chunk_id = String.format("%016d", chunkIndex);
                 if (debug) {
-                    logger.info("│   ├── 🔸 chunk: ");
+                    logger.info("│   ├── 🔸 chunk " + chunk_id + ": ");
                     logger.info(chunk);
                 }
-                List<Float> indexResult = openAIAPIService.postEmbedding(chunk, llmAPIEndpoint, debug);
+                List<Float> indexResult = openAIAPIService.postEmbedding(chunk, embeddingsEndpoint, debug);
 
                 // Write to cassandra WITH category
                 clusterService.insertEmbeddings(
                         workitem.getUniqueID(),
+                        chunk_id,
                         category,                    // Category parameter!
                         workitem.getWorkflowGroup(),
                         workitem.getTaskID(),
@@ -174,15 +174,8 @@ public class IndexService {
                             "│   ├── ⇨ " + indexResult.size() + " floats stored in RAG db (category: "
                                     + (category.isEmpty() ? "primary" : category) + ")");
                 }
+                chunkIndex++;
             }
-
-            // indexDefinition.setItemValue("prompt", llmPrompt);
-
-            // // send eventLog ....
-            // eventLogService.createEvent(
-            // IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-            // workitem.getUniqueID(),
-            // indexDefinition);
 
             if (debug) {
                 logger.info(
@@ -233,12 +226,29 @@ public class IndexService {
      * @throws AdapterException
      */
     public void promptWorkitem(ItemCollection indexDefinition, ItemCollection workitem) throws PluginException {
+        String llmAPIEndpointEmbeddings = null;
+        String llmAPIEndpointCompletion = null;
+        boolean llmAPIDebug = false;
+
         try {
 
-            boolean llmAPIDebug = indexDefinition.getItemValueBoolean("debug");
+            llmAPIEndpointEmbeddings = imixsAIPromptService.parseEndpointByBPMN(indexDefinition, "embeddings");
+            // do we have a valid endpoint?
+            if (llmAPIEndpointEmbeddings == null || llmAPIEndpointEmbeddings.isEmpty()) {
+                throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
+                        "imixs-ai configuration error: missing tag 'endpoint-embeddings'!");
+            }
+            llmAPIEndpointCompletion = imixsAIPromptService.parseEndpointByBPMN(indexDefinition, "completion");
+            // do we have a valid endpoint?
+            if (llmAPIEndpointCompletion == null || llmAPIEndpointCompletion.isEmpty()) {
+                throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
+                        "imixs-ai configuration error: missing tag 'endpoint 'embeddings-completion'!");
+            }
+
+            llmAPIDebug = indexDefinition.getItemValueBoolean("debug");
             // load the prompt template from the index definition!
             String promptTemplate = imixsAIPromptService.loadPromptTemplateByDefinition(indexDefinition);
-            if (promptTemplate.isBlank()) {
+            if (promptTemplate == null || promptTemplate.isBlank()) {
                 throw new PluginException(IndexService.class.getSimpleName(), ERROR_PROMPT,
                         "Missing prompt definition - verify model!");
             }
@@ -249,24 +259,15 @@ public class IndexService {
             String llmPrompt = imixsAIContextHandler.toString();
             // if we have a prompt we call the llm api endpoint
             if (llmPrompt != null && !llmPrompt.isBlank()) {
-                String llmAPIEndpoint = serviceEndpoint.get();
+
                 // postPromptCompletion
-                // JsonObject jsonPrompt =
-                // llmService.buildJsonPromptObjectV1(imixsAIContextHandler);
                 String completionResult = openAIAPIService.postPromptCompletion(imixsAIContextHandler,
-                        llmAPIEndpoint);
-                // process the ai.result....
-                if (llmAPIDebug) {
-                    logger.info("===> Completion Result: ");
-                    logger.info(completionResult);
-                }
-
+                        llmAPIEndpointCompletion, llmAPIDebug);
                 String resultMessage = openAIAPIService.processPromptResult(completionResult, "", workitem);
+                indexDefinition.setItemValue(ITEM_PROMPT_TEMPLATE,
+                        "<PromptDefinition><prompt>" + resultMessage + "</prompt></PromptDefinition>");
 
-                indexDefinition.setItemValue("prompt", resultMessage);
-
-                // now send an index event
-                // send eventLog ....
+                // now create a new index eventLog entry
                 eventLogService.createEvent(
                         IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
                         workitem.getUniqueID(),
@@ -298,12 +299,19 @@ public class IndexService {
     public void createRetrieval(List<ItemCollection> llmRetrievalDefinitions, ItemCollection workitem,
             ItemCollection event) throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
-        String llmAPIEndpoint = null;
+        String embeddingsEndpoint = null;
         boolean llmAPIDebug = false;
         try {
             for (ItemCollection indexDefinition : llmRetrievalDefinitions) {
-                llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(indexDefinition);
-                logger.info("├── post RAG Retrieval request: " + llmAPIEndpoint);
+
+                embeddingsEndpoint = imixsAIPromptService.parseEndpointByBPMN(indexDefinition, "embeddings");
+                // do we have a valid endpoint?
+                if (embeddingsEndpoint == null || embeddingsEndpoint.isEmpty()) {
+                    throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
+                            "imixs-ai configuration error: missing tag 'endpoint-embeddings'!");
+                }
+
+                logger.info("├── post RAG Retrieval request: " + embeddingsEndpoint);
                 String itemRef = indexDefinition.getItemValueString("reference-item");
 
                 String modelGroups = indexDefinition.getItemValueString("modelgroups");
@@ -315,11 +323,7 @@ public class IndexService {
                     logger.warning("│   ├── max-results is not set, default=1");
                     maxResults = 1;
                 }
-                // do we have a valid endpoint?
-                if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                    throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
-                            "imixs-ai configuration error: no llm service endpoint defined!");
-                }
+
                 if (itemRef.isEmpty()) {
                     throw new PluginException(RAGRetrievalAdapter.class.getSimpleName(), ERROR_API,
                             "imixs-ai configuration error: no reference-item defined!");
@@ -350,7 +354,7 @@ public class IndexService {
                 }
 
                 // retrieve prompt....
-                List<Float> embeddings = openAIAPIService.postEmbedding(llmPrompt, llmAPIEndpoint, llmAPIDebug);
+                List<Float> embeddings = openAIAPIService.postEmbedding(llmPrompt, embeddingsEndpoint, llmAPIDebug);
                 if (llmAPIDebug) {
                     logger.info("├── ⇨ " + embeddings.size() + " floats stored in RAG db.");
                 }

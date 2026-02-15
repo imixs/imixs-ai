@@ -16,6 +16,7 @@ package org.imixs.ai.workflow;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Serializable;
@@ -424,7 +425,7 @@ public class OpenAIAPIService implements Serializable {
      * @param apiEndpoint      - optional service endpoint
      * @throws PluginException
      */
-    public String postPromptCompletion(ImixsAIContextHandler imixsAIContextHandler, String apiEndpoint)
+    public String postPromptCompletion(ImixsAIContextHandler imixsAIContextHandler, String apiEndpoint, boolean debug)
             throws PluginException {
         String response = null;
         long processingTime = System.currentTimeMillis();
@@ -432,7 +433,8 @@ public class OpenAIAPIService implements Serializable {
             HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
 
-            imixsAIContextHandler.log(Level.FINE, "├── POST Completion: " + conn.getURL().toString());
+            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
+                    "├── POST Completion: " + conn.getURL().toString());
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -443,8 +445,8 @@ public class OpenAIAPIService implements Serializable {
             // Write the JSON object to the output stream
             String jsonString = imixsAIContextHandler.getOpenAIMessageObject().toString();
 
-            imixsAIContextHandler.log(Level.FINE, "│   ├── 📥 Completion Request: ");
-            imixsAIContextHandler.log(Level.FINE, jsonString);
+            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, "│   ├── 📥 Completion Request: ");
+            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, jsonString);
 
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
@@ -464,8 +466,8 @@ public class OpenAIAPIService implements Serializable {
                     }
                     response = responseBody.toString();
 
-                    imixsAIContextHandler.log(Level.FINE, "│   ├── 📤 Completion Result: ");
-                    imixsAIContextHandler.log(Level.FINE, response);
+                    imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, "│   ├── 📤 Completion Result: ");
+                    imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, response);
 
                 }
             } else {
@@ -477,7 +479,7 @@ public class OpenAIAPIService implements Serializable {
             // Close the connection
             conn.disconnect();
 
-            imixsAIContextHandler.log(Level.FINE,
+            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
                     "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
 
             return response;
@@ -659,8 +661,17 @@ public class OpenAIAPIService implements Serializable {
                     }
                 }
             } else {
-                logger.severe("│   ├── ⚠️ postEmbeddings failed - '" + apiEndpoint
-                        + OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS + "' ");
+
+                // logger.severe("│ ├── ⚠️ postEmbeddings failed - '" + apiEndpoint
+                // + OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS + "' ");
+
+                // FEHLERFALL: Response Body aus dem ErrorStream lesen
+                String errorResponse = readStream(conn.getErrorStream());
+
+                logger.severe("│   ├── ⚠️ postEmbeddings failed!");
+                logger.severe("│   ├── Status: " + responseCode);
+                logger.severe("│   ├── Response: " + errorResponse); // Hier ist der Content!
+
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         OpenAIAPIService.ERROR_PROMPT_INFERENCE,
                         "HTTP Result " + responseCode);
@@ -685,4 +696,24 @@ public class OpenAIAPIService implements Serializable {
 
     }
 
+    /**
+     * Helper method to read an error message content
+     * 
+     * @param is
+     * @return
+     */
+    private String readStream(InputStream is) {
+        if (is == null)
+            return "No error body";
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                response.append(line.trim());
+            }
+            return response.toString();
+        } catch (IOException e) {
+            return "Could not read error stream: " + e.getMessage();
+        }
+    }
 }

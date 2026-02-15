@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -75,7 +74,6 @@ public class ClusterService {
     public static final String ENV_EMBEDDINGS_CLUSTER_KEYSPACE = "EMBEDDINGS_CLUSTER_KEYSPACE";
 
     public static final int DIMENSIONS = 768;
-    // public static final int DIMENSIONS = 384;
 
     // optional environment settings
     public static final String ENV_EMBEDDINGS_CLUSTER_AUTH_USER = "EMBEDDINGS_CLUSTER_AUTH_USER";
@@ -336,7 +334,7 @@ public class ClusterService {
     /**
      * This method creates the keySpace schema.
      * 
-     * CREATE TABLE embeddings.document_vectors ( business_document_id uuid,
+     * CREATE TABLE embeddings.document_vectors ( business_document_id text,
      * chunk_id text, chunk_text text, content_vector VECTOR <FLOAT, 768>, PRIMARY
      * KEY (business_document_id, chunk_id) ); );
      * 
@@ -348,7 +346,7 @@ public class ClusterService {
         // now create table schemas
         String query = "CREATE TABLE IF NOT EXISTS document_vectors (\n" + //
                 "  id text,\n" + //
-                "  chunk_id uuid,\n" + //
+                "  chunk_id text,\n" + //
                 "  category text,\n" + //
                 "  model_group text,\n" + //
                 "  task_id int,\n" + //
@@ -391,7 +389,7 @@ public class ClusterService {
      * @param vector     the embedding vector
      * @throws ClusterException
      */
-    public void insertEmbeddings(String uniqueID, String category, String modelGroup,
+    public void insertEmbeddings(String uniqueID, String chunkID, String category, String modelGroup,
             int taskId, String content, List<Float> vector)
             throws ClusterException {
 
@@ -410,7 +408,7 @@ public class ClusterService {
 
         try {
             // Generate UUID for this chunk
-            UUID chunk_id = UUID.randomUUID();
+            // UUID chunk_id = UUID.randomUUID();
 
             // Create CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(vector);
@@ -419,7 +417,7 @@ public class ClusterService {
             // content_vector
             BoundStatement boundStmt = insertVectorStmt.bind(
                     uniqueID,
-                    chunk_id,
+                    chunkID,
                     category,
                     modelGroup,
                     taskId,
@@ -559,9 +557,9 @@ public class ClusterService {
             BoundStatement selectBoundStmt = selectChunksStmt.bind(uniqueId);
             ResultSet resultSet = session.execute(selectBoundStmt);
 
-            List<UUID> chunkIds = new ArrayList<>();
+            List<String> chunkIds = new ArrayList<>();
             for (Row row : resultSet) {
-                chunkIds.add(row.getUuid("chunk_id"));
+                chunkIds.add(row.getString("chunk_id"));
             }
 
             if (chunkIds.isEmpty()) {
@@ -571,7 +569,7 @@ public class ClusterService {
 
             // 2. Jede gefundene chunk_id einzeln updaten
             int updateCount = 0;
-            for (UUID chunkId : chunkIds) {
+            for (String chunkId : chunkIds) {
                 BoundStatement updateBoundStmt = updateChunkStmt.bind(modelGroup, taskId, uniqueId, chunkId);
                 session.execute(updateBoundStmt);
                 updateCount++;
@@ -586,6 +584,60 @@ public class ClusterService {
                     "Failed to update metadata for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
         }
 
+    }
+
+    /**
+     * Returns the full content text for a given uniqueId and category.
+     * <p>
+     * Internally the content is stored as chunks. This method returns the content
+     * as a single concatenated text to the caller.
+     * 
+     * @param uniqueId the document ID
+     * @param category the content category (null or "" for primary data)
+     * @return the full content text, or null if no content was found
+     * @throws ClusterException
+     */
+    public String readContent(String uniqueId, String category)
+            throws ClusterException {
+
+        // Default category
+        if (category == null) {
+            category = "";
+        }
+
+        try {
+            String selectQuery = "SELECT content_chunk FROM document_vectors " +
+                    "WHERE id = ? AND category = ?";
+            PreparedStatement selectStmt = session.prepare(selectQuery);
+
+            BoundStatement boundStmt = selectStmt.bind(uniqueId, category);
+            ResultSet resultSet = session.execute(boundStmt);
+
+            StringBuilder fullText = new StringBuilder();
+            for (Row row : resultSet) {
+                String chunk = row.getString("content_chunk");
+                if (chunk != null && !chunk.isBlank()) {
+                    if (fullText.length() > 0) {
+                        fullText.append("\n\n");
+                    }
+                    fullText.append(chunk);
+                }
+            }
+
+            if (fullText.length() == 0) {
+                logger.info("│   ├── ℹ️ No content found for uniqueID: " + uniqueId
+                        + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+                return null;
+            }
+
+            logger.info("│   ├── ✅ Retrieved content for uniqueID: " + uniqueId
+                    + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+            return fullText.toString();
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to retrieve content for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -648,9 +700,9 @@ public class ClusterService {
             BoundStatement selectBoundStmt = selectStmt.bind(uniqueID, category);
             ResultSet resultSet = session.execute(selectBoundStmt);
 
-            List<UUID> chunkIds = new ArrayList<>();
+            List<String> chunkIds = new ArrayList<>();
             for (Row row : resultSet) {
-                chunkIds.add(row.getUuid("chunk_id"));
+                chunkIds.add(row.getString("chunk_id"));
             }
 
             if (chunkIds.isEmpty()) {
@@ -664,7 +716,7 @@ public class ClusterService {
             PreparedStatement deleteStmt = session.prepare(deleteQuery);
 
             int deleteCount = 0;
-            for (UUID chunkId : chunkIds) {
+            for (String chunkId : chunkIds) {
                 BoundStatement deleteBoundStmt = deleteStmt.bind(uniqueID, chunkId);
                 session.execute(deleteBoundStmt);
                 deleteCount++;
@@ -690,7 +742,7 @@ public class ClusterService {
      * @return count of entries, or 0 if no entries exist
      * @throws ClusterException
      */
-    private long countIndexEntries(String uniqueId, String category) throws ClusterException {
+    public long countIndexEntries(String uniqueId, String category) throws ClusterException {
 
         if (category == null) {
             // Count ALL categories

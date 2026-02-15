@@ -121,18 +121,18 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
         String llmAPIEndpoint = null;
         String llmAPIResultEvent = null;
         String llmAPIResultItem = null;
-        // boolean llmAPIDebug = false;
+        boolean llmAPIDebug = false;
         List<ItemCollection> llmPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
                 LLM_ASSIST, workitem, false);
 
         if (llmPromptDefinitions != null) {
             for (ItemCollection promptDefinition : llmPromptDefinitions) {
-                llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
+                llmAPIEndpoint = imixsAIPromptService.parseEndpointByBPMN(promptDefinition);
                 llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                 llmAPIResultItem = promptDefinition.getItemValueString("result-item");
-                // if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
-                // llmAPIDebug = true;
-                // }
+                if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
+                    llmAPIDebug = true;
+                }
 
                 // Build template
                 try {
@@ -161,7 +161,8 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     // postPromptCompletion
                     // JsonObject jsonPrompt = imixsAIContextHandler.getOpenAIMessageObject();
 
-                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
+                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
+                            llmAPIDebug);
                     // process the ai.result....
                     String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
                             workitem);

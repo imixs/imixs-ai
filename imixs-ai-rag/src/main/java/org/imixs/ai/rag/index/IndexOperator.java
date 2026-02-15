@@ -121,6 +121,7 @@ public class IndexOperator {
         List<EventLog> events = eventLogService.findEventsByTimeout(100,
                 IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
                 IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
+                IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_PROMPT,
                 IndexOperator.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
 
         if (events.size() > 0) {

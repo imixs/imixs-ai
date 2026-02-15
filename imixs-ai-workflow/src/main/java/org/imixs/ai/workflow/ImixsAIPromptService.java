@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -34,8 +33,9 @@ import jakarta.inject.Inject;
 public class ImixsAIPromptService implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
     private static Logger logger = Logger.getLogger(ImixsAIPromptService.class.getName());
+
+    public static final String ITEM_PROMPT_TEMPLATE = "prompt-template";
 
     @Inject
     protected WorkflowService workflowService;
@@ -45,45 +45,67 @@ public class ImixsAIPromptService implements Serializable {
     Optional<String> serviceEndpoint;
 
     /**
-     * This helper method parses the ml api endpoint either provided by a model
-     * definition or a imixs.property or an environment variable.
+     * This helper method parses the api completion endpoint either provided by a
+     * model definition or a imixs.property or an environment variable.
      * <p>
-     * If not api endpoint is defined by the model the adapter uses the default api
+     * If no api endpoint is defined by the model the adapter uses the default api
      * endpoint.
      * 
-     * @param llmPrompt
-     * @return
+     * @param aiWorkflowDefinition - contains the endpoint information
+     * @return - endpoint resolved either by the workflow definition or a default
+     *         param
      * @throws PluginException
      */
-    public String parseLLMEndpointByBPMN(ItemCollection llmPrompt) throws PluginException {
-        boolean debug = logger.isLoggable(Level.FINE);
-        String llmAPIEndpoint = null;
+    public String parseEndpointByBPMN(ItemCollection aiWorkflowDefinition) throws PluginException {
+        return parseEndpointByBPMN(aiWorkflowDefinition, null);
+    }
+
+    /**
+     * This helper method parses an specific api endpoint either provided by a model
+     * definition or a imixs.property or an environment variable.
+     * <p>
+     * The parameter 'type' defines the api endpoint type.
+     * <p>
+     * If no api endpoint is defined by the model the adapter uses the default api
+     * endpoint.
+     * 
+     * @param aiWorkflowDefinition - contains the endpoint information
+     * @param type                 - optional specification type (e.g. 'completion'
+     *                             or 'embeddings')
+     * @return - endpoint resolved either by the workflow definition or a default
+     *         param
+     * @throws PluginException
+     */
+    public String parseEndpointByBPMN(ItemCollection aiWorkflowDefinition, String type) throws PluginException {
+        String apiEndpoint = null;
 
         // Test if the model provides a API Endpoint.
-        llmAPIEndpoint = null;
-        if (llmPrompt != null) {
-            llmAPIEndpoint = llmPrompt.getItemValueString("endpoint");
+        if (aiWorkflowDefinition != null) {
+            if (type == null || type.isBlank()) {
+                apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint");
+            } else {
+                apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint-" + type);
+            }
         }
 
         // switch to default api endpoint?
-        if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
+        if (apiEndpoint == null || apiEndpoint.isEmpty()) {
             // set default api endpoint if defined
             if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
-                llmAPIEndpoint = serviceEndpoint.get();
+                apiEndpoint = serviceEndpoint.get();
             }
         }
-        if (debug) {
-            logger.info("......llm api endpoint " + llmAPIEndpoint);
-        }
+
+        logger.fine("......api endpoint " + apiEndpoint);
 
         // adapt text...
-        llmAPIEndpoint = workflowService.adaptText(llmAPIEndpoint, null);
+        apiEndpoint = workflowService.adaptText(apiEndpoint, null);
 
-        if (!llmAPIEndpoint.endsWith("/")) {
-            llmAPIEndpoint = llmAPIEndpoint + "/";
+        if (!apiEndpoint.endsWith("/")) {
+            apiEndpoint = apiEndpoint + "/";
         }
 
-        return llmAPIEndpoint;
+        return apiEndpoint;
 
     }
 
@@ -138,7 +160,7 @@ public class ImixsAIPromptService implements Serializable {
      */
     public String loadPromptTemplateByDefinition(ItemCollection promptTemplate)
             throws PluginException {
-        String content = promptTemplate.getItemValueString("prompt-template");
+        String content = promptTemplate.getItemValueString(ITEM_PROMPT_TEMPLATE);
         if (!content.isBlank()) {
             return content;
         } else {

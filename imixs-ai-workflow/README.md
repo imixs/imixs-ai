@@ -33,7 +33,7 @@ The configuration of the `OpenAIAPIAdapter` is done through the model by definin
 
 ```xml
 <imixs-ai name="PROMPT">
-  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+  <endpoint>http://openai-api-server/</endpoint>
   <result-item>....</result-item>
   <result-event>....</result-event>
   <debug>true</debug>
@@ -44,7 +44,7 @@ The `imixs-ai` name `PROMPT` is mandatory. The `OpenAIAPIAdapter` can be configu
 
 | Property          | Type    | Description                                                                |
 | ----------------- | ------- | -------------------------------------------------------------------------- |
-| `endpoint`        | URL     | Rest API endpoint for the llama-cpp server                                 |
+| `endpoint`        | URL     | Rest API endpoint for an OpenAI API service                                |
 | `result-item`     | Text    | Item name to store the result returned by the LLM Server                   |
 | `result-event`    | Text    | Optional event identifier to process the result returned by the LLM Server |
 | `prompt-template` | XML     | Optional embedded prompt definition                                        |
@@ -77,7 +77,7 @@ Optional the the prompt template can also be embedded into the definition by the
 ```xml
 <imixs-ai name="PROMPT">
   <debug>true</debug>
-  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+  <endpoint>http://openai-api-server/</endpoint>
   <result-event>BOOLEAN</result-event>
   <prompt-template>
     <PromptDefinition>
@@ -142,7 +142,7 @@ Example of a definition
 
 ```xml
 <imixs-ai name="PROMPT">
-  <endpoint>http://imixs-ai.imixs.com:8000/</endpoint>
+  <endpoint>http://openai-api-server/</endpoint>
   <result-event>JSON</result-event>
 </imixs-ai>
 ```
@@ -203,7 +203,7 @@ A provided prompt template may look like this example:
 ```xml
 <imixs-ai name="PROMPT">
   <debug>true</debug>
-  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+  <endpoint>http://openai-api-server/</endpoint>
   <result-event>BOOLEAN</result-event>
   <PromptDefinition>
     <prompt_options>{"n_predict": 16, "temperature": 0 }</prompt_options>
@@ -272,7 +272,7 @@ The Adapter can be configured similar to the OpenAIAPIAdatper class:
 
 ```xml
  <imixs-ai name="ASSISTANT">
-   <endpoint>https://localhost:8080/</endpoint>
+   <endpoint>http://openai-api-server/</endpoint>
    <result-item>request.response.text</result-item>
    <result-event>JSON</result-event>
  </imixs-ai>
@@ -289,11 +289,9 @@ The Adapter defines a Default Expression template for LLMs. The BPMNConfiguratio
 ```xml
 <imixs-ai name="CONDITION">
     <debug>true</debug>
-    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+    <endpoint>http://openai-api-server/</endpoint>
     <result-item>my.condition</result-item>
-    <prompt><![CDATA[
-       Is Germany an EU member country? ]]>
-    </prompt>
+    <prompt>Is Germany an EU member country?</prompt>
 </imixs-ai>
 ```
 

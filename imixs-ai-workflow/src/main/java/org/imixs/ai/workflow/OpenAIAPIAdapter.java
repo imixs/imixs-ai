@@ -158,7 +158,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
              */
             if (llmPromptDefinitions != null) {
                 for (ItemCollection promptDefinition : llmPromptDefinitions) {
-                    llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
+                    llmAPIEndpoint = imixsAIPromptService.parseEndpointByBPMN(promptDefinition);
                     llmAPIResultEvent = promptDefinition.getItemValueString("result-event");
                     llmAPIResultItem = promptDefinition.getItemValueString("result-item");
                     if ("true".equalsIgnoreCase(promptDefinition.getItemValueString("debug"))) {
@@ -181,7 +181,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                     imixsAIContextHandler.setWorkItem(workitem);
                     imixsAIContextHandler.addPromptDefinition(promptTemplate);
 
-                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
+                    String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
+                            llmAPIDebug);
                     // process the ai.result....
                     String resultMessage = llmService.processPromptResult(completionResult, llmAPIResultEvent,
                             workitem);

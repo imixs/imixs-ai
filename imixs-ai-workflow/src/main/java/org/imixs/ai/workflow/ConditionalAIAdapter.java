@@ -104,7 +104,7 @@ public class ConditionalAIAdapter implements Serializable {
                 imixsAIContextHandler.setWorkItem(conditionalEvent.getWorkitem());
                 imixsAIContextHandler.addPromptDefinition(DEFAULT_EXPRESSION_TEMPLATE);
 
-                String llmAPIEndpoint = imixsAIPromptService.parseLLMEndpointByBPMN(promptDefinition);
+                String llmAPIEndpoint = imixsAIPromptService.parseEndpointByBPMN(promptDefinition);
                 String userPrompt = promptDefinition.getItemValueString("prompt");
                 // add the user prompt!
                 imixsAIContextHandler.addMessage(ImixsAIContextHandler.ROLE_USER, userPrompt,
@@ -143,7 +143,8 @@ public class ConditionalAIAdapter implements Serializable {
                     logger.info(jsonPrompt.toString());
                 }
 
-                String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint);
+                String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
+                        llmAPIDebug);
                 if (llmAPIDebug) {
                     logger.info("│   ├── ⚙ Completion Request conditional expression...");
                 }

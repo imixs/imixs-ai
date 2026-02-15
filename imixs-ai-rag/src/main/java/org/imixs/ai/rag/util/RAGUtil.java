@@ -34,56 +34,135 @@ public class RAGUtil {
     private static Logger logger = Logger.getLogger(RAGRetrievalAdapter.class.getName());
 
     /**
-     * This helper method creates smaller text chunks from a large markup text.
+     * Creates smaller text chunks from a large markup text. Splits first by
+     * headers, then by line breaks, spaces, or hard cut.
+     *
+     * @param markupText   the markup text to chunk
+     * @param maxChunkSize the maximum size of a single chunk in characters
      */
-    public static List<String> chunkMarkupDocument(String markupText) {
+    public static List<String> chunkMarkupDocument(String markupText, int maxChunkSize) {
         List<String> chunks = new ArrayList<>();
         StringBuilder currentChunk = new StringBuilder();
 
-        // Regex für Abschnitts-Header (# oder **)
+        // int headerFlushThreshold = (int) (maxChunkSize * 0.85);
+
         Pattern sectionPattern = Pattern.compile("^(# .+|\\*\\*.+\\*\\*)", Pattern.MULTILINE);
         Matcher matcher = sectionPattern.matcher(markupText);
 
         int lastEnd = 0;
-        while (matcher.find()) {
-            // Text zwischen den Headern
-            String sectionContent = markupText.substring(lastEnd, matcher.start()).trim();
 
+        while (matcher.find()) {
+            String sectionContent = markupText.substring(lastEnd, matcher.start()).trim();
             if (!sectionContent.isEmpty()) {
-                // Füge Inhalt zum aktuellen Chunk hinzu
-                if (currentChunk.length() + sectionContent.length() > 500) {
-                    flushChunk(chunks, currentChunk);
-                }
-                currentChunk.append(sectionContent).append("\n");
+                appendContent(chunks, currentChunk, sectionContent, maxChunkSize);
             }
 
-            // Header selbst behandeln
             String header = matcher.group(1);
-            if (currentChunk.length() + header.length() > 300) {
-                flushChunk(chunks, currentChunk);
+            if (currentChunk.length() + header.length() > maxChunkSize) {
+                flushChunk(chunks, currentChunk, maxChunkSize);
             }
             currentChunk.append(header).append("\n");
-
             lastEnd = matcher.end();
         }
 
-        // Restlichen Text nach dem letzten Header
+        // Remaining text after the last header
         String remainingContent = markupText.substring(lastEnd).trim();
         if (!remainingContent.isEmpty()) {
-            currentChunk.append(remainingContent);
-            flushChunk(chunks, currentChunk);
-        } else if (currentChunk.length() > 0) {
-            chunks.add(currentChunk.toString().trim());
+            appendContent(chunks, currentChunk, remainingContent, maxChunkSize);
         }
+        // Flush any remaining content
+        flushChunk(chunks, currentChunk, maxChunkSize);
 
         return chunks;
     }
 
-    private static void flushChunk(List<String> chunks, StringBuilder currentChunk) {
+    /**
+     * Appends content to the current chunk. If the combined size exceeds
+     * maxChunkSize, the current chunk is flushed first. If the content itself
+     * exceeds maxChunkSize, it is split into smaller pieces.
+     */
+    private static void appendContent(List<String> chunks, StringBuilder currentChunk,
+            String content, int maxChunkSize) {
+        // If content fits into the current chunk, just append
+        if (currentChunk.length() + content.length() <= maxChunkSize) {
+            currentChunk.append(content).append("\n");
+            return;
+        }
+
+        // Flush current chunk first
         if (currentChunk.length() > 0) {
             chunks.add(currentChunk.toString().trim());
             currentChunk.setLength(0);
         }
+
+        // If content fits into an empty chunk, just append
+        if (content.length() <= maxChunkSize) {
+            currentChunk.append(content).append("\n");
+            return;
+        }
+
+        // Content is too large — split it into smaller pieces
+        splitOversizedBlock(chunks, currentChunk, content, maxChunkSize);
     }
 
+    /**
+     * Splits an oversized text block into chunks using the following priority: 1.
+     * Line break (\n) 2. Last space 3. Hard cut at maxChunkSize
+     */
+    private static void splitOversizedBlock(List<String> chunks, StringBuilder currentChunk,
+            String text, int maxChunkSize) {
+        String remaining = text;
+
+        while (remaining.length() > maxChunkSize) {
+            String window = remaining.substring(0, maxChunkSize);
+            int splitPos = -1;
+
+            // Priority 1: find the last line break within the window
+            splitPos = window.lastIndexOf('\n');
+
+            // Priority 2: find the last space
+            if (splitPos <= 0) {
+                splitPos = window.lastIndexOf(' ');
+            }
+
+            // Priority 3: hard cut
+            if (splitPos <= 0) {
+                splitPos = maxChunkSize;
+            }
+
+            chunks.add(remaining.substring(0, splitPos).trim());
+            remaining = remaining.substring(splitPos).trim();
+        }
+
+        // Put the last piece into currentChunk for potential merging with next content
+        if (!remaining.isEmpty()) {
+            currentChunk.append(remaining).append("\n");
+        }
+    }
+
+    /**
+     * Flushes the current chunk into the chunks list. If the chunk exceeds
+     * maxChunkSize, it is split further.
+     */
+    private static void flushChunk(List<String> chunks, StringBuilder currentChunk, int maxChunkSize) {
+        if (currentChunk.length() == 0) {
+            return;
+        }
+        String content = currentChunk.toString().trim();
+        currentChunk.setLength(0);
+
+        if (content.length() <= maxChunkSize) {
+            if (!content.isEmpty()) {
+                chunks.add(content);
+            }
+        } else {
+            // Even the flushed chunk is too large — split it
+            splitOversizedBlock(chunks, currentChunk, content, maxChunkSize);
+            // Flush any remainder left in currentChunk
+            if (currentChunk.length() > 0) {
+                chunks.add(currentChunk.toString().trim());
+                currentChunk.setLength(0);
+            }
+        }
+    }
 }

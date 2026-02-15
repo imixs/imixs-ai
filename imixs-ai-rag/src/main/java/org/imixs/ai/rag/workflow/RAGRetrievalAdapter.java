@@ -128,11 +128,11 @@ public class RAGRetrievalAdapter implements SignalAdapter {
     public ItemCollection execute(ItemCollection workitem, ItemCollection event)
             throws AdapterException, PluginException {
 
-        logger.finest("...running api adapter...");
+        logger.finest("...running rag adapter...");
 
         // read optional configuration form the model or imixs.properties....
 
-        List<ItemCollection> ragRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
+        List<ItemCollection> ragRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
                 IndexService.RAG_RETRIEVAL, workitem, false);
 
         // verify if we have an RETRIEVAL configuration
