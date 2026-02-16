@@ -265,7 +265,7 @@ public class IndexService {
                         llmAPIEndpointCompletion, llmAPIDebug);
                 String resultMessage = openAIAPIService.processPromptResult(completionResult, "", workitem);
                 indexDefinition.setItemValue(ITEM_PROMPT_TEMPLATE,
-                        "<PromptDefinition><prompt>" + resultMessage + "</prompt></PromptDefinition>");
+                        "<PromptDefinition><prompt><![CDATA[" + resultMessage + "]]></prompt></PromptDefinition>");
 
                 // now create a new index eventLog entry
                 eventLogService.createEvent(
