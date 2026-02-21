@@ -297,6 +297,75 @@ The Adapter defines a Default Expression template for LLMs. The BPMNConfiguratio
 
 Caching: The ConditionalAIAdapter implements a caching mechanism. The adapter class stores the hash value in to the item <result-item>.hash to avoid duplicate calls against the llm with the same prompt in one processing cycle!
 
+## Tool Calling
+
+The `ImixsAIContextHandler` supports the OpenAI API tool calling feature. This allows an LLM to request the execution of predefined functions during a conversation. The result is added back into the conversation context so the LLM can continue with the information provided.
+
+### Defining Functions
+
+Functions are defined per request and are **not persisted** as part of the conversation context. They are typically set by the agent before each request based on the current BPMN process context:
+
+```java
+contextHandler.addFunction(
+    "load_skill",
+    "Loads details about an available BPMN workflow process",
+    """
+    {
+        "type": "object",
+        "properties": {
+            "process_id": {
+                "type": "string",
+                "description": "The ID of the BPMN process"
+            }
+        },
+        "required": ["process_id"]
+    }
+    """);
+```
+
+The `tool_choice` parameter controls how the LLM uses the defined functions. The default value is `"auto"`, meaning the LLM decides itself whether to call a function or respond with text. You can change this behavior:
+
+- auto - LLM decides (default)
+- none - NO tool calls allowed
+- required - LLM must call a tool
+
+### Processing Tool Call Results
+
+When the LLM responds with a tool call (`finish_reason: "tool_calls"`), the `OpenAIAPIService` fires a CDI event of the type `ImixsAIToolCallEvent`. An observer can handle the tool call and set the result:
+
+```java
+@ApplicationScoped
+public class WorkflowToolCallObserver {
+
+    @Inject
+    WorkflowService workflowService;
+
+    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
+        if ("load_skill".equals(event.getToolName())) {
+            String processId = event.getArguments().getString("process_id");
+            // Load process details from workflow engine
+            String skillContent = workflowService.loadSkill(processId);
+            event.setResult(skillContent);
+        }
+    }
+}
+```
+
+If no observer handles the tool call a `PluginException` is thrown.
+
+The tool call result is automatically added to the conversation context so the LLM can continue:
+
+```
+User:      "I need next week off."
+Assistant: tool_call → load_skill("urlaubsantrag")
+Observer:  loads process details from workflow engine
+Assistant: "I found the vacation request process. Please provide start and end date..."
+```
+
+### Security Considerations
+
+The tool calling feature is designed to integrate exclusively with the Imixs Workflow Engine. This means all tool calls are executed within the existing user security context and are subject to the workflow engine's permission model. Observers should always verify that the current user has the required permissions before executing a tool call.
+
 # Prompt Engineering
 
 ## Prompt Events

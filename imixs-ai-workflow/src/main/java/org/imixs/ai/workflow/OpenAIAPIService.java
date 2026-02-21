@@ -114,6 +114,9 @@ public class OpenAIAPIService implements Serializable {
     @Inject
     private Event<ImixsAIResultEvent> llmResultEventObservers = null;
 
+    @Inject
+    private Event<ImixsAIToolCallEvent> toolCallEventObservers = null;
+
     /**
      * This method returns a string with all the text content of all documents
      * attached to a workitem.
@@ -364,6 +367,89 @@ public class OpenAIAPIService implements Serializable {
         }
 
         return promptResult;
+    }
+
+    /**
+     * This method processes a tool call response from the LLM. If the finish_reason
+     * is "tool_calls", the method fires an ImixsAIToolCallEvent for each tool call
+     * so that observers can handle it. The result is added to the context as a tool
+     * message.
+     *
+     * Returns true if tool calls were found and handled, false if the response is a
+     * normal text completion.
+     *
+     * @param jsonCompletionResult - raw JSON response from the LLM
+     * @param contextHandler       - the current conversation context
+     * @throws PluginException
+     */
+    public boolean processToolCallResult(String jsonCompletionResult,
+            ImixsAIContextHandler contextHandler) throws PluginException {
+
+        // Parse the JSON result
+        JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
+        JsonObject parsedJsonObject = jsonReader.readObject();
+        jsonReader.close();
+
+        // Check finish_reason
+        if (!parsedJsonObject.containsKey("choices")) {
+            return false;
+        }
+        JsonArray choices = parsedJsonObject.getJsonArray("choices");
+        if (choices == null || choices.isEmpty()) {
+            return false;
+        }
+        JsonObject firstChoice = choices.getJsonObject(0);
+        String finishReason = firstChoice.getString("finish_reason", "");
+        if (!"tool_calls".equals(finishReason)) {
+            return false;
+        }
+
+        // Extract tool_calls from the assistant message
+        JsonObject message = firstChoice.getJsonObject("message");
+        JsonArray toolCalls = message.getJsonArray("tool_calls");
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return false;
+        }
+
+        // Add the assistant message with tool_calls to the context
+        // so the LLM knows what it requested
+        contextHandler.addToolCallAssistantMessage(message.toString());
+
+        // Process each tool call
+        for (JsonValue toolCallValue : toolCalls) {
+            JsonObject toolCall = toolCallValue.asJsonObject();
+            String toolCallId = toolCall.getString("id");
+            JsonObject function = toolCall.getJsonObject("function");
+            String toolName = function.getString("name");
+
+            // Parse arguments - this is JSON in JSON!
+            String argumentsString = function.getString("arguments");
+            JsonObject arguments;
+            try (JsonReader argReader = Json.createReader(new StringReader(argumentsString))) {
+                arguments = argReader.readObject();
+            }
+
+            logger.info("├── Tool Call: " + toolName + " / arguments: " + arguments);
+
+            // Fire CDI event - observers handle the actual execution
+            ImixsAIToolCallEvent toolCallEvent = new ImixsAIToolCallEvent(
+                    toolName, arguments, toolCallId);
+            toolCallEventObservers.fire(toolCallEvent);
+
+            if (!toolCallEvent.isHandled()) {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_INFERENCE,
+                        "No observer handled tool call: " + toolName);
+            }
+
+            // Add tool result to context for next LLM request
+            contextHandler.addToolResult(toolCallId, toolCallEvent.getResult());
+
+            logger.info("└── Tool Call handled: " + toolName
+                    + " result length=" + toolCallEvent.getResult().length());
+        }
+
+        return true;
     }
 
     @Deprecated

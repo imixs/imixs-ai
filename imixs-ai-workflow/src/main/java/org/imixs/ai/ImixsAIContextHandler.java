@@ -66,10 +66,12 @@ public class ImixsAIContextHandler implements Serializable {
     public static final String ITEM_MESSAGE = "chat.message";
     public static final String ITEM_DATE = "chat.date";
     public static final String ITEM_USERID = "chat.userid";
+    public static final String ITEM_TOOL_CALL_ID = "chat.tool_call_id";
 
     public static final String ROLE_SYSTEM = "system";
     public static final String ROLE_USER = "user";
     public static final String ROLE_ASSISTANT = "assistant";
+    public static final String ROLE_TOOL = "tool";
 
     private ItemCollection workItem = null;
     private String itemNameContext;
@@ -80,11 +82,15 @@ public class ImixsAIContextHandler implements Serializable {
 
     // Message container for API
     private List<ItemCollection> context = null;
+    // Functions container for API
+    private List<JsonObject> functions = new ArrayList<>();
 
     // Options as flexible JSON object
     private JsonObject options;
 
     private boolean stream = false;
+
+    private String toolChoice = "auto"; // default
 
     /**
      * Default constructor
@@ -96,6 +102,8 @@ public class ImixsAIContextHandler implements Serializable {
     // reset context
     public void init() {
         context = new ArrayList<ItemCollection>();
+        functions = new ArrayList<JsonObject>();
+        toolChoice = "auto";
         this.options = Json.createObjectBuilder().build();
     }
 
@@ -142,8 +150,8 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
-     * Custom log method that respects the configured logLevel.
-     * Always uses logger.info() but checks the desired level first.
+     * Custom log method that respects the configured logLevel. Always uses
+     * logger.info() but checks the desired level first.
      */
     public void log(Level level, String message) {
         if (level.intValue() >= logLevel.intValue()) {
@@ -157,6 +165,15 @@ public class ImixsAIContextHandler implements Serializable {
 
     public void setStream(boolean stream) {
         this.stream = stream;
+    }
+
+    /**
+     * Sets the tool_choice parameter for the request. Possible values: "auto",
+     * "none", "required"
+     */
+    public ImixsAIContextHandler setToolChoice(String toolChoice) {
+        this.toolChoice = toolChoice;
+        return this;
     }
 
     /**
@@ -214,6 +231,34 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
+     * Add a tool result message to the conversation. The toolCallId must match the
+     * id from the assistant's tool_call response.
+     */
+    public ImixsAIContextHandler addToolResult(String toolCallId, String content)
+            throws PluginException {
+        ItemCollection message = new ItemCollection();
+        message.setItemValue(ITEM_ROLE, ROLE_TOOL);
+        message.setItemValue(ITEM_MESSAGE, content);
+        message.setItemValue(ITEM_TOOL_CALL_ID, toolCallId);
+        context.add(message);
+        return this;
+    }
+
+    /**
+     * Adds the raw assistant tool_call message to the context. This is required so
+     * the LLM knows what it requested in the next round.
+     */
+    public ImixsAIContextHandler addToolCallAssistantMessage(String rawMessageJson)
+            throws PluginException {
+        ItemCollection message = new ItemCollection();
+        message.setItemValue(ITEM_ROLE, ROLE_ASSISTANT);
+        message.setItemValue(ITEM_MESSAGE, rawMessageJson);
+        message.setItemValue("chat.is_tool_call", true);
+        context.add(message);
+        return this;
+    }
+
+    /**
      * This method reset the current context.
      */
     private void resetContext() {
@@ -246,6 +291,27 @@ public class ImixsAIContextHandler implements Serializable {
      */
     public ImixsAIContextHandler addAnswer(String content) throws PluginException {
         return addMessage(ROLE_ASSISTANT, content, null, null);
+    }
+
+    /**
+     * Adds a function/tool definition to the request. Functions are not persisted -
+     * they are set by the agent before each request.
+     *
+     * @param name           - function name, e.g. "load_skill"
+     * @param description    - description for the LLM when to call this function
+     * @param parametersJson - JSON schema of the parameters, e.g.
+     *                       {"type":"object","properties":{"process_id":{"type":"string"}}}
+     */
+    public ImixsAIContextHandler addFunction(String name, String description, String parametersJson) {
+        JsonObjectBuilder functionBuilder = Json.createObjectBuilder()
+                .add("type", "function")
+                .add("function", Json.createObjectBuilder()
+                        .add("name", name)
+                        .add("description", description)
+                        .add("parameters", Json.createReader(
+                                new StringReader(parametersJson)).readObject()));
+        functions.add(functionBuilder.build());
+        return this;
     }
 
     /**
@@ -435,9 +501,24 @@ public class ImixsAIContextHandler implements Serializable {
             JsonObjectBuilder messageBuilder = Json.createObjectBuilder();
             messageBuilder.add("role", message.getItemValueString(ITEM_ROLE));
             messageBuilder.add("content", message.getItemValueString(ITEM_MESSAGE));
+            // Add tool_call_id if role is "tool"
+            if (ROLE_TOOL.equals(message.getItemValueString(ITEM_ROLE))) {
+                messageBuilder.add("tool_call_id",
+                        message.getItemValueString(ITEM_TOOL_CALL_ID));
+            }
             messagesArray.add(messageBuilder);
         }
         builder.add("messages", messagesArray);
+
+        // Add tools array if functions are defined
+        if (!functions.isEmpty()) {
+            JsonArrayBuilder toolsArray = Json.createArrayBuilder();
+            for (JsonObject function : functions) {
+                toolsArray.add(function);
+            }
+            builder.add("tools", toolsArray);
+            builder.add("tool_choice", toolChoice);
+        }
 
         // Merge all options
         for (String key : options.keySet()) {
