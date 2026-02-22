@@ -261,7 +261,7 @@ public class ImixsAIContextHandler implements Serializable {
     /**
      * This method reset the current context.
      */
-    private void resetContext() {
+    public void resetContext() {
         context = new ArrayList<ItemCollection>();
     }
 
@@ -498,6 +498,17 @@ public class ImixsAIContextHandler implements Serializable {
         // Build messages array
         JsonArrayBuilder messagesArray = Json.createArrayBuilder();
         for (ItemCollection message : context) {
+
+            // Tool call assistant message? - embed as native JSON object
+            if (message.getItemValueBoolean("chat.is_tool_call")) {
+                String rawJson = message.getItemValueString(ITEM_MESSAGE);
+                try (JsonReader reader = Json.createReader(new StringReader(rawJson))) {
+                    messagesArray.add(reader.readObject()); // directly embedded, not wrapped!
+                }
+                continue;
+            }
+
+            // normal message
             JsonObjectBuilder messageBuilder = Json.createObjectBuilder();
             messageBuilder.add("role", message.getItemValueString(ITEM_ROLE));
             messageBuilder.add("content", message.getItemValueString(ITEM_MESSAGE));
