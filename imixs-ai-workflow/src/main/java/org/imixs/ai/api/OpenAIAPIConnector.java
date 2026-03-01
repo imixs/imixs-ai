@@ -31,14 +31,13 @@ import jakarta.inject.Inject;
  * The OpenAIAPIConnector provides methods to establish a HTTP connection to a
  * LLM endpoint.
  * <p>
- * The logical model id is resolved via {@link LLMConfigService}, which reads
- * the endpoint URL and optional API key from the <code>imixs-llm.xml</code>
- * configuration file. The caller only provides the model id - it is not exposed
- * to the underlying connection details.
+ * The logical endpoint id is resolved via {@link LLMConfigService}, which reads
+ * the URL and optional API key from the <code>imixs-llm.xml</code>
+ * configuration file. The caller only provides the endpoint id.
  * <p>
- * Bearer authentication is used when an API key is configured for the model. If
- * no API key is set the request is sent without an Authorization header, which
- * is the typical case for locally hosted LLM instances.
+ * Bearer authentication is used when an API key is configured for the endpoint.
+ * If no API key is set the request is sent without an Authorization header,
+ * which is typical for locally hosted LLM instances.
  *
  * @author rsoika
  */
@@ -64,51 +63,43 @@ public class OpenAIAPIConnector implements Serializable {
 
     /**
      * Creates a HttpURLConnection to a LLM endpoint identified by the given logical
-     * model id.
+     * endpoint id.
      * <p>
-     * The model id is resolved via {@link LLMConfigService}. If no model with the
-     * given id is registered a {@link PluginException} is thrown.
+     * The endpoint id is resolved via {@link LLMConfigService}. If no endpoint with
+     * the given id is registered a {@link PluginException} is thrown.
      *
-     * @param modelId     - logical model id as defined in imixs-llm.xml
+     * @param endpointId  - logical endpoint id as defined in imixs-llm.xml
      * @param resourceURI - endpoint resource path, e.g.
      *                    {@link #ENDPOINT_URI_COMPLETIONS}
      * @return an open HttpURLConnection ready for writing the request body
-     * @throws PluginException if the model id is unknown or the connection fails
+     * @throws PluginException if the endpoint id is unknown or the connection fails
      */
-    public HttpURLConnection createHttpConnection(String modelId, String resourceURI)
+    public HttpURLConnection createHttpConnection(String endpointId, String resourceURI)
             throws PluginException {
 
-        // Resolve model configuration by logical id
-        LLMModelConfig modelConfig = llmConfigService.getModel(modelId);
-        if (modelConfig == null) {
+        String url = llmConfigService.getURL(endpointId);
+        if (url == null || url.isBlank()) {
             throw new PluginException(
                     OpenAIAPIConnector.class.getSimpleName(),
                     ERROR_CONNECTION,
-                    "Unknown LLM model id: '" + modelId + "' – verify imixs-llm.xml");
-        }
-
-        String apiEndpoint = modelConfig.getEndpoint();
-        if (apiEndpoint == null || apiEndpoint.isBlank()) {
-            throw new PluginException(
-                    OpenAIAPIConnector.class.getSimpleName(),
-                    ERROR_CONNECTION,
-                    "LLM model '" + modelId + "' has no endpoint configured");
+                    "Unknown LLM endpoint id: '" + endpointId + "' – verify imixs-llm.xml");
         }
 
         HttpURLConnection conn = null;
         try {
-            if (!apiEndpoint.endsWith("/")) {
-                apiEndpoint = apiEndpoint + "/";
+            if (!url.endsWith("/")) {
+                url = url + "/";
             }
-            URL url = new URL(apiEndpoint + resourceURI);
-            conn = (HttpURLConnection) url.openConnection();
+            URL requestUrl = new URL(url + resourceURI);
+            conn = (HttpURLConnection) requestUrl.openConnection();
 
             conn.setConnectTimeout(serviceTimeout);
             conn.setReadTimeout(serviceTimeout);
 
             // Bearer authentication - only if an API key is configured
-            if (modelConfig.getApiKey() != null && !modelConfig.getApiKey().isBlank()) {
-                conn.setRequestProperty("Authorization", "Bearer " + modelConfig.getApiKey());
+            String apiKey = llmConfigService.getApiKey(endpointId);
+            if (apiKey != null && !apiKey.isBlank()) {
+                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
             }
 
             conn.setRequestMethod("POST");
@@ -121,7 +112,7 @@ public class OpenAIAPIConnector implements Serializable {
             throw new PluginException(
                     OpenAIAPIConnector.class.getSimpleName(),
                     ERROR_CONNECTION,
-                    "Failed to create connection for model '" + modelId + "': " + e.getMessage(), e);
+                    "Failed to create connection for endpoint '" + endpointId + "': " + e.getMessage(), e);
         }
 
         return conn;
