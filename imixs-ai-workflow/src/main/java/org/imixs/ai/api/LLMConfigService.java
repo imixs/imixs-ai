@@ -88,7 +88,7 @@ public class LLMConfigService {
     @PostConstruct
     public void init() {
         if (!configFilePath.isPresent() || configFilePath.get().isBlank()) {
-            logger.warning("LLMConfigService: property '" + ENV_LLM_CONFIG_FILE
+            logger.warning("├── ⚠️ LLMConfigService: property '" + ENV_LLM_CONFIG_FILE
                     + "' is not set – LLM endpoint registry is empty.");
             return;
         }
@@ -98,11 +98,11 @@ public class LLMConfigService {
 
         try (InputStream is = new FileInputStream(path)) {
             configDocument = parseXML(is);
-            logger.info("LLMConfigService: config loaded successfully from '" + path + "'");
+            logger.info("├── ✅ LLMConfigService: config loaded successfully from '" + path + "'");
         } catch (IOException e) {
-            logger.severe("LLMConfigService: cannot read '" + path + "': " + e.getMessage());
+            logger.severe("├── ⚠️ LLMConfigService: cannot read '" + path + "': " + e.getMessage());
         } catch (Exception e) {
-            logger.severe("LLMConfigService: failed to parse '" + path + "': " + e.getMessage());
+            logger.severe("├── ⚠️ LLMConfigService: failed to parse '" + path + "': " + e.getMessage());
         }
     }
 

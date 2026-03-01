@@ -84,14 +84,8 @@ public class ImixsAIPromptService implements Serializable {
         }
 
         logger.fine("......api endpoint " + apiEndpoint);
-
         // adapt text...
         apiEndpoint = workflowService.adaptText(apiEndpoint, null);
-
-        if (!apiEndpoint.endsWith("/")) {
-            apiEndpoint = apiEndpoint + "/";
-        }
-
         return apiEndpoint;
 
     }
