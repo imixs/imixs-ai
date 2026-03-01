@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;

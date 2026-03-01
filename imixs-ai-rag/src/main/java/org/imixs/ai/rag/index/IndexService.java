@@ -19,13 +19,13 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.cluster.RetrievalResult;
 import org.imixs.ai.rag.util.RAGUtil;
 import org.imixs.ai.rag.workflow.RAGRetrievalAdapter;
 import org.imixs.ai.workflow.ImixsAIPromptService;
-import org.imixs.ai.workflow.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.EventLogService;

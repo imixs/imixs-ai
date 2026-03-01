@@ -18,8 +18,8 @@ import org.imixs.workflow.ItemCollection;
 
 /**
  * The ImixsAIResultEvent is fired by the
- * {@link org.imixs.ai.workflow.OpenAIAPIService} after a prompt was processed.
- * A CDI bean can observe this event to adapt the AI result stored in the item
+ * {@link org.imixs.ai.api.OpenAIAPIService} after a prompt was processed. A CDI
+ * bean can observe this event to adapt the AI result stored in the item
  * 'ai.result'.
  * 
  * For example an Observer bean can transfer an xml result tree form a
@@ -28,7 +28,7 @@ import org.imixs.workflow.ItemCollection;
  * 
  * @author Ralph Soika
  * @version 1.0
- * @see org.imixs.ai.workflow.OpenAIAPIService
+ * @see org.imixs.ai.api.OpenAIAPIService
  * @see org.imixs.workflow.engine.WorkflowService
  */
 public class ImixsAIResultEvent {

@@ -19,8 +19,8 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.api.OpenAIAPIConnector;
 import org.imixs.ai.rag.index.IndexService;
-import org.imixs.ai.workflow.OpenAIAPIConnector;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
 import org.imixs.workflow.engine.EventLogService;

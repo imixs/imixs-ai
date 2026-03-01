@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.faces.data.WorkflowController;
 
 import jakarta.enterprise.context.ConversationScoped;

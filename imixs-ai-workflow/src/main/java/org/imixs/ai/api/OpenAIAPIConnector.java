@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.workflow;
+package org.imixs.ai.api;
 
 import java.io.IOException;
 import java.io.Serializable;

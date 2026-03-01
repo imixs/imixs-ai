@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.workflow;
+package org.imixs.ai.api;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,7 +25,6 @@ import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,6 +35,9 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.workflow.ImixsAIPromptEvent;
+import org.imixs.ai.workflow.ImixsAIResultEvent;
+import org.imixs.ai.workflow.ImixsAIToolCallEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ModelService;
@@ -140,176 +142,6 @@ public class OpenAIAPIService implements Serializable {
         }
 
         return result;
-    }
-
-    /**
-     * <strong>Deprecated</strong> - use ImixsAIContextHandler.addPromptDefinition()
-     * instead!
-     * <p>
-     * This method first extracts the prompt from the prompt template. Next the
-     * method fires a prompt event to all registered PromptEvent Observer classes.
-     * This allows adaptors to customize the prompt.
-     * 
-     * Finally the method stores the prompt_options in the item
-     * 'ai.prompt.prompt_options'
-     * 
-     * 
-     * @param promptTemplate - a imixs-ai prompt XML-Template
-     * @param workitem       - the workitem to be processed
-     * @return the plain prompt to be send to the llm endpoint
-     * @throws PluginException
-     * @throws AdapterException
-     */
-    @Deprecated
-    public String buildPrompt(String promptTemplate, ItemCollection workitem) throws PluginException, AdapterException {
-
-        String prompt = null;
-        // Extract Meta Information from XML....
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
-
-            // extract prompt
-            NodeList modelNodes = doc.getElementsByTagName("prompt");
-            if (modelNodes.getLength() > 0) {
-                Node modelNode = modelNodes.item(0);
-                prompt = modelNode.getTextContent();
-            }
-
-            if (prompt == null || prompt.isEmpty()) {
-                throw new PluginException(
-                        OpenAIAPIService.class.getSimpleName(),
-                        ERROR_PROMPT_TEMPLATE,
-                        "Missing prompt tag in prompt template!");
-            }
-
-            // prompt_options
-            modelNodes = doc.getElementsByTagName("prompt_options");
-            if (modelNodes.getLength() > 0) {
-                Node modelNode = modelNodes.item(0);
-                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
-            }
-
-        } catch (IOException | ParserConfigurationException | SAXException e) {
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_TEMPLATE,
-                    "Unable to extract meta data from prompt template: " + e.getMessage(), e);
-        }
-
-        // Fire Prompt Event...
-        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
-        try {
-            llmPromptEventObservers.fire(llmPromptEvent);
-        } catch (ObserverException e) {
-            // catch Adapter Exceptions
-            if (e.getCause() instanceof AdapterException) {
-                throw (AdapterException) e.getCause();
-            }
-
-        }
-        logger.finest(llmPromptEvent.getPromptTemplate());
-
-        return llmPromptEvent.getPromptTemplate();
-    }
-
-    /**
-     * This helper method builds a json prompt object including options params.
-     * 
-     * Use buildJsonPromptObjectV1 to support new OpenAI API
-     *
-     * See details:
-     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
-     *
-     * @param prompt
-     * @param stream         - boolean indicates if the client tries to stream the
-     *                       result.
-     * @param prompt_options
-     * @return
-     */
-    @Deprecated
-    public JsonObject buildJsonPromptObject(String prompt, boolean stream, String prompt_options) {
-
-        // Create a JsonObjectBuilder instance
-        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
-        jsonObjectBuilder.add("prompt", prompt);
-        if (stream) {
-            // set optional stream flag
-            jsonObjectBuilder.add("stream", stream);
-        }
-
-        // Do we have options?
-        if (prompt_options != null && !prompt_options.isEmpty()) {
-            // Create a JsonReader from the JSON string
-            JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
-            JsonObject parsedJsonObject = jsonReader.readObject();
-            jsonReader.close();
-            // Add each key-value pair from the parsed JsonObject to the new
-            // JsonObjectBuilder
-            for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
-                jsonObjectBuilder.add(entry.getKey(), entry.getValue());
-            }
-        }
-
-        // Build the JsonObject
-        JsonObject jsonObject = jsonObjectBuilder.build();
-
-        logger.fine("buildJsonPromptObject completed:");
-        logger.fine(jsonObject.toString());
-        return jsonObject;
-    }
-
-    /**
-     * This helper method builds a json prompt object for OpenAI API including
-     * optional params.
-     *
-     * See details:
-     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
-     *
-     * @param prompt
-     * @param stream         - boolean indicates if the client tries to stream the
-     *                       result.
-     * @param prompt_options
-     * @return
-     */
-    public JsonObject buildJsonPromptObjectV1(ImixsAIContextHandler imixsAIContextHandler) {
-
-        JsonObject messageObject = imixsAIContextHandler.getOpenAIMessageObject();
-
-        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
-
-        // Create the messages array with one user message
-        JsonArrayBuilder messagesArrayBuilder = Json.createArrayBuilder();
-        JsonObjectBuilder userMessageBuilder = Json.createObjectBuilder();
-        userMessageBuilder.add("role", "user");
-        userMessageBuilder.add("content", imixsAIContextHandler.toString());
-        messagesArrayBuilder.add(userMessageBuilder);
-        jsonObjectBuilder.add("messages", messagesArrayBuilder);
-
-        // Default model – könnte man auch per prompt_options überschreiben
-        // jsonObjectBuilder.add("model", "gpt-4o-mini");
-
-        // if (stream) {
-        // jsonObjectBuilder.add("stream", true);
-        // }
-
-        // Do we have additional options?
-        // if (prompt_options != null && !prompt_options.isEmpty()) {
-        // JsonReader jsonReader = Json.createReader(new StringReader(prompt_options));
-        // JsonObject parsedJsonObject = jsonReader.readObject();
-        // jsonReader.close();
-
-        // for (Map.Entry<String, JsonValue> entry : parsedJsonObject.entrySet()) {
-        // jsonObjectBuilder.add(entry.getKey(), entry.getValue());
-        // }
-        // }
-
-        JsonObject jsonObject = jsonObjectBuilder.build();
-
-        logger.fine("buildJsonPromptObjectV1 completed:");
-        logger.fine(jsonObject.toString());
-        return jsonObject;
     }
 
     /**
@@ -452,39 +284,6 @@ public class OpenAIAPIService implements Serializable {
         return true;
     }
 
-    @Deprecated
-    public void processPromptResultOld(String completionResult, ItemCollection workitem, String resultItemName,
-            String resultEventType) throws PluginException {
-
-        // We expect a OpenAI API Json Result object
-        // Extract the field 'content'
-        // Create a JsonReader from the JSON string
-        JsonReader jsonReader = Json.createReader(new StringReader(completionResult));
-        JsonObject parsedJsonObject = jsonReader.readObject();
-        jsonReader.close();
-
-        // extract content
-        String promptResult = parsedJsonObject.getString("content");
-        if (promptResult == null) {
-            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_INFERENCE, "Error during POST prompt - no result returned!");
-        }
-        promptResult = promptResult.trim();
-        workitem.appendItemValue(ITEM_AI_RESULT, promptResult);
-
-        if (resultItemName != null && !resultItemName.isEmpty()) {
-            workitem.setItemValue(resultItemName, promptResult);
-            workitem.setItemValue(ITEM_AI_RESULT_ITEM, resultItemName);
-        }
-
-        // fire entityTextEvents so that an adapter can resolve the result
-        if (resultEventType != null && !resultEventType.isEmpty()) {
-            ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(promptResult, resultEventType, workitem);
-            llmResultEventObservers.fire(llmResultEvent);
-        }
-
-    }
-
     /**
      * This method POSTs a LLM Prompt to the service endpoint '/completion' and
      * returns the predicted completion. The method returns the response body.
@@ -579,84 +378,6 @@ public class OpenAIAPIService implements Serializable {
 
         }
 
-    }
-
-    /**
-     * RAG Support - builds a prompt for embeddings from a Imixs prompt template
-     * <p>
-     * This method builds a prompt for embeddings based on a prompt template. The
-     * method first extracts the prompt from the prompt template. Next the method
-     * fires a prompt event to all registered PromptEvent Observer classes. This
-     * allows adaptors to customize the prompt.
-     * 
-     * Finally the method stores the prompt_options in the item
-     * 'ai.prompt.prompt_options'
-     * 
-     * 
-     * @param promptTemplate - a imixs-ai prompt XML-Template
-     * @param workitem       - the workitem to be processed
-     * @return the plain prompt to be send to the llm endpoint
-     * @throws PluginException
-     * @throws AdapterException
-     */
-    public String buildEmbeddingsPrompt(String promptTemplate, ItemCollection workitem)
-            throws PluginException, AdapterException {
-
-        if (promptTemplate == null || promptTemplate.isBlank()) {
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_TEMPLATE,
-                    "Prompt template is empty, verify model configuration");
-        }
-        String prompt = null;
-        // Extract Meta Information from XML....
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
-
-            // extract prompt
-            NodeList modelNodes = doc.getElementsByTagName("prompt");
-            if (modelNodes.getLength() > 0) {
-                Node modelNode = modelNodes.item(0);
-                prompt = modelNode.getTextContent();
-            }
-
-            if (prompt == null || prompt.isEmpty()) {
-                throw new PluginException(
-                        OpenAIAPIService.class.getSimpleName(),
-                        ERROR_PROMPT_TEMPLATE,
-                        "Missing prompt tag in embedding prompt template!");
-            }
-
-            // prompt_options
-            modelNodes = doc.getElementsByTagName("prompt_options");
-            if (modelNodes.getLength() > 0) {
-                Node modelNode = modelNodes.item(0);
-                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
-            }
-
-        } catch (IOException | ParserConfigurationException | SAXException e) {
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_TEMPLATE,
-                    "Unable to extract meta data from embedding prompt template: " + e.getMessage(), e);
-        }
-
-        // Fire Prompt Event...
-        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
-        try {
-            llmPromptEventObservers.fire(llmPromptEvent);
-        } catch (ObserverException e) {
-            // catch Adapter Exceptions
-            if (e.getCause() instanceof AdapterException) {
-                throw (AdapterException) e.getCause();
-            }
-
-        }
-        logger.finest(llmPromptEvent.getPromptTemplate());
-
-        return llmPromptEvent.getPromptTemplate();
     }
 
     /**
@@ -780,6 +501,116 @@ public class OpenAIAPIService implements Serializable {
 
         }
 
+    }
+
+    /**
+     * This helper method builds a json prompt object for OpenAI API including
+     * optional params.
+     *
+     * See details:
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
+     * @param prompt
+     * @param stream         - boolean indicates if the client tries to stream the
+     *                       result.
+     * @param prompt_options
+     * @return
+     */
+    public JsonObject buildJsonPromptObjectV1(ImixsAIContextHandler imixsAIContextHandler) {
+        JsonObject messageObject = imixsAIContextHandler.getOpenAIMessageObject();
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+
+        // Create the messages array with one user message
+        JsonArrayBuilder messagesArrayBuilder = Json.createArrayBuilder();
+        JsonObjectBuilder userMessageBuilder = Json.createObjectBuilder();
+        userMessageBuilder.add("role", "user");
+        userMessageBuilder.add("content", imixsAIContextHandler.toString());
+        messagesArrayBuilder.add(userMessageBuilder);
+        jsonObjectBuilder.add("messages", messagesArrayBuilder);
+
+        JsonObject jsonObject = jsonObjectBuilder.build();
+
+        logger.fine("buildJsonPromptObjectV1 completed:");
+        logger.fine(jsonObject.toString());
+        return jsonObject;
+    }
+
+    /**
+     * RAG Support - builds a prompt for embeddings from a Imixs prompt template
+     * <p>
+     * This method builds a prompt for embeddings based on a prompt template. The
+     * method first extracts the prompt from the prompt template. Next the method
+     * fires a prompt event to all registered PromptEvent Observer classes. This
+     * allows adaptors to customize the prompt.
+     * 
+     * Finally the method stores the prompt_options in the item
+     * 'ai.prompt.prompt_options'
+     * 
+     * 
+     * @param promptTemplate - a imixs-ai prompt XML-Template
+     * @param workitem       - the workitem to be processed
+     * @return the plain prompt to be send to the llm endpoint
+     * @throws PluginException
+     * @throws AdapterException
+     */
+    public String buildEmbeddingsPrompt(String promptTemplate, ItemCollection workitem)
+            throws PluginException, AdapterException {
+
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Prompt template is empty, verify model configuration");
+        }
+        String prompt = null;
+        // Extract Meta Information from XML....
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+
+            // extract prompt
+            NodeList modelNodes = doc.getElementsByTagName("prompt");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                prompt = modelNode.getTextContent();
+            }
+
+            if (prompt == null || prompt.isEmpty()) {
+                throw new PluginException(
+                        OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_TEMPLATE,
+                        "Missing prompt tag in embedding prompt template!");
+            }
+
+            // prompt_options
+            modelNodes = doc.getElementsByTagName("prompt_options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
+            }
+
+        } catch (IOException | ParserConfigurationException | SAXException e) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Unable to extract meta data from embedding prompt template: " + e.getMessage(), e);
+        }
+
+        // Fire Prompt Event...
+        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
+        try {
+            llmPromptEventObservers.fire(llmPromptEvent);
+        } catch (ObserverException e) {
+            // catch Adapter Exceptions
+            if (e.getCause() instanceof AdapterException) {
+                throw (AdapterException) e.getCause();
+            }
+
+        }
+        logger.finest(llmPromptEvent.getPromptTemplate());
+
+        return llmPromptEvent.getPromptTemplate();
     }
 
     /**

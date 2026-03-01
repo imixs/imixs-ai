@@ -18,7 +18,7 @@ import org.imixs.workflow.ItemCollection;
 
 /**
  * The ImixsAIPromptEvent is fired by the
- * {@link org.imixs.ai.workflow.OpenAIAPIService} before a prompt is processed.
+ * {@link org.imixs.ai.api.OpenAIAPIService} before a prompt is processed.
  * 
  * The ImixsAIPromptEvent contains the prompt template and the workitem. An
  * observer CDI Bean can update and extend the given prompt.

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ConditionalExpressionEvent;
 import org.imixs.workflow.engine.WorkflowService;
