@@ -25,7 +25,6 @@ import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -33,7 +32,6 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.ai.workflow.ImixsAIResultEvent;
@@ -92,14 +90,6 @@ public class OpenAIAPIService implements Serializable {
     public static final String LLM_MODEL = "llm.model";
 
     public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "llm.service.timeout";
-
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
-
-    @Inject
-    @ConfigProperty(name = ENV_LLM_SERVICE_ENDPOINT_TIMEOUT, defaultValue = "120000")
-    int serviceTimeout;
 
     @Inject
     protected OpenAIAPIConnector openAIAPIConnector;

@@ -15,12 +15,9 @@
 package org.imixs.ai.workflow;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.api.OpenAIAPIConnector;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
@@ -92,10 +89,6 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     public static final int API_EVENT_FAILURE = 90;
 
     private static Logger logger = Logger.getLogger(OpenAIAPIAdapter.class.getName());
-
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
 
     @Inject
     protected WorkflowService workflowService;

@@ -156,7 +156,7 @@ public class LLMConfigService {
         Document doc = builder.parse(is);
         doc.getDocumentElement().normalize();
 
-        NodeList modelNodes = doc.getElementsByTagName("model");
+        NodeList modelNodes = doc.getElementsByTagName("endpoint");
         for (int i = 0; i < modelNodes.getLength(); i++) {
             Node node = modelNodes.item(i);
             if (node.getNodeType() != Node.ELEMENT_NODE) {
@@ -165,18 +165,18 @@ public class LLMConfigService {
             Element modelElement = (Element) node;
             String id = modelElement.getAttribute("id");
             if (id == null || id.isBlank()) {
-                logger.warning("LLMConfigService: skipping <model> element without id attribute.");
+                logger.warning("LLMConfigService: skipping <endpoint> element without id attribute.");
                 continue;
             }
 
             LLMModelConfig.Builder configBuilder = new LLMModelConfig.Builder(id);
 
             // Read the single generic endpoint
-            String endpoint = getTextContent(modelElement, "endpoint");
+            String endpoint = getTextContent(modelElement, "url");
             if (endpoint != null) {
                 configBuilder.endpoint(resolveEnvPlaceholders(endpoint));
             } else {
-                logger.warning("LLMConfigService: model '" + id + "' has no <endpoint> element – skipping.");
+                logger.warning("LLMConfigService: model '" + id + "' has no <url> element – skipping.");
                 continue;
             }
 

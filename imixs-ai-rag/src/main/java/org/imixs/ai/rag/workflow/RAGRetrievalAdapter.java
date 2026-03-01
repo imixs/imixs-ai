@@ -15,11 +15,8 @@
 package org.imixs.ai.rag.workflow;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.imixs.ai.api.OpenAIAPIConnector;
 import org.imixs.ai.rag.index.IndexService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
@@ -81,10 +78,6 @@ import jakarta.inject.Inject;
 public class RAGRetrievalAdapter implements SignalAdapter {
 
     private static Logger logger = Logger.getLogger(RAGRetrievalAdapter.class.getName());
-
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
 
     @Inject
     private WorkflowService workflowService;

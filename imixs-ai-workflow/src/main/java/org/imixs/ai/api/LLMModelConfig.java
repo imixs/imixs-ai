@@ -22,18 +22,18 @@ package org.imixs.ai.api;
  *
  * <pre>
  * {@code
- * <model id="my-llm">
- *     <endpoint>http://localhost:8080/</endpoint>
+ * <endpoint id="my-llm">
+ *     <url>http://localhost:8080/</url>
  *     <apikey>${env.LLM_API_KEY}</apikey>
  *     <options>
  *         <temperature>0.2</temperature>
  *         <max_tokens>1024</max_tokens>
  *     </options>
- * </model>
+ * </endpoint>
  *
- * <model id="my-embeddings">
- *     <endpoint>http://localhost:8081/</endpoint>
- * </model>
+ * <endpoint id="my-embeddings">
+ *     <url>http://localhost:8081/</url>
+ * </endpoint>
  * }
  * </pre>
  *

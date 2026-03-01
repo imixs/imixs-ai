@@ -3,16 +3,13 @@ package org.imixs.ai.workflow;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.api.OpenAIAPIConnector;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.WorkflowService;
@@ -41,10 +38,6 @@ public class ImixsAIPromptService implements Serializable {
 
     @Inject
     protected WorkflowService workflowService;
-
-    @Inject
-    @ConfigProperty(name = OpenAIAPIConnector.ENV_LLM_SERVICE_ENDPOINT)
-    Optional<String> serviceEndpoint;
 
     /**
      * This helper method parses the api completion endpoint either provided by a
@@ -87,14 +80,6 @@ public class ImixsAIPromptService implements Serializable {
                 apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint");
             } else {
                 apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint-" + type);
-            }
-        }
-
-        // switch to default api endpoint?
-        if (apiEndpoint == null || apiEndpoint.isEmpty()) {
-            // set default api endpoint if defined
-            if (serviceEndpoint.isPresent() && !serviceEndpoint.get().isEmpty()) {
-                apiEndpoint = serviceEndpoint.get();
             }
         }
 
