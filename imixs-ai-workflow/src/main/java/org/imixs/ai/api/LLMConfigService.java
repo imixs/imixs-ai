@@ -186,7 +186,7 @@ public class LLMConfigService {
      *
      * @param document - a parsed imixs-llm.xml document
      */
-    void setConfigDocument(Document document) {
+    public void setConfigDocument(Document document) {
         this.configDocument = document;
     }
 
