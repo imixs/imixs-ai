@@ -217,7 +217,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
         } catch (PluginException e) {
             logger.severe("Unable to parse item definitions for 'imixs-ai', verify model - " + e.getMessage());
-            throw new PluginException(
+            throw new AdapterException(
                     OpenAIAPIAdapter.class.getSimpleName(), e.getErrorCode(),
                     "Unable to parse item definitions for 'imixs-ai', verify model - " + e.getMessage(), e);
         }
