@@ -270,6 +270,10 @@ Show tables schemas in current keyspace:
 
     cqlsh:embeddings> DESC TABLES;
 
+Show tabel indexes:
+
+    cqlsh> DESC INDEXES ON embeddings.document_vectors;
+
 **Select a single row:**
 
 To select a row by the $UniqueID:

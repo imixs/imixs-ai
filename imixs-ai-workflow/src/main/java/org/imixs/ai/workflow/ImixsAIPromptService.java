@@ -203,15 +203,9 @@ public class ImixsAIPromptService implements Serializable {
                 // validate if each prompt tag has a role attribute
                 for (int i = 0; i < modelNodes.getLength(); i++) {
                     Node modelNode = modelNodes.item(i);
-                    if (!modelNode.hasAttributes()) {
-                        logger.warning(
-                                "Deprecated prompt template - the  'prompt' should define the attribute 'role'!");
-                    } else {
+                    if (modelNode.hasAttributes()) {
                         Node role = modelNode.getAttributes().getNamedItem("role");
-                        if (role == null) {
-                            logger.warning(
-                                    "Deprecated prompt template - the  'prompt' should define the attribute 'role'!");
-                        } else {
+                        if (role != null) {
                             // validate role
                             String sRole = role.getTextContent();
                             if (!ImixsAIContextHandler.ROLE_SYSTEM.equals(sRole)

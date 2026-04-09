@@ -212,6 +212,15 @@ public class ClusterService {
                 createSchema();
 
             } catch (Exception e) {
+                try {
+                    // Reset session so the next retry will try again completely
+                    if (session != null) {
+                        session.close();
+                    }
+                } finally {
+                    // Ensure session is always reset to null on any failure
+                    session = null;
+                }
                 throw new ClusterException(ClusterException.CLUSTER_ERROR,
                         "Failed to init cassandra session: " + e.getMessage(), e);
             }
@@ -243,13 +252,8 @@ public class ClusterService {
             return session;
         } catch (InvalidQueryException | InvalidKeyspaceException e) {
             logger.warning("│   ├── ⚠️ Keyspace does not yet exist, creating new keyspace...");
-            // Create a basic session object to create the keyspace....
-            session = createSession(null);
-            createKeySpace(keySpacename);
-            // close and reconnect session...
-            session.close();
+            createKeySpace(keySpacename); // Fully self-contained, uses own temp session
             session = createSession(keySpacename);
-
             return session;
         }
     }
@@ -262,7 +266,6 @@ public class ClusterService {
      * 
      * @return Cassandra Cluster instacne
      */
-
     private CqlSession createSession(String keyspace) throws ClusterException {
         CqlSessionBuilder builder = CqlSession.builder();
         // Boolean used to check if at least one host could be resolved
@@ -316,19 +319,35 @@ public class ClusterService {
     }
 
     /**
-     * This method creates a cassandra keySpace
-     * 
-     * @param cluster
+     * Creates a new Cassandra keyspace using a temporary session without a keyspace
+     * context.
+     * <p>
+     * A temporary session is required here because creating a keyspace cannot be
+     * performed on a session that is already bound to a specific keyspace. The
+     * temporary session is created without a keyspace, used solely to execute the
+     * CREATE KEYSPACE statement, and then immediately closed via try-with-resources
+     * to ensure proper resource cleanup even in case of an error.
+     * <p>
+     * This approach keeps the method fully self-contained and avoids exposing the
+     * temporary session to the caller, preventing any risk of the main session
+     * field being set to an unbound session on failure.
+     *
+     * @param keySpace the name of the keyspace to create
+     * @throws ClusterException if the keyspace creation fails
      */
     private void createKeySpace(String keySpace) throws ClusterException {
         logger.info("│   ├── creating new keyspace '" + keySpace + "'...");
-
         String statement = "CREATE KEYSPACE IF NOT EXISTS " + keySpace + " WITH replication = {'class': '" + repClass
                 + "', 'replication_factor': " + repFactor + "};";
 
-        session.execute(statement);
+        // Use a temporary session without keyspace to create the keyspace
+        try (CqlSession tempSession = createSession(null)) {
+            tempSession.execute(statement);
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to create keyspace '" + keySpace + "': " + e.getMessage(), e);
+        }
         logger.info("│   ├── ✅ keyspace '" + keySpace + "' created.");
-
     }
 
     /**
@@ -354,23 +373,23 @@ public class ClusterService {
                 "  content_vector VECTOR <FLOAT, " + DIMENSIONS + ">,\n" + //
                 "  PRIMARY KEY (id, chunk_id)\n" + //
                 ");";
-        session.execute(query);
+        getSession().execute(query);
 
         logger.info("│   ├── verify index...");
         query = "CREATE INDEX IF NOT EXISTS edv_ann_index\n" + //
                 " ON document_vectors(content_vector) USING 'sai';";
-        session.execute(query);
+        getSession().execute(query);
 
         // Additional indexes for metadata filtering
         query = "CREATE INDEX IF NOT EXISTS idx_category " + //
                 " ON document_vectors(category) USING 'sai';";
-        session.execute(query);
+        getSession().execute(query);
         query = "CREATE INDEX IF NOT EXISTS idx_model_group " + //
                 " ON document_vectors(model_group) USING 'sai';";
-        session.execute(query);
+        getSession().execute(query);
         query = "CREATE INDEX IF NOT EXISTS idx_task_id  " + //
                 " ON document_vectors(task_id) USING 'sai';";
-        session.execute(query);
+        getSession().execute(query);
 
         logger.info("│   ├── ✅ database schema OK.");
     }
@@ -403,7 +422,7 @@ public class ClusterService {
             String insertQuery = "INSERT INTO document_vectors "
                     + "(id, chunk_id, category, model_group, task_id, content_chunk, content_vector) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?)";
-            insertVectorStmt = session.prepare(insertQuery);
+            insertVectorStmt = getSession().prepare(insertQuery);
         }
 
         try {
@@ -424,7 +443,7 @@ public class ClusterService {
                     content,
                     cqlVector);
 
-            session.execute(boundStmt);
+            getSession().execute(boundStmt);
 
         } catch (Exception e) {
             throw new ClusterException(ClusterException.CLUSTER_ERROR,
@@ -479,17 +498,19 @@ public class ClusterService {
         QueryBuilder queryBuilder = new QueryBuilder(maxResults, category, modelGroups, tasks);
         String query = queryBuilder.buildQuery();
         logger.info("│   ├── query = " + query);
-
-        // Get or create prepared statement (cached by query string)
-        PreparedStatement stmt = searchVectorStatements.computeIfAbsent(
-                query, k -> session.prepare(k));
-
         try {
+            // Get or create prepared statement (cached by query string)
+            PreparedStatement stmt = searchVectorStatements.get(query);
+            if (stmt == null) {
+                stmt = getSession().prepare(query);
+                searchVectorStatements.put(query, stmt);
+            }
+
             // Create CqlVector
             CqlVector<Float> cqlVector = CqlVector.newInstance(embedding);
 
             // Bind parameters (QueryBuilder handles category conditionally)
-            ResultSet rows = session.execute(stmt.bind(queryBuilder.buildParams(cqlVector)));
+            ResultSet rows = getSession().execute(stmt.bind(queryBuilder.buildParams(cqlVector)));
 
             // Track best similarity per uniqueID (deduplication)
             Map<String, RetrievalResult> bestMatches = new HashMap<>();
@@ -545,17 +566,17 @@ public class ClusterService {
         // Prepare statements if not already done
         if (selectChunksStmt == null) {
             String selectQuery = "SELECT chunk_id FROM document_vectors WHERE id = ?";
-            selectChunksStmt = session.prepare(selectQuery);
+            selectChunksStmt = getSession().prepare(selectQuery);
         }
 
         if (updateChunkStmt == null) {
             String updateQuery = "UPDATE document_vectors SET model_group = ?, task_id = ? WHERE id = ? AND chunk_id = ?";
-            updateChunkStmt = session.prepare(updateQuery);
+            updateChunkStmt = getSession().prepare(updateQuery);
         }
         try {
             // 1. Alle chunk_ids für die uniqueId ermitteln
             BoundStatement selectBoundStmt = selectChunksStmt.bind(uniqueId);
-            ResultSet resultSet = session.execute(selectBoundStmt);
+            ResultSet resultSet = getSession().execute(selectBoundStmt);
 
             List<String> chunkIds = new ArrayList<>();
             for (Row row : resultSet) {
@@ -571,7 +592,7 @@ public class ClusterService {
             int updateCount = 0;
             for (String chunkId : chunkIds) {
                 BoundStatement updateBoundStmt = updateChunkStmt.bind(modelGroup, taskId, uniqueId, chunkId);
-                session.execute(updateBoundStmt);
+                getSession().execute(updateBoundStmt);
                 updateCount++;
             }
 
@@ -608,10 +629,10 @@ public class ClusterService {
         try {
             String selectQuery = "SELECT content_chunk FROM document_vectors " +
                     "WHERE id = ? AND category = ?";
-            PreparedStatement selectStmt = session.prepare(selectQuery);
+            PreparedStatement selectStmt = getSession().prepare(selectQuery);
 
             BoundStatement boundStmt = selectStmt.bind(uniqueId, category);
-            ResultSet resultSet = session.execute(boundStmt);
+            ResultSet resultSet = getSession().execute(boundStmt);
 
             StringBuilder fullText = new StringBuilder();
             for (Row row : resultSet) {
@@ -653,7 +674,7 @@ public class ClusterService {
         // Prepare statement if not already done
         if (removeVectorStmt == null) {
             String deleteQuery = "DELETE FROM document_vectors WHERE id = ?";
-            removeVectorStmt = session.prepare(deleteQuery);
+            removeVectorStmt = getSession().prepare(deleteQuery);
         }
 
         try {
@@ -662,7 +683,7 @@ public class ClusterService {
             if (count > 0) {
                 // remove all
                 BoundStatement deleteBoundStmt = removeVectorStmt.bind(uniqueID);
-                session.execute(deleteBoundStmt);
+                getSession().execute(deleteBoundStmt);
                 logger.info("│   ├── ✅ Removed " + count + " entries for uniqueID: " + uniqueID);
                 return true;
             } else {
@@ -696,9 +717,9 @@ public class ClusterService {
         try {
             // Step 1: Find all chunk_ids for this uniqueID and category
             String selectQuery = "SELECT chunk_id FROM document_vectors WHERE id = ? AND category = ?";
-            PreparedStatement selectStmt = session.prepare(selectQuery);
+            PreparedStatement selectStmt = getSession().prepare(selectQuery);
             BoundStatement selectBoundStmt = selectStmt.bind(uniqueID, category);
-            ResultSet resultSet = session.execute(selectBoundStmt);
+            ResultSet resultSet = getSession().execute(selectBoundStmt);
 
             List<String> chunkIds = new ArrayList<>();
             for (Row row : resultSet) {
@@ -713,12 +734,12 @@ public class ClusterService {
 
             // Step 2: Delete each chunk individually (using PRIMARY KEY)
             String deleteQuery = "DELETE FROM document_vectors WHERE id = ? AND chunk_id = ?";
-            PreparedStatement deleteStmt = session.prepare(deleteQuery);
+            PreparedStatement deleteStmt = getSession().prepare(deleteQuery);
 
             int deleteCount = 0;
             for (String chunkId : chunkIds) {
                 BoundStatement deleteBoundStmt = deleteStmt.bind(uniqueID, chunkId);
-                session.execute(deleteBoundStmt);
+                getSession().execute(deleteBoundStmt);
                 deleteCount++;
             }
 
@@ -748,11 +769,11 @@ public class ClusterService {
             // Count ALL categories
             if (selectVectorAllCategoriesStmt == null) {
                 String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ?";
-                selectVectorAllCategoriesStmt = session.prepare(selectQuery);
+                selectVectorAllCategoriesStmt = getSession().prepare(selectQuery);
             }
             try {
                 BoundStatement selectBoundStmt = selectVectorAllCategoriesStmt.bind(uniqueId);
-                ResultSet resultSet = session.execute(selectBoundStmt);
+                ResultSet resultSet = getSession().execute(selectBoundStmt);
                 Row row = resultSet.one();
 
                 if (row != null) {
@@ -766,11 +787,11 @@ public class ClusterService {
             // Count specific category
             if (selectVectorByCategoryStmt == null) {
                 String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ? AND category = ?";
-                selectVectorByCategoryStmt = session.prepare(selectQuery);
+                selectVectorByCategoryStmt = getSession().prepare(selectQuery);
             }
             try {
                 BoundStatement selectBoundStmt = selectVectorByCategoryStmt.bind(uniqueId, category);
-                ResultSet resultSet = session.execute(selectBoundStmt);
+                ResultSet resultSet = getSession().execute(selectBoundStmt);
                 Row row = resultSet.one();
 
                 if (row != null) {
