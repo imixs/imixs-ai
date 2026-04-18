@@ -1,4 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.imixs.workflow</groupId>
 	<artifactId>imixs-ai</artifactId>
@@ -25,7 +27,7 @@
 
 	<description>Connect Imixs-Workflow with services and software platforms</description>
 
-	<url>https://github.com/imixs/imixs-ml</url>
+	<url>https://github.com/imixs/imixs-ai</url>
 
 	<organization>
 		<name>Imixs Software Solutions GmbH</name>
@@ -110,12 +112,6 @@
 						</manifestEntries>
 					</archive>
 				</configuration>
-			</plugin>
-			<!-- Testing JUnit 5 -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.22.2</version>
 			</plugin>
 
 			<!-- release management -->
@@ -300,19 +296,7 @@
 			<version>${jakarta.version}</version>
 			<scope>provided</scope>
 		</dependency>
-		<!-- JDK 11 - XML Bind -->
-		<dependency>
-			<groupId>org.glassfish.jaxb</groupId>
-			<artifactId>jaxb-runtime</artifactId>
-			<version>3.0.0</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>jakarta.xml.bind</groupId>
-			<artifactId>jakarta.xml.bind-api</artifactId>
-			<version>3.0.0</version>
-			<scope>test</scope>
-		</dependency>
+
 
 		<!-- WORKFLOW -->
 		<dependency>
@@ -338,14 +322,6 @@
 			<scope>provided</scope>
 		</dependency>
 
-		<!-- Testing -->
-		<dependency>
-			<groupId>org.eclipse.parsson</groupId>
-			<artifactId>jakarta.json</artifactId>
-			<version>1.1.1</version>
-			<scope>test</scope>
-		</dependency>
-
 
 		<!-- JUnit 5 Dependencies -->
 		<dependency>
@@ -360,19 +336,7 @@
 			<version>${junit.jupiter.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- Mockito Dependencies -->
-		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-core</artifactId>
-			<version>${mockito.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.mockito</groupId>
-			<artifactId>mockito-junit-jupiter</artifactId>
-			<version>${mockito.version}</version>
-			<scope>test</scope>
-		</dependency>
+
 		<!-- Test dependencies -->
 		<dependency>
 			<groupId>org.eclipse.parsson</groupId>
@@ -407,25 +371,7 @@
 			<version>${mockito.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- Test dependencies -->
-		<dependency>
-			<groupId>org.eclipse.parsson</groupId>
-			<artifactId>jakarta.json</artifactId>
-			<version>1.1.1</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.glassfish.jaxb</groupId>
-			<artifactId>jaxb-runtime</artifactId>
-			<version>3.0.0</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>jakarta.xml.bind</groupId>
-			<artifactId>jakarta.xml.bind-api</artifactId>
-			<version>3.0.0</version>
-			<scope>test</scope>
-		</dependency>
+
 
 		<!-- Imixs Mock -->
 		<dependency>
