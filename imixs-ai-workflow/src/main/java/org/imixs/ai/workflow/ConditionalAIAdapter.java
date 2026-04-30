@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.LLMConfigService;
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ConditionalExpressionEvent;
@@ -32,7 +34,7 @@ import jakarta.transaction.TransactionScoped;
 * {@code
 <imixs-ai name="CONDITION">
     <debug>true</debug>
-    <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
+    <endpoint>my-endpoint</endpoint>
     <result-item>my.condition</result-item>
     <prompt><![CDATA[
        Is Germany an EU member country? ]]>
@@ -66,9 +68,12 @@ public class ConditionalAIAdapter implements Serializable {
     @Inject
     ImixsAIContextHandler imixsAIContextHandler;
 
+    @Inject
+    protected LLMConfigService llmConfigService;
+
     public static String DEFAULT_EXPRESSION_TEMPLATE = "<imixs-ai name=\"CONDITION\">\n" + //
             "  <debug>true</debug>\n" + //
-            "  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>\n" + //
+            "  <endpoint>llm-endpoint</endpoint>\n" + //
             "  <result-event>BOOLEAN</result-event>\n" + //
             "  <PromptDefinition>\n" + //
             "    <prompt_options>{\"n_predict\": 16, \"temperature\": 0 }</prompt_options>\n" + //
@@ -101,12 +106,19 @@ public class ConditionalAIAdapter implements Serializable {
                     conditionalEvent.getCondition(), "imixs-ai", "CONDITION", conditionalEvent.getWorkitem(), true);
 
             for (ItemCollection promptDefinition : llmConditionDefinitions) {
-                // set DEFAULT_EXPRESSION_TEMPLATE.
-                imixsAIContextHandler.setWorkItem(conditionalEvent.getWorkitem());
-                imixsAIContextHandler.addPromptDefinition(DEFAULT_EXPRESSION_TEMPLATE);
-
                 String llmAPIEndpoint = imixsAIPromptService.parseEndpointByBPMN(promptDefinition);
+
+                // Layer 1: endpoint defaults from imixs-llm.xml
+                LLMOptions options = llmConfigService.getOptions(llmAPIEndpoint);
+                // Layer 2: BPMN event override
+                options.merge(promptDefinition.getItemValueString("options"));
+
+                imixsAIContextHandler.setWorkItem(conditionalEvent.getWorkitem());
+                imixsAIContextHandler.setOptions(options);                          // pre-seed Layers 1+2
+                imixsAIContextHandler.addPromptDefinition(DEFAULT_EXPRESSION_TEMPLATE);  // Layer 3 from DEFAULT
+
                 String userPrompt = promptDefinition.getItemValueString("prompt");
+
                 // add the user prompt!
                 imixsAIContextHandler.addMessage(ImixsAIContextHandler.ROLE_USER, userPrompt,
                         workflowService.getSessionContext().getCallerPrincipal().getName(), null);

@@ -74,7 +74,6 @@ public class ImixsAIPromptService implements Serializable {
     public String parseEndpointByBPMN(ItemCollection aiWorkflowDefinition, String type) throws PluginException {
         String apiEndpoint = null;
 
-        // Test if the model provides a API Endpoint.
         if (aiWorkflowDefinition != null) {
             if (type == null || type.isBlank()) {
                 apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint");
@@ -82,12 +81,16 @@ public class ImixsAIPromptService implements Serializable {
                 apiEndpoint = aiWorkflowDefinition.getItemValueString("endpoint-" + type);
             }
         }
+        apiEndpoint = workflowService.adaptText(apiEndpoint, null);
+        if (apiEndpoint == null || apiEndpoint.isBlank()) {
+            throw new PluginException(
+                    ImixsAIPromptService.class.getSimpleName(),
+                    OpenAIAPIService.ERROR_API,
+                    "imixs-ai configuration error: missing or empty endpoint – verify BPMN model");
+        }
 
         logger.fine("......api endpoint " + apiEndpoint);
-        // adapt text...
-        apiEndpoint = workflowService.adaptText(apiEndpoint, null);
         return apiEndpoint;
-
     }
 
     /**

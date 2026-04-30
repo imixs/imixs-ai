@@ -244,7 +244,7 @@ Possible ImageTypes are:
       <bpmn2:documentation id="documentation_Dy3qkg"/>
     </bpmn2:sequenceFlow>
     <bpmn2:dataObject id="dataObject_nSWyog" name="Prompt Language">
-      <bpmn2:documentation id="documentation_TerllQ" open-bpmn:file-link="file://prompts/prompt-template-lang.xml"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+      <bpmn2:documentation id="documentation_TerllQ"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
 <PromptData>
 	<model_id>mistral-7b-instruct-v0.2.Q4_K_M.gguf</model_id>
 	<prompt><![CDATA[<s>
@@ -345,7 +345,7 @@ Betrag: <itemvalue>_amount</itemvalue> (Brutto € <itemvalue>_amount_brutto</it
     <bpmn2:sequenceFlow id="sequenceFlow_7Cqq9A" sourceRef="event_XIUx0g" targetRef="Task_1">
       <bpmn2:documentation id="documentation_JfP6lg"/>
     </bpmn2:sequenceFlow>
-    <bpmn2:dataObject id="dataObject_FS1r0Q" name="Form">
+    <bpmn2:dataObject id="dataObject_FS1r0Q" imixs:datatype="form-data" name="Form">
       <bpmn2:documentation id="documentation_ccrk4A"><![CDATA[<?xml version="1.0"?>
 <imixs-form>
 
@@ -385,6 +385,9 @@ Betrag: <itemvalue>_amount</itemvalue> (Brutto € <itemvalue>_amount_brutto</it
   </bpmn2:process>
   <bpmn2:process id="process_2" name="Example" processType="Public">
     <bpmn2:documentation id="documentation_dDLFbw"/>
+    <bpmn2:extensionElements>
+      <open-bpmn:auto-align/>
+    </bpmn2:extensionElements>
   </bpmn2:process>
   <bpmn2:signal id="signal_3" name="org.imixs.ai.workflow.LLMAdapter"/>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1" name="Default Collaboration Diagram">
@@ -432,9 +435,9 @@ Betrag: <itemvalue>_amount</itemvalue> (Brutto € <itemvalue>_amount_brutto</it
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge bpmnElement="SequenceFlow_13" id="BPMNEdge_SequenceFlow_13" sourceElement="BPMNShape_StartEvent_1" targetElement="BPMNShape_Task_1">
-        <bpmndi:BPMNLabel id="BPMNLabel_28"/>
         <di:waypoint x="243.0" y="245.0"/>
         <di:waypoint x="280.0" y="245.0"/>
+        <bpmndi:BPMNLabel id="BPMNLabel_28"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNShape bpmnElement="dataObject_nSWyog" id="BPMNShape_5K72Mw">
         <dc:Bounds height="50.0" width="35.0" x="490.0" y="340.0"/>

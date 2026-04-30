@@ -28,6 +28,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.ejb.Singleton;
 import jakarta.ejb.Startup;
 import jakarta.inject.Inject;
+import jakarta.json.stream.JsonParsingException;
 
 /**
  * Singleton EJB that loads the <code>imixs-llm.xml</code> configuration file at
@@ -128,52 +129,58 @@ public class LLMConfigService {
     }
 
     /**
-     * Returns the temperature option of the endpoint with the given id, or null if
-     * not configured.
-     *
-     * @param endpointId - the id attribute of the &lt;endpoint&gt; element
-     * @return the temperature as Double, or null
-     */
-    public Double getTemperature(String endpointId) {
-        String value = getOptionsValue(endpointId, "temperature");
-        if (value == null) {
-            return null;
-        }
-        try {
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
-            logger.warning("LLMConfigService: invalid temperature for endpoint '" + endpointId + "' – ignored.");
-            return null;
-        }
-    }
-
-    /**
-     * Returns the max_tokens option of the endpoint with the given id, or null if
-     * not configured.
-     *
-     * @param endpointId - the id attribute of the &lt;endpoint&gt; element
-     * @return the max_tokens as Integer, or null
-     */
-    public Integer getMaxTokens(String endpointId) {
-        String value = getOptionsValue(endpointId, "max_tokens");
-        if (value == null) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException e) {
-            logger.warning("LLMConfigService: invalid max_tokens for endpoint '" + endpointId + "' – ignored.");
-            return null;
-        }
-    }
-
-    /**
      * Returns true if an endpoint with the given id exists in the config.
      *
      * @param endpointId - the id attribute of the &lt;endpoint&gt; element
      */
     public boolean hasEndpoint(String endpointId) {
         return findEndpointElement(endpointId) != null;
+    }
+
+    /**
+     * Returns the LLM options configured for the given endpoint, or an empty
+     * LLMOptions instance if no <options> element is present, the content is blank,
+     * or the JSON is invalid.
+     * <p>
+     * The <options> element is expected to contain a JSON object as text content:
+     * 
+     * <pre>
+     * {@code
+     * <options>{"temperature": 0.2, "max_tokens": 1024}</options>
+     * }
+     * </pre>
+     * <p>
+     * Environment placeholders in the form ${env.VAR_NAME} are resolved before
+     * parsing, so values like "model": "${env.LLM_MODEL}" are supported.
+     * <p>
+     * Invalid JSON is logged as a warning and yields an empty LLMOptions, so a
+     * single malformed endpoint configuration does not break unrelated workflows.
+     *
+     * @param endpointId - the id attribute of the <endpoint> element
+     * @return an LLMOptions instance, never null
+     */
+    public LLMOptions getOptions(String endpointId) {
+        Element endpoint = findEndpointElement(endpointId);
+        if (endpoint == null) {
+            return new LLMOptions();
+        }
+        NodeList optionsNodes = endpoint.getElementsByTagName("options");
+        if (optionsNodes.getLength() == 0) {
+            return new LLMOptions();
+        }
+        String content = optionsNodes.item(0).getTextContent();
+        if (content == null || content.isBlank()) {
+            return new LLMOptions();
+        }
+        // Resolve ${env.VAR_NAME} placeholders before parsing as JSON
+        String resolved = resolveEnvPlaceholders(content.trim());
+        try {
+            return new LLMOptions(resolved);
+        } catch (JsonParsingException e) {
+            logger.warning("LLMConfigService: invalid JSON in <options> for endpoint '"
+                    + endpointId + "' – ignoring options. " + e.getMessage());
+            return new LLMOptions();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -189,10 +196,6 @@ public class LLMConfigService {
     public void setConfigDocument(Document document) {
         this.configDocument = document;
     }
-
-    // -------------------------------------------------------------------------
-    // Private helpers
-    // -------------------------------------------------------------------------
 
     /**
      * Finds the &lt;endpoint&gt; element with the given id and returns the text
@@ -212,28 +215,6 @@ public class LLMConfigService {
             return null;
         }
         return resolveEnvPlaceholders(value.trim());
-    }
-
-    /**
-     * Finds the &lt;endpoint&gt; element with the given id and returns the text
-     * content of the specified child tag inside &lt;options&gt;.
-     */
-    private String getOptionsValue(String endpointId, String tagName) {
-        Element endpoint = findEndpointElement(endpointId);
-        if (endpoint == null) {
-            return null;
-        }
-        NodeList optionsNodes = endpoint.getElementsByTagName("options");
-        if (optionsNodes.getLength() == 0) {
-            return null;
-        }
-        Element options = (Element) optionsNodes.item(0);
-        NodeList nodes = options.getElementsByTagName(tagName);
-        if (nodes.getLength() == 0) {
-            return null;
-        }
-        String value = nodes.item(0).getTextContent();
-        return (value == null || value.isBlank()) ? null : value.trim();
     }
 
     /**

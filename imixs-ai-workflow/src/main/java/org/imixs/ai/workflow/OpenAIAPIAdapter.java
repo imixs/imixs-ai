@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.LLMConfigService;
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
@@ -97,6 +99,9 @@ public class OpenAIAPIAdapter implements SignalAdapter {
     protected OpenAIAPIService llmService;
 
     @Inject
+    protected LLMConfigService llmConfigService;
+
+    @Inject
     protected ImixsAIPromptService imixsAIPromptService;
 
     @Inject
@@ -160,21 +165,22 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                         llmAPIDebug = true;
                     }
 
-                    // do we have a valid endpoint?
-                    if (llmAPIEndpoint == null || llmAPIEndpoint.isEmpty()) {
-                        throw new PluginException(OpenAIAPIAdapter.class.getSimpleName(), OpenAIAPIService.ERROR_API,
-                                "imixs-ai llm service endpoint is empty!");
-                    }
-
                     if (llmAPIDebug) {
                         logger.info("├── Running OpenAIAPIAdapter mode=PROMPT.... ");
                     }
 
                     // Build the prompt template....
 
+                    // Layer 1: endpoint defaults from imixs-llm.xml
+                    LLMOptions options = llmConfigService.getOptions(llmAPIEndpoint);
+
+                    // Layer 2: BPMN event override
+                    options.merge(promptDefinition.getItemValueString("options"));
+
                     String promptTemplate = imixsAIPromptService.loadPromptTemplate(promptDefinition, event);
                     imixsAIContextHandler.setWorkItem(workitem);
-                    imixsAIContextHandler.addPromptDefinition(promptTemplate);
+                    imixsAIContextHandler.setOptions(options);          // pre-seed Layers 1+2
+                    imixsAIContextHandler.addPromptDefinition(promptTemplate);  // Layer 3 merges on top
 
                     String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
                             llmAPIDebug);

@@ -388,7 +388,8 @@ public class OpenAIAPIService implements Serializable {
      * @param debug       - debug mode
      * @throws PluginException
      */
-    public List<Float> postEmbedding(String prompt, String apiEndpoint, boolean debug) throws PluginException {
+    public List<Float> postEmbedding(String prompt, String apiEndpoint, LLMOptions options, boolean debug)
+            throws PluginException {
 
         List<Float> result = new ArrayList<>();
 
@@ -399,8 +400,18 @@ public class OpenAIAPIService implements Serializable {
 
         JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
         jsonObjectBuilder.add("content", prompt);
+
+        // Merge resolved options (model, dimensions, etc.) into the request body
+        if (options != null && !options.isEmpty()) {
+            JsonObject opts = options.toJson();
+            for (String key : opts.keySet()) {
+                jsonObjectBuilder.add(key, opts.get(key));
+            }
+        }
+
         JsonObject jsonObject = jsonObjectBuilder.build();
         String jsonPrompt = jsonObject.toString();
+
         try {
             HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS);

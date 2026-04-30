@@ -22,12 +22,15 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.ModelException;
 import org.imixs.workflow.exceptions.PluginException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import jakarta.json.JsonObject;
 
 /**
  * Test class to test the AIContextHandler
@@ -184,8 +187,8 @@ public class TestAIContextHandler {
     }
 
     /**
-     * Test getElementContent with child XML elements (no CDATA)
-     * Expected: XML structure is preserved in the message
+     * Test getElementContent with child XML elements (no CDATA) Expected: XML
+     * structure is preserved in the message
      */
     @Test
     public void testGetElementContentWithChildElements() {
@@ -213,8 +216,8 @@ public class TestAIContextHandler {
     }
 
     /**
-     * Test getElementContent with mixed content (text and XML elements)
-     * Expected: Both text and XML structure are preserved
+     * Test getElementContent with mixed content (text and XML elements) Expected:
+     * Both text and XML structure are preserved
      */
     @Test
     public void testGetElementContentMixedContent() {
@@ -237,6 +240,67 @@ public class TestAIContextHandler {
             assertTrue(message.contains("<FILECONTEXT>*.pdf</FILECONTEXT>"));
             assertTrue(message.contains("<FORMAT>JSON</FORMAT>"));
             assertTrue(message.contains("please"));
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+    }
+
+    /**
+     * Verifies that prompt_options from the prompt definition merge on top of
+     * pre-seeded options instead of replacing them. This is the core change from
+     * the options layering refactoring.
+     */
+    @Test
+    public void testPromptOptionsMergeWithSeededOptions() {
+        // Seed with endpoint defaults + BPMN overrides
+        LLMOptions seeded = new LLMOptions(
+                "{\"model\": \"llama-3\", \"max_tokens\": 1024, \"temperature\": 0.2}");
+        imixsAIContextHandler.setOptions(seeded);
+
+        // Prompt definition overrides only temperature
+        String promptDef = "<imixs-ai>\n" +
+                "  <PromptDefinition>\n" +
+                "    <prompt_options>{\"temperature\": 0.9}</prompt_options>\n" +
+                "    <prompt role=\"user\">Test</prompt>\n" +
+                "  </PromptDefinition>\n" +
+                "</imixs-ai>";
+
+        try {
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            JsonObject finalRequest = imixsAIContextHandler.getOpenAIMessageObject();
+            // temperature was overridden by prompt_options
+            assertEquals(0.9, finalRequest.getJsonNumber("temperature").doubleValue());
+            // model and max_tokens survived from seeded options
+            assertEquals("llama-3", finalRequest.getString("model"));
+            assertEquals(1024, finalRequest.getJsonNumber("max_tokens").intValue());
+
+        } catch (PluginException | AdapterException e) {
+            fail(e);
+        }
+    }
+
+    /**
+     * Verifies that a prompt definition without prompt_options leaves the seeded
+     * options untouched.
+     */
+    @Test
+    public void testPromptWithoutOptionsKeepsSeededOptions() {
+        LLMOptions seeded = new LLMOptions("{\"temperature\": 0.2}");
+        imixsAIContextHandler.setOptions(seeded);
+
+        String promptDef = "<imixs-ai>\n" +
+                "  <PromptDefinition>\n" +
+                "    <prompt role=\"user\">Test</prompt>\n" +
+                "  </PromptDefinition>\n" +
+                "</imixs-ai>";
+
+        try {
+            imixsAIContextHandler.addPromptDefinition(promptDef);
+
+            JsonObject finalRequest = imixsAIContextHandler.getOpenAIMessageObject();
+            assertEquals(0.2, finalRequest.getJsonNumber("temperature").doubleValue());
 
         } catch (PluginException | AdapterException e) {
             fail(e);

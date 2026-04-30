@@ -21,6 +21,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
@@ -86,7 +87,7 @@ public class ImixsAIContextHandler implements Serializable {
     private List<JsonObject> functions = new ArrayList<>();
 
     // Options as flexible JSON object
-    private JsonObject options;
+    private LLMOptions options;
 
     private boolean stream = false;
 
@@ -104,7 +105,7 @@ public class ImixsAIContextHandler implements Serializable {
         context = new ArrayList<ItemCollection>();
         functions = new ArrayList<JsonObject>();
         toolChoice = "auto";
-        this.options = Json.createObjectBuilder().build();
+        this.options = new LLMOptions();
     }
 
     /**
@@ -358,8 +359,8 @@ public class ImixsAIContextHandler implements Serializable {
                 Node modelNode = optionNodes.item(0);
                 String promptOptions = modelNode.getTextContent();
                 if (!promptOptions.isBlank()) {
-                    log(Level.FINE, "│   ├── update PromptOptions: " + promptOptions);
-                    this.setOptions(promptOptions);
+                    log(Level.FINE, "│   ├── merge PromptOptions: " + promptOptions);
+                    this.addOptions(promptOptions);   // <-- Merge auf Layer 1+2 drauf
                 }
             }
 
@@ -428,64 +429,38 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
-     * Set options from JSON string
+     * Replaces the current options with the given LLMOptions. Used to seed the
+     * handler with endpoint defaults and BPMN-event overrides before the prompt
+     * definition is added.
+     */
+    public ImixsAIContextHandler setOptions(LLMOptions options) {
+        this.options = (options != null) ? options : new LLMOptions();
+        return this;
+    }
+
+    /**
+     * Replaces the current options from a JSON string. Convenience overload.
      */
     public ImixsAIContextHandler setOptions(String optionsJson) {
-        if (optionsJson != null && !optionsJson.trim().isEmpty()) {
-            try (JsonReader reader = Json.createReader(new StringReader(optionsJson))) {
-                this.options = reader.readObject();
-            }
-        } else {
-            this.options = Json.createObjectBuilder().build();
-        }
+        this.options = new LLMOptions(optionsJson);
         return this;
     }
 
     /**
-     * Add or merge additional options from JSON string
+     * Merges additional options on top of the current options. Existing keys are
+     * overridden by matching keys in the new options. Used to apply prompt-level
+     * overrides on top of seeded defaults.
      */
     public ImixsAIContextHandler addOptions(String optionsJson) {
-        if (optionsJson != null && !optionsJson.trim().isEmpty()) {
-            try (JsonReader reader = Json.createReader(new StringReader(optionsJson))) {
-                JsonObject newOptions = reader.readObject();
-                JsonObjectBuilder builder = Json.createObjectBuilder(this.options);
-                // Merge new options
-                for (String key : newOptions.keySet()) {
-                    builder.add(key, newOptions.get(key));
-                }
-                this.options = builder.build();
-            }
-        }
+        this.options.merge(optionsJson);
         return this;
     }
 
     /**
-     * Set a single option
+     * Merges additional options on top of the current options.
      */
-    public ImixsAIContextHandler setOption(String key, String value) {
-        JsonObjectBuilder builder = Json.createObjectBuilder(this.options);
-        builder.add(key, value);
-        this.options = builder.build();
-        return this;
-    }
-
-    /**
-     * Set a single boolean option
-     */
-    public ImixsAIContextHandler setOption(String key, boolean value) {
-        JsonObjectBuilder builder = Json.createObjectBuilder(this.options);
-        builder.add(key, value);
-        this.options = builder.build();
-        return this;
-    }
-
-    /**
-     * Set a single numeric option
-     */
-    public ImixsAIContextHandler setOption(String key, double value) {
-        JsonObjectBuilder builder = Json.createObjectBuilder(this.options);
-        builder.add(key, value);
-        this.options = builder.build();
+    public ImixsAIContextHandler addOptions(LLMOptions other) {
+        this.options.merge(other);
         return this;
     }
 
@@ -531,10 +506,12 @@ public class ImixsAIContextHandler implements Serializable {
             builder.add("tool_choice", toolChoice);
         }
 
-        // Merge all options
-        for (String key : options.keySet()) {
-            builder.add(key, options.get(key));
+        // Merge all resolved options into the request body
+        JsonObject opts = options.toJson();
+        for (String key : opts.keySet()) {
+            builder.add(key, opts.get(key));
         }
+
         if (stream) {
             builder.add("stream", true);
         }

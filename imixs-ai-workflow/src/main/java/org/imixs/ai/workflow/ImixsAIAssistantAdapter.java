@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.exceptions.AdapterException;
@@ -134,9 +135,15 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     llmAPIDebug = true;
                 }
 
+                // Layer 1: endpoint defaults from imixs-llm.xml
+                LLMOptions options = llmConfigService.getOptions(llmAPIEndpoint);
+                // Layer 2: BPMN event override
+                options.merge(promptDefinition.getItemValueString("options"));
+
                 // Build template
                 try {
                     imixsAIContextHandler.importContext(workitem, ITEM_AI_ASSIST_HISTORY);
+                    imixsAIContextHandler.setOptions(options);   // pre-seed Layers 1+2
 
                     ModelManager modelManager = new ModelManager(workflowService);
                     BPMNModel model = modelManager.getModelByWorkitem(workitem);
