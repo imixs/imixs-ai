@@ -46,7 +46,7 @@ Each `<endpoint>` element defines one logical LLM service. A model is either a c
 
     <!-- Completion model – used for chat completions, conditions, analysis etc. -->
     <endpoint id="my-llm">
-        <url>https://api.llama.cpp.imixs.com/</url>
+        <url>https://api.llama.cpp.foo.com/</url>
         <apikey>${env.LLM_API_KEY}</apikey>
         <options>{
             "model": "llama-3.1-70b-instruct",
@@ -57,7 +57,7 @@ Each `<endpoint>` element defines one logical LLM service. A model is either a c
 
     <!-- Embedding model – used for RAG indexing and retrieval. -->
     <endpoint id="my-embeddings">
-        <url>https://embeddings.llama.cpp.imixs.com/</url>
+        <url>https://embeddings.llama.cpp.foo.com/</url>
         <options>{
             "model": "all-MiniLM-L6-v2"
         }</options>

@@ -21,12 +21,12 @@ A typical RAG setup needs two endpoints: one completion model and one embeddings
 ```xml
 <imixs-llm>
     <endpoint id="my-llm">
-        <url>https://api.llama.cpp.imixs.com/</url>
+        <url>https://api.llama.cpp.foo.com/</url>
         <apikey>${env.LLM_API_KEY}</apikey>
         <options>{"model": "llama-3.1-70b-instruct", "max_tokens": 1024}</options>
     </endpoint>
     <endpoint id="my-embeddings">
-        <url>https://embeddings.llama.cpp.imixs.com/</url>
+        <url>https://embeddings.llama.cpp.foo.com/</url>
         <options>{"model": "all-MiniLM-L6-v2"}</options>
     </endpoint>
 </imixs-llm>
