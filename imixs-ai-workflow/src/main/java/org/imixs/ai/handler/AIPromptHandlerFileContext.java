@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.workflow.builder;
+package org.imixs.ai.handler;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -33,12 +33,12 @@ import jakarta.enterprise.event.Observes;
  * @author rsoika
  *
  */
-public class ImixsAIFileContextBuilder {
+public class AIPromptHandlerFileContext {
 
     public static final String PROMPT_ERROR = "PROMPT_ERROR";
     public static final String FILE_CONTENT_REGEX = "(?i)<filecontext>(.*?)</filecontext>";
 
-    private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
+    private static Logger logger = Logger.getLogger(AIPromptHandlerFileContext.class.getName());
 
     public void onEvent(@Observes ImixsAIPromptEvent event) throws AdapterException {
         if (event.getWorkitem() == null) {
@@ -76,7 +76,7 @@ public class ImixsAIFileContextBuilder {
             }
             // replace the regex with the fileContext String...
             if (fileContext == null || fileContext.isEmpty()) {
-                throw new AdapterException(ImixsAIFileContextBuilder.class.getSimpleName(), PROMPT_ERROR,
+                throw new AdapterException(AIPromptHandlerFileContext.class.getSimpleName(), PROMPT_ERROR,
                         "No File Context found in current workitem");
             }
 

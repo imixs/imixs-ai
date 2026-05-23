@@ -80,8 +80,8 @@ import jakarta.enterprise.event.Observes;
 }</pre>
  * 
  */
-public class XMLResultEventHandler {
-    private static Logger logger = Logger.getLogger(XMLResultEventHandler.class.getName());
+public class AIResultHandlerXML {
+    private static Logger logger = Logger.getLogger(AIResultHandlerXML.class.getName());
 
     public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {

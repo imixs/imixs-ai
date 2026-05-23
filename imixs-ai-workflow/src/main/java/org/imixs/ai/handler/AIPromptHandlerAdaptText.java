@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.workflow.builder;
+package org.imixs.ai.handler;
 
 import java.util.logging.Logger;
 
@@ -24,8 +24,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
 /**
- * The ImixsAIAdaptTextBuilder adapts text item values into the
- * prompt template.
+ * The ImixsAIAdaptTextBuilder adapts text item values into the prompt template.
  * 
  * The template must provide corresponding Text Adapter Tags e.g.
  * 
@@ -38,9 +37,9 @@ import jakarta.inject.Inject;
  * @author rsoika
  *
  */
-public class ImixsAIAdaptTextBuilder {
+public class AIPromptHandlerAdaptText {
 
-    private static Logger logger = Logger.getLogger(ImixsAIFileContextBuilder.class.getName());
+    private static Logger logger = Logger.getLogger(AIPromptHandlerFileContext.class.getName());
 
     @Inject
     private WorkflowService workflowService;

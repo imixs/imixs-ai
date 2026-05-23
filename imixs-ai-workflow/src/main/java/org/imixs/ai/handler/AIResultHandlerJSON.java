@@ -64,8 +64,8 @@ import jakarta.json.JsonValue;
  * "totalprice": 762.00 } ] } }</pre>
  * 
  */
-public class JSONResultEventHandler {
-    private static Logger logger = Logger.getLogger(JSONResultEventHandler.class.getName());
+public class AIResultHandlerJSON {
+    private static Logger logger = Logger.getLogger(AIResultHandlerJSON.class.getName());
 
     public void onEvent(@Observes ImixsAIResultEvent event) {
         if (event.getWorkitem() == null) {
