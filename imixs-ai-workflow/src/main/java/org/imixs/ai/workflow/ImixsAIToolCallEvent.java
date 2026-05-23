@@ -14,6 +14,7 @@ public class ImixsAIToolCallEvent {
     private final JsonObject arguments;
     private final String toolCallId;
     private String result = null;
+    private String error;
 
     public ImixsAIToolCallEvent(String toolName, JsonObject arguments, String toolCallId) {
         this.toolName = toolName;
@@ -41,10 +42,23 @@ public class ImixsAIToolCallEvent {
         this.result = result;
     }
 
+    public String getError() {
+        return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
+    }
+
+    public boolean hasError() {
+        return error != null && !error.isBlank();
+    }
+
     /**
      * Returns true if an observer has handled the tool call
      */
     public boolean isHandled() {
         return result != null;
     }
+
 }

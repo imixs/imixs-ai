@@ -257,7 +257,10 @@ public class OpenAIAPIService implements Serializable {
             ImixsAIToolCallEvent toolCallEvent = new ImixsAIToolCallEvent(
                     toolName, arguments, toolCallId);
             toolCallEventObservers.fire(toolCallEvent);
-
+            if (toolCallEvent.hasError()) {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        "TOOL_CALL_ERROR", toolCallEvent.getError());
+            }
             if (!toolCallEvent.isHandled()) {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         ERROR_PROMPT_INFERENCE,
