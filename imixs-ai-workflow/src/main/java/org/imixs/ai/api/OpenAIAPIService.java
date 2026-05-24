@@ -255,7 +255,7 @@ public class OpenAIAPIService implements Serializable {
 
             // Fire CDI event - observers handle the actual execution
             ImixsAIToolCallEvent toolCallEvent = new ImixsAIToolCallEvent(
-                    toolName, arguments, toolCallId);
+                    toolName, arguments, toolCallId, contextHandler);
             toolCallEventObservers.fire(toolCallEvent);
             if (toolCallEvent.hasError()) {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),

@@ -117,6 +117,10 @@ public class ImixsAIContextHandler implements Serializable {
         this.workItem = workItem;
     }
 
+    public ItemCollection getWorkItem() {
+        return workItem;
+    }
+
     public java.util.logging.Level getLogLevel() {
         return logLevel;
     }
@@ -274,6 +278,15 @@ public class ImixsAIContextHandler implements Serializable {
      */
     public ImixsAIContextHandler addSystemMessage(String content) throws PluginException {
         return addMessage(ROLE_SYSTEM, content, null, null);
+    }
+
+    /**
+     * Returns true if the current context already contains a system message. Used
+     * to avoid overwriting an existing system prompt on subsequent agent calls.
+     */
+    public boolean hasSystemMessage() {
+        return context.stream()
+                .anyMatch(m -> ROLE_SYSTEM.equals(m.getItemValueString(ITEM_ROLE)));
     }
 
     /**

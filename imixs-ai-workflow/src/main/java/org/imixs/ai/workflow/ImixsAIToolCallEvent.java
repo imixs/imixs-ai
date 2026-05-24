@@ -1,25 +1,36 @@
 package org.imixs.ai.workflow;
 
+import org.imixs.ai.ImixsAIContextHandler;
+
 import jakarta.json.JsonObject;
 
 /**
  * ImixsAIToolCallEvent is fired when the LLM responds with a tool call.
  * Observers can handle the tool call and set the result.
- * 
- * The result will be sent back to the LLM as a tool message.
+ *
+ * The result will be sent back to the LLM as a tool message. The contextHandler
+ * provides access to the current conversation context and the associated
+ * workitem.
  */
 public class ImixsAIToolCallEvent {
 
     private final String toolName;
     private final JsonObject arguments;
     private final String toolCallId;
+    private final ImixsAIContextHandler contextHandler;
     private String result = null;
     private String error;
 
-    public ImixsAIToolCallEvent(String toolName, JsonObject arguments, String toolCallId) {
+    /**
+     * Constructor with contextHandler. Provides observers with access to the
+     * current conversation context and the associated workitem.
+     */
+    public ImixsAIToolCallEvent(String toolName, JsonObject arguments, String toolCallId,
+            ImixsAIContextHandler contextHandler) {
         this.toolName = toolName;
         this.arguments = arguments;
         this.toolCallId = toolCallId;
+        this.contextHandler = contextHandler;
     }
 
     public String getToolName() {
@@ -32,6 +43,13 @@ public class ImixsAIToolCallEvent {
 
     public String getToolCallId() {
         return toolCallId;
+    }
+
+    /**
+     * Returns the context handler for this tool call, or null if not available.
+     */
+    public ImixsAIContextHandler getContextHandler() {
+        return contextHandler;
     }
 
     public String getResult() {
@@ -55,10 +73,9 @@ public class ImixsAIToolCallEvent {
     }
 
     /**
-     * Returns true if an observer has handled the tool call
+     * Returns true if an observer has handled the tool call.
      */
     public boolean isHandled() {
         return result != null;
     }
-
 }
