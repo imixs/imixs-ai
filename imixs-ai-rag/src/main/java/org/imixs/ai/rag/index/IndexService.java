@@ -120,7 +120,7 @@ public class IndexService {
 
             // load the prompt template from the index definition!
             String promptTemplate = imixsAIPromptService.loadPromptTemplateByDefinition(indexDefinition);
-            if (promptTemplate.isBlank()) {
+            if (promptTemplate == null || promptTemplate.isBlank()) {
                 throw new PluginException(IndexService.class.getSimpleName(), ERROR_PROMPT,
                         "Missing prompt definition - verify model!");
             }
