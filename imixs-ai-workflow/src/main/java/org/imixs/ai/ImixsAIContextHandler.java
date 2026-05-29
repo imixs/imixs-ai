@@ -86,6 +86,9 @@ public class ImixsAIContextHandler implements Serializable {
     // Functions container for API
     private List<JsonObject> functions = new ArrayList<>();
 
+    // Tracked workitem references collected during the agent loop
+    private List<String> workitemRefs = new ArrayList<>();
+
     // Options as flexible JSON object
     private LLMOptions options;
 
@@ -104,6 +107,7 @@ public class ImixsAIContextHandler implements Serializable {
     public void init() {
         context = new ArrayList<ItemCollection>();
         functions = new ArrayList<JsonObject>();
+        workitemRefs = new ArrayList<>();
         toolChoice = "auto";
         this.options = new LLMOptions();
     }
@@ -439,6 +443,26 @@ public class ImixsAIContextHandler implements Serializable {
         }
 
         return writer.toString();
+    }
+
+    /**
+     * Update list of processed workitems
+     * 
+     * @param uniqueId
+     */
+    public void addWorkitemRef(String uniqueId) {
+        if (uniqueId != null && !uniqueId.isBlank() && !workitemRefs.contains(uniqueId)) {
+            workitemRefs.add(uniqueId);
+        }
+    }
+
+    /**
+     * Return list of processed workitems.
+     * 
+     * @return
+     */
+    public List<String> getWorkitemRefs() {
+        return workitemRefs;
     }
 
     /**

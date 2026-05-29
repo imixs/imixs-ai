@@ -33,9 +33,9 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.ai.workflow.ImixsAIResultEvent;
-import org.imixs.ai.workflow.ImixsAIToolCallEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.ModelService;
@@ -106,6 +106,7 @@ public class OpenAIAPIService implements Serializable {
     @Inject
     private Event<ImixsAIResultEvent> llmResultEventObservers = null;
 
+    // Function Events
     @Inject
     private Event<ImixsAIToolCallEvent> toolCallEventObservers = null;
 

@@ -1,4 +1,4 @@
-package org.imixs.ai.workflow;
+package org.imixs.ai.tools;
 
 import org.imixs.ai.ImixsAIContextHandler;
 
