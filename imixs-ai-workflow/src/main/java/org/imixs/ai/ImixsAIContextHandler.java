@@ -596,20 +596,22 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
-     * Convert the List of ItemCollections back into a List of Map elements
+     * This method stores all messages back into the workitem.
      * 
      * @param workitem
      */
     @SuppressWarnings({ "rawtypes" })
     public void storeContext() {
-        List<Map> mapOrderItems = new ArrayList<Map>();
+        List<Map> messages = new ArrayList<Map>();
         // convert the child ItemCollection elements into a List of Map
         if (context != null) {
-            // iterate over all order items..
-            for (ItemCollection orderItem : context) {
-                mapOrderItems.add(orderItem.getAllItems());
+            // iterate over all message items..
+            for (ItemCollection messageItem : context) {
+                messages.add(messageItem.getAllItems());
             }
-            workItem.replaceItemValue(itemNameContext, mapOrderItems);
+            // Update the workitem
+            logger.fine("...store " + messages.size() + " messages back into " + itemNameContext);
+            workItem.replaceItemValue(itemNameContext, messages);
         }
     }
 }
