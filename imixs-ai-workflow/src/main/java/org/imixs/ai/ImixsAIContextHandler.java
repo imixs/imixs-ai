@@ -576,6 +576,18 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
+     * Returns the last message object in the context
+     * 
+     * @return
+     */
+    public ItemCollection getLastMessage() {
+        if (context == null) {
+            return null;
+        }
+        return context.get(context.size() - 1);
+    }
+
+    /**
      * converts the Map List of a workitem into a List of ItemCollections
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
