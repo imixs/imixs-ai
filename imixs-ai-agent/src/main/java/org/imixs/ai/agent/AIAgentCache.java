@@ -156,6 +156,9 @@ public class AIAgentCache {
      */
     @Lock(LockType.WRITE)
     public String put(ItemCollection agentWorkitem) {
+        if (agentWorkitem == null || agentWorkitem.getUniqueID().isEmpty()) {
+            return null;
+        }
         evictExpired();
 
         // first test if we have a cache entry...
@@ -169,6 +172,7 @@ public class AIAgentCache {
             logger.info("├── AIAgentCache: renew already stored agent workitem " + cacheEntry.agentId);
             // update the agentWorkitem...
             cacheEntry.agentWorkitem = agentWorkitem;
+            // cache.put(cacheEntry.agentId, cacheEntry);
         }
 
         return cacheEntry.agentId;

@@ -84,8 +84,11 @@ public class AIAgentOperator {
     public static final String ITEM_AGENT_STATUS = "agent.status";
     // public static final String ITEM_AGENT_SKILLS = "agent.skills";
     public static final String ITEM_AGENT_WORKITEM_REF = "agent.workitem.ref";
+    public static final String ITEM_AGENT_TASK_COMPLETE = "agent.task.complete";
+    public static final String ITEM_AGENT_TASK_RESULT = "agent.task.result";
 
-    public static final String AGENT_STATUS_RUNNING = "RUNNING";
+    public static final String AGENT_STATUS_WAITING = "WAITING";
+    private static final String AGENT_STATUS_RUNNING = "RUNNING";
     public static final String AGENT_STATUS_PENDING = "PENDING";
     public static final String AGENT_STATUS_DONE = "DONE";
     public static final String AGENT_STATUS_ERROR = "ERROR";
@@ -242,6 +245,7 @@ public class AIAgentOperator {
 
         String workitemId = workitem.getUniqueID();
         logger.info("├── Starting agent loop for workitem " + workitemId);
+
         String contextItemName = workitem.getItemValueString(AGENT_CONFIG_CONTEXT_ITEM);
         if (contextItemName.isBlank()) {
             contextItemName = "agent.context";
@@ -275,7 +279,6 @@ public class AIAgentOperator {
 
         // Mark the workitem as running
         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_RUNNING);
-
         long deadline = System.currentTimeMillis() + timeout;
 
         try {
@@ -336,6 +339,8 @@ public class AIAgentOperator {
 
             // Agent loop — iterate until the LLM returns a plain-text response,
             // the timeout is reached, or the maximum number of iterations is exceeded.
+            // Reset task_complete flag from previous loop iteration
+            workitem.setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, false);
             int iterations = 0;
             while (iterations < maxIterations) {
                 iterations++;
@@ -365,37 +370,35 @@ public class AIAgentOperator {
 
                     // add comment
                     workitem.setItemValue("comment.user", agentResponse);
+                    logger.log(Level.INFO,
+                            "│   ├── ⏳ awaiting user input — triggering next event {0}", nextEvent);
 
-                    // Check if there are still pending workitems for this agent loop.
-                    // If so, route back to Task "Ask" so the conversation can continue.
-                    boolean hasPendingWorkitem = nextEvent > 0
-                            && aiAgentCache.hasOperatorWorkitems(workitem.getUniqueID());
-
-                    if (hasPendingWorkitem) {
-                        logger.log(Level.INFO,
-                                "│   ├── ⏳ pending workitem detected — triggering next event {0}",
-                                nextEvent);
-
-                        workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_PENDING);
-                        // aiAgentCache.setAgentStatus(workitemId, AGENT_STATUS_PENDING);
-                        triggerWorkflowEvent(workitem, nextEvent);
-                    } else {
-                        workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
-                        // aiAgentCache.setAgentStatus(workitemId, AGENT_STATUS_DONE);
-                        triggerWorkflowEvent(workitem, successEvent);
-                        // Clean up cache when leaving the agent loop
-                        logger.info("│   └── 🧹 cache cleared for agent " + workitem.getUniqueID());
-                        aiAgentCache.remove(workitem);
-                        // aiAgentCache.clearAgentStatus(workitemId);
-                    }
+                    workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_WAITING);
+                    triggerWorkflowEvent(workitem, nextEvent);
+                    // aiAgentCache.put(workitem);
 
                     return;
                 } else {
                     // Update context
                     contextHandler.storeContext();
+
+                    // Check if task_complete was called in this tool call iteration
+                    boolean taskComplete = workitem.getItemValueBoolean(ITEM_AGENT_TASK_COMPLETE);
+                    if (taskComplete) {
+                        logger.log(Level.INFO,
+                                "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
+                        workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
+                        // Store the task result as comment
+                        workitem.setItemValue("comment.user",
+                                workitem.getItemValueString(ITEM_AGENT_TASK_RESULT));
+                        triggerWorkflowEvent(workitem, successEvent);
+                        aiAgentCache.remove(workitem);
+                        return;
+
+                    }
                 }
             }
-
+            aiAgentCache.remove(workitem);
             throw new PluginException(AIAgentOperator.class.getSimpleName(),
                     "AGENT_LOOP_ERROR", "Max iterations reached without result");
 
@@ -470,6 +473,7 @@ public class AIAgentOperator {
 
         workflowService.processWorkItem(workitem);
         logger.info("│   └── ✅ Workflow event " + eventId + " triggered for " + workitem.getUniqueID());
+        return;
     }
 
 }
