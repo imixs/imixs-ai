@@ -18,8 +18,12 @@ public class ImixsAIToolCallEvent {
     private final JsonObject arguments;
     private final String toolCallId;
     private final ImixsAIContextHandler contextHandler;
-    private String result = null;
     private String error;
+    // Tool message sent back to the LLM as tool-role message
+    private String toolMessage = null;
+    // Business result value for the application layer
+    private String resultValue = null;
+    private boolean taskCompleted = false; // indicates that a task is marked as completed.
 
     /**
      * Constructor with contextHandler. Provides observers with access to the
@@ -52,14 +56,6 @@ public class ImixsAIToolCallEvent {
         return contextHandler;
     }
 
-    public String getResult() {
-        return result;
-    }
-
-    public void setResult(String result) {
-        this.result = result;
-    }
-
     public String getError() {
         return error;
     }
@@ -72,10 +68,35 @@ public class ImixsAIToolCallEvent {
         return error != null && !error.isBlank();
     }
 
+    public void setToolMessage(String toolMessage) {
+        this.toolMessage = toolMessage;
+    }
+
+    public String getToolMessage() {
+        return toolMessage;
+    }
+
+    public void setResultValue(String resultValue) {
+        this.resultValue = resultValue;
+    }
+
+    public String getResultValue() {
+        return resultValue;
+    }
+
+    public boolean isTaskCompleted() {
+        return taskCompleted;
+    }
+
+    public void setTaskCompleted(boolean taskCompleted) {
+        this.taskCompleted = taskCompleted;
+    }
+
     /**
      * Returns true if an observer has handled the tool call.
      */
     public boolean isHandled() {
-        return result != null;
+        return toolMessage != null;
     }
+
 }

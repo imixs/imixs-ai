@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.api.OpenAIAPIService;
+import org.imixs.ai.api.ToolCallResult;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
@@ -84,8 +85,8 @@ public class AIAgentOperator {
     public static final String ITEM_AGENT_STATUS = "agent.status";
     // public static final String ITEM_AGENT_SKILLS = "agent.skills";
     public static final String ITEM_AGENT_WORKITEM_REF = "agent.workitem.ref";
-    public static final String ITEM_AGENT_TASK_COMPLETE = "agent.task.complete";
-    public static final String ITEM_AGENT_TASK_RESULT = "agent.task.result";
+    // public static final String ITEM_AGENT_TASK_COMPLETE = "agent.task.complete";
+    // public static final String ITEM_AGENT_TASK_RESULT = "agent.task.result";
 
     public static final String AGENT_STATUS_WAITING = "WAITING";
     private static final String AGENT_STATUS_RUNNING = "RUNNING";
@@ -100,12 +101,14 @@ public class AIAgentOperator {
     public static final String AGENT_CONFIG_INIT_TASK = "agent.init.task";
     public static final String AGENT_CONFIG_INIT_EVENT = "agent.init.event";
     public static final String AGENT_CONFIG_USER_ITEM = "agent.user.item";
+    public static final String AGENT_CONFIG_RESULT_TYPE = "agent.result.type";
     public static final String AGENT_CONFIG_ENDPOINT = "agent.endpoint";
     public static final String AGENT_CONFIG_TIMEOUT = "agent.timeout";
     public static final String AGENT_CONFIG_MAX_ITERATIONS = "agent.max-iterations";
     public static final String AGENT_CONFIG_SUCCESS_EVENT = "agent.event.success";
     public static final String AGENT_CONFIG_ERROR_EVENT = "agent.event.error";
     public static final String AGENT_CONFIG_NEXT_EVENT = "agent.event.next";
+    public static final String AGENT_CONFIG_DEBUG = "agent.debug";
 
     public static final String PROMPT_FILECONTEXT = "\n\n<FILECONTEXT>^.+\\.(pdf|PDF|eml|msg)$</FILECONTEXT>";
 
@@ -264,6 +267,8 @@ public class AIAgentOperator {
         int successEvent = workitem.getItemValueInteger(AGENT_CONFIG_SUCCESS_EVENT);
         int errorEvent = workitem.getItemValueInteger(AGENT_CONFIG_ERROR_EVENT);
         int nextEvent = workitem.getItemValueInteger(AGENT_CONFIG_NEXT_EVENT);
+        String resultType = workitem.getItemValueString(AGENT_CONFIG_RESULT_TYPE);
+        boolean debug = workitem.getItemValueBoolean(AGENT_CONFIG_DEBUG);
 
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ENDPOINT + "={0}", endpoint);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_CONTEXT_ITEM + "={0}", contextItemName);
@@ -273,6 +278,7 @@ public class AIAgentOperator {
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_NEXT_EVENT + "={0}", nextEvent);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_SUCCESS_EVENT + "={0}", successEvent);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ERROR_EVENT + "={0}", errorEvent);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_TYPE + "={0}", resultType);
 
         if (timeout <= 0) {
             timeout = DEFAULT_TIMEOUT_MS;
@@ -346,7 +352,7 @@ public class AIAgentOperator {
             // Agent loop — iterate until the LLM returns a plain-text response,
             // the timeout is reached, or the maximum number of iterations is exceeded.
             // Reset task_complete flag from previous loop iteration
-            workitem.setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, false);
+            // workitem.setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, false);
             int iterations = 0;
             while (iterations < maxIterations) {
                 iterations++;
@@ -357,24 +363,20 @@ public class AIAgentOperator {
                 }
 
                 // call LLM
-                String response = openAIAPIService.postPromptCompletion(
-                        contextHandler, endpoint, true);
+                String response = openAIAPIService.postPromptCompletion(contextHandler, endpoint, debug);
 
                 // evaluate Tool Calls
-                boolean wasToolCall = openAIAPIService.processToolCallResult(
-                        response, contextHandler);
+                ToolCallResult toolCallResult = openAIAPIService.processToolCallResult(response, contextHandler);
 
-                if (!wasToolCall) {
+                if (toolCallResult == null || !toolCallResult.wasToolCall()) {
                     // Plain-text response — the agent is done.
                     // Add the answer to the context and persist the full conversation.
-                    String agentResponse = openAIAPIService.processPromptResult(
-                            response, null, null);
+                    String agentResponse = openAIAPIService.processPromptResult(response, resultType, workitem);
 
                     contextHandler.addAnswer(agentResponse);
                     contextHandler.storeContext();
                     // reset user message - save input history
                     workitem.insertItemValue(userInputInput, "");
-
                     // add comment
                     workitem.setItemValue("comment.user", agentResponse);
                     logger.log(Level.INFO,
@@ -382,22 +384,18 @@ public class AIAgentOperator {
 
                     workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_WAITING);
                     triggerWorkflowEvent(workitem, nextEvent);
-                    // aiAgentCache.put(workitem);
-
                     return;
                 } else {
                     // Update context
                     contextHandler.storeContext();
-
                     // Check if task_complete was called in this tool call iteration
-                    boolean taskComplete = workitem.getItemValueBoolean(ITEM_AGENT_TASK_COMPLETE);
-                    if (taskComplete) {
+                    if (toolCallResult.isTaskComplete()) {
+
                         logger.log(Level.INFO,
                                 "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
                         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
                         // Store the task result as comment
-                        workitem.setItemValue("comment.user",
-                                workitem.getItemValueString(ITEM_AGENT_TASK_RESULT));
+                        workitem.setItemValue("comment.user", toolCallResult.getResultValue());
                         triggerWorkflowEvent(workitem, successEvent);
                         aiAgentCache.remove(workitem);
                         return;

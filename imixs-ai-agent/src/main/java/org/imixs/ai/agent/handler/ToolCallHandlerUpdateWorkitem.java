@@ -106,7 +106,9 @@ public class ToolCallHandlerUpdateWorkitem {
 
             logger.info("│   └── ✅ Workitem updated in cache: " + uniqueId
                     + " (agent=" + agentWorkitemId + ")");
-            event.setResult("Workitem updated: " + uniqueId);
+
+            event.setResultValue(uniqueId);
+            event.setToolMessage("Workitem updated: " + uniqueId);
 
         } catch (Exception e) {
             logger.log(Level.WARNING, "│   └── ⚠️ update_workitem failed: " + e.getMessage());

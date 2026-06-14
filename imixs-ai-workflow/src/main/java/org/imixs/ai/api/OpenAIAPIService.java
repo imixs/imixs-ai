@@ -198,15 +198,17 @@ public class OpenAIAPIService implements Serializable {
      * so that observers can handle it. The result is added to the context as a tool
      * message.
      *
-     * Returns true if tool calls were found and handled, false if the response is a
-     * normal text completion.
+     * The method returns a ToolCallsResult if a tool calls were found and handled.
+     * Otherwise the method returns null
      *
      * @param jsonCompletionResult - raw JSON response from the LLM
      * @param contextHandler       - the current conversation context
      * @throws PluginException
      */
-    public boolean processToolCallResult(String jsonCompletionResult,
+    public ToolCallResult processToolCallResult(String jsonCompletionResult,
             ImixsAIContextHandler contextHandler) throws PluginException {
+        String resultValue = null;
+        boolean taskComplete = false;
 
         // Parse the JSON result
         JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
@@ -215,23 +217,23 @@ public class OpenAIAPIService implements Serializable {
 
         // Check finish_reason
         if (!parsedJsonObject.containsKey("choices")) {
-            return false;
+            return null;
         }
         JsonArray choices = parsedJsonObject.getJsonArray("choices");
         if (choices == null || choices.isEmpty()) {
-            return false;
+            return null;
         }
         JsonObject firstChoice = choices.getJsonObject(0);
         String finishReason = firstChoice.getString("finish_reason", "");
         if (!"tool_calls".equals(finishReason)) {
-            return false;
+            return null;
         }
 
         // Extract tool_calls from the assistant message
         JsonObject message = firstChoice.getJsonObject("message");
         JsonArray toolCalls = message.getJsonArray("tool_calls");
         if (toolCalls == null || toolCalls.isEmpty()) {
-            return false;
+            return null;
         }
 
         // Add the assistant message with tool_calls to the context
@@ -269,13 +271,25 @@ public class OpenAIAPIService implements Serializable {
             }
 
             // Add tool result to context for next LLM request
-            contextHandler.addToolResult(toolCallId, toolCallEvent.getResult());
+            contextHandler.addToolResult(toolCallId, toolCallEvent.getToolMessage());
 
             logger.info("└── Tool Call handled: " + toolName
-                    + " result length=" + toolCallEvent.getResult().length());
+                    + " result length=" + toolCallEvent.getToolMessage().length());
+
+            // Capture resultValue if set
+            if (toolCallEvent.getResultValue() != null) {
+                resultValue = toolCallEvent.getResultValue();
+
+                // is task completed?
+                if (toolCallEvent.isTaskCompleted()) {
+                    taskComplete = true;
+                    break;
+                }
+            }
         }
 
-        return true;
+        // return the toolCallResult object
+        return new ToolCallResult(true, taskComplete, resultValue);
     }
 
     /**

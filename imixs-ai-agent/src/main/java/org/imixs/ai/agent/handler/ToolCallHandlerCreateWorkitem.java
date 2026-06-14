@@ -103,7 +103,8 @@ public class ToolCallHandlerCreateWorkitem {
 
             logger.info("│   └── ✅ Workitem created in cache: " + workitem.getUniqueID()
                     + " (agent=" + agentWorkitemId + ")");
-            event.setResult("Workitem created: " + workitem.getUniqueID());
+            event.setResultValue(workitem.getUniqueID());
+            event.setToolMessage("Workitem created: " + workitem.getUniqueID());
 
         } catch (Exception e) {
             logger.log(Level.WARNING, "│   └── ⚠️ create_workitem failed: " + e.getMessage());

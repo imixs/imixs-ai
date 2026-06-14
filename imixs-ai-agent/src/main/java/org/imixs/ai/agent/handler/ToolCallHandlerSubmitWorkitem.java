@@ -140,7 +140,9 @@ public class ToolCallHandlerSubmitWorkitem {
 
             logger.info("│   └── ✅ Workitem submitted: " + persistedId
                     + " (agent=" + agentWorkitem.getUniqueID() + ")");
-            event.setResult(result);
+            event.setToolMessage(result);
+            event.setResultValue(applicationURL
+                    + "pages/workitems/workitem.xhtml?id=" + persistedId);
 
         } catch (Exception e) {
             logger.log(Level.WARNING, "│   └── ⚠️ submit_workitem failed: " + e.getMessage());

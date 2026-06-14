@@ -2,7 +2,6 @@ package org.imixs.ai.agent.handler;
 
 import java.util.logging.Logger;
 
-import org.imixs.ai.agent.AIAgentOperator;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 
@@ -69,15 +68,18 @@ public class ToolCallHandlerTaskComplete {
         logger.info("├── ToolCallHandlerTaskComplete: task_complete - result=" + result);
 
         // Set the completion flag on the agent workitem
-        event.getContextHandler().getWorkItem()
-                .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, true);
+        // event.getContextHandler().getWorkItem()
+        // .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, true);
         // Store the result for the operator and UI
-        event.getContextHandler().getWorkItem()
-                .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_RESULT, result);
+        // event.getContextHandler().getWorkItem()
+        // .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_RESULT, result);
 
         logger.info("│   └── ✅ task_complete flag set for agent: "
                 + event.getContextHandler().getWorkItem().getUniqueID());
 
-        event.setResult("Task completed: " + result);
+        event.setTaskCompleted(true);
+        event.setResultValue(result);
+        event.setToolMessage("Task completed");
+
     }
 }

@@ -92,15 +92,23 @@ public class AIResultHandlerXML {
         if ("XML".equalsIgnoreCase(event.getEventType())) {
             // get result string
             String xmlString = event.getPromptResult();
-
-            logger.fine("Prompt Result= " + xmlString);
-            xmlString = cleanXML(xmlString);
-            ItemCollection xmlItemCol = new ItemCollection();
-            parseXML(xmlString, xmlItemCol);
-            // now replace all collected values
-            // This is to ensure that existing values will be overwritten.
-            for (String name : xmlItemCol.getItemNames()) {
-                event.getWorkitem().setItemValue(name, xmlItemCol.getItemValue(name));
+            try {
+                logger.fine("Prompt Result= " + xmlString);
+                xmlString = cleanXML(xmlString);
+                if (xmlString == null || xmlString.isBlank()) {
+                    // no xml data
+                    return;
+                }
+                ItemCollection xmlItemCol = new ItemCollection();
+                parseXML(xmlString, xmlItemCol);
+                // now replace all collected values
+                // This is to ensure that existing values will be overwritten.
+                for (String name : xmlItemCol.getItemNames()) {
+                    event.getWorkitem().setItemValue(name, xmlItemCol.getItemValue(name));
+                }
+            } catch (ParserConfigurationException | SAXException | IOException e) {
+                logger.severe("Failed to parse Result XML:" + e.getMessage());
+                logger.severe("Prompt Result= " + xmlString);
             }
         }
     }
@@ -128,29 +136,29 @@ public class AIResultHandlerXML {
      *
      * @param resultObject
      * @param workitem
+     * @throws ParserConfigurationException
+     * @throws IOException
+     * @throws SAXException
      */
-    public static void parseXML(final String xmlString, ItemCollection workitem) {
-        try {
+    public static void parseXML(final String xmlString, ItemCollection workitem)
+            throws ParserConfigurationException, SAXException, IOException {
 
-            String xmlStringWrapped = wrapTextWithCDATA(xmlString);
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder;
-            builder = factory.newDocumentBuilder();
+        String xmlStringWrapped = wrapTextWithCDATA(xmlString);
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder;
+        builder = factory.newDocumentBuilder();
 
-            // Parse the XML string to create a Document object
-            Document document = builder.parse(new java.io.ByteArrayInputStream(xmlStringWrapped.getBytes()));
-            // Get the <result> element
-            Element root = document.getDocumentElement();
-            NodeList childs = root.getChildNodes();
-            for (int i = 0; i < childs.getLength(); i++) {
-                Node element = childs.item(i);
-                if (element.getNodeType() == Node.ELEMENT_NODE)
-                    applyElement((Element) element, workitem);
-            }
-        } catch (IOException | SAXException | ParserConfigurationException e) {
-            logger.severe("Failed to parse Result XML:" + xmlString);
-            e.printStackTrace();
+        // Parse the XML string to create a Document object
+        Document document = builder.parse(new java.io.ByteArrayInputStream(xmlStringWrapped.getBytes()));
+        // Get the <result> element
+        Element root = document.getDocumentElement();
+        NodeList childs = root.getChildNodes();
+        for (int i = 0; i < childs.getLength(); i++) {
+            Node element = childs.item(i);
+            if (element.getNodeType() == Node.ELEMENT_NODE)
+                applyElement((Element) element, workitem);
         }
+
     }
 
     /**
