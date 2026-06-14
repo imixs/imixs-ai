@@ -181,11 +181,17 @@ public class AIAgentOperator {
                 int successEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_SUCCESS_EVENT);
                 int errorEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_ERROR_EVENT);
                 int nextEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_NEXT_EVENT);
+                String contextItem = agentConfig.getItemValueString(AGENT_CONFIG_CONTEXT_ITEM);
 
                 if (endpoint.isBlank()) {
                     throw new PluginException(AIAgentOperator.class.getSimpleName(),
                             "AGENT_CONFIG_ERROR",
                             AGENT_CONFIG_ENDPOINT + " must not be empty! Verify BPMN event configuration.");
+                }
+                if (contextItem.isBlank()) {
+                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
+                            "AGENT_CONFIG_ERROR",
+                            AGENT_CONFIG_CONTEXT_ITEM + " must not be empty! Verify BPMN event configuration.");
                 }
                 if (successEvent == 0) {
                     throw new PluginException(AIAgentOperator.class.getSimpleName(),
@@ -247,9 +253,6 @@ public class AIAgentOperator {
         logger.info("├── Starting agent loop for workitem " + workitemId);
 
         String contextItemName = workitem.getItemValueString(AGENT_CONFIG_CONTEXT_ITEM);
-        if (contextItemName.isBlank()) {
-            contextItemName = "agent.context";
-        }
         String userInputInput = workitem.getItemValueString(AGENT_CONFIG_USER_ITEM);
         if (userInputInput.isBlank()) {
             userInputInput = "agent.user.input";
@@ -263,6 +266,7 @@ public class AIAgentOperator {
         int nextEvent = workitem.getItemValueInteger(AGENT_CONFIG_NEXT_EVENT);
 
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ENDPOINT + "={0}", endpoint);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_CONTEXT_ITEM + "={0}", contextItemName);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_USER_ITEM + "={0}", userInputInput);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_TIMEOUT + "={0}", timeout);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_MAX_ITERATIONS + "={0}", maxIterations);
@@ -322,6 +326,7 @@ public class AIAgentOperator {
             // the current loop. Otherwise we assume that the user prompt is part of the
             // prompt definition template
             if (!userMessage.isBlank()) {
+                logger.log(Level.INFO, "│   ├── 💥 User question provided - adding user user message...");
                 String userPrompt = userMessage;
                 // append also an optional file context
                 if (workitem.getFileNames().size() > 0) {
@@ -334,7 +339,8 @@ public class AIAgentOperator {
             ItemCollection lastMessage = contextHandler.getLastMessage();
             if (lastMessage == null || !lastMessage.getItemValueString(ImixsAIContextHandler.ITEM_ROLE)
                     .equals(ImixsAIContextHandler.ROLE_USER)) {
-                logger.log(Level.WARNING, "│   ├── ⚠️ Context does not finish with Question (chat.role==user)!");
+                logger.log(Level.WARNING,
+                        "│   ├── ⚠️ Context does not finish with Question (chat.role==user) - verify bpmn agent-model !");
             }
 
             // Agent loop — iterate until the LLM returns a plain-text response,
@@ -363,6 +369,7 @@ public class AIAgentOperator {
                     // Add the answer to the context and persist the full conversation.
                     String agentResponse = openAIAPIService.processPromptResult(
                             response, null, null);
+
                     contextHandler.addAnswer(agentResponse);
                     contextHandler.storeContext();
                     // reset user message - save input history
