@@ -322,8 +322,10 @@ public class OpenAIAPIService implements Serializable {
             throws PluginException {
         String response = null;
         long processingTime = System.currentTimeMillis();
+        int responseCode = 0;
+        HttpURLConnection conn = null;
         try {
-            HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
+            conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
 
             imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
@@ -347,7 +349,7 @@ public class OpenAIAPIService implements Serializable {
             }
 
             // Reading the response
-            int responseCode = conn.getResponseCode();
+            responseCode = conn.getResponseCode();
             logger.fine("POST Response Code :: " + responseCode);
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 try (BufferedReader br = new BufferedReader(
@@ -378,11 +380,28 @@ public class OpenAIAPIService implements Serializable {
             return response;
 
         } catch (IOException e) {
-            logger.severe(e.getMessage());
-            throw new PluginException(
-                    OpenAIAPIService.class.getSimpleName(),
-                    ERROR_PROMPT_TEMPLATE,
-                    "⚠️ postCompletion failed - " + e.getClass().getName() + ": " + e.getMessage(), e);
+
+            // Read error response body for diagnostics
+            String errorBody = "";
+            if (conn != null) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder errorResponse = new StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        errorResponse.append(line.trim()).append("\n");
+                    }
+                    errorBody = errorResponse.toString();
+                } catch (IOException ignored) {
+                    // Error stream might be null or unreadable
+                }
+            }
+
+            logger.severe("└──  ⚠️ postCompletion failed - HTTP Result=" + responseCode
+                    + "\n    Error Body: " + errorBody);
+            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                    OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                    "HTTP Result " + responseCode + " - " + errorBody);
 
         }
 
