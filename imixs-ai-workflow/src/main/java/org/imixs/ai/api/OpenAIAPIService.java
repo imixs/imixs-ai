@@ -360,49 +360,47 @@ public class OpenAIAPIService implements Serializable {
                         responseBody.append(responseLine.trim() + "\n");
                     }
                     response = responseBody.toString();
-
                     imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, "│   ├── 📤 Completion Result: ");
                     imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, response);
-
                 }
             } else {
-                logger.severe("└──  ⚠️ postCompletion failed -  HTTP Result=" + responseCode);
+                logger.severe("└──  ⚠️ postCompletion failed -  LLM HTTP Result=" + responseCode);
+                // Read error response body for diagnostics
+                String errorBody = "";
+                InputStream errorStream = conn.getErrorStream();
+                if (errorStream != null) {
+                    try (BufferedReader br = new BufferedReader(
+                            new InputStreamReader(errorStream, StandardCharsets.UTF_8))) {
+                        StringBuilder errorResponse = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) {
+                            errorResponse.append(line.trim()).append("\n");
+                        }
+                        errorBody = errorResponse.toString();
+                    } catch (IOException ignored) {
+                        // Error stream might be unreadable
+                    }
+                }
+                logger.severe("└──  LLM Error Response:\n" + errorBody);
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         OpenAIAPIService.ERROR_PROMPT_INFERENCE,
-                        "HTTP Result " + responseCode);
+                        "LLM Error - HTTP Result " + responseCode);
             }
-            // Close the connection
-            conn.disconnect();
 
             imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
                     "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
-
             return response;
 
         } catch (IOException e) {
-
-            // Read error response body for diagnostics
-            String errorBody = "";
-            if (conn != null) {
-                try (BufferedReader br = new BufferedReader(
-                        new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8))) {
-                    StringBuilder errorResponse = new StringBuilder();
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        errorResponse.append(line.trim()).append("\n");
-                    }
-                    errorBody = errorResponse.toString();
-                } catch (IOException ignored) {
-                    // Error stream might be null or unreadable
-                }
-            }
-
-            logger.severe("└──  ⚠️ postCompletion failed - HTTP Result=" + responseCode
-                    + "\n    Error Body: " + errorBody);
+            logger.severe("└──  ⚠️ postCompletion failed - IO Error: " + e.getMessage());
             throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                    OpenAIAPIService.ERROR_PROMPT_INFERENCE,
-                    "HTTP Result " + responseCode + " - " + errorBody);
+                    OpenAIAPIService.ERROR_PROMPT_INFERENCE, "IO Error: " + e.getMessage(), e);
 
+        } finally {
+            // Close the connection
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
 
     }
