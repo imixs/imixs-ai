@@ -18,6 +18,7 @@ import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.api.ToolCallResult;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.workflow.ImixsAIPromptService;
+import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.engine.EventLogService;
@@ -134,6 +135,9 @@ public class AIAgentOperator {
 
     @Inject
     AIAgentCache aiAgentCache;
+
+    @Inject
+    private Event<ImixsAIResultEvent> llmResultEventObservers = null;
 
     // Function Events
     @Inject
@@ -386,11 +390,18 @@ public class AIAgentOperator {
                     triggerWorkflowEvent(workitem, nextEvent);
                     return;
                 } else {
+
+                    // process result
+                    if (resultType != null && !resultType.isEmpty()) {
+                        ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(toolCallResult.getResultValue(),
+                                resultType, workitem);
+                        llmResultEventObservers.fire(llmResultEvent);
+                    }
+
                     // Update context
                     contextHandler.storeContext();
                     // Check if task_complete was called in this tool call iteration
                     if (toolCallResult.isTaskComplete()) {
-
                         logger.log(Level.INFO,
                                 "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
                         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
