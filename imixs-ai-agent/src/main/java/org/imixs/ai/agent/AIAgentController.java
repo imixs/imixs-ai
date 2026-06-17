@@ -9,9 +9,16 @@ import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.engine.DocumentService;
+import org.imixs.workflow.engine.ModelService;
+import org.imixs.workflow.engine.WorkflowService;
+import org.imixs.workflow.exceptions.ModelException;
+import org.imixs.workflow.exceptions.PluginException;
 import org.imixs.workflow.faces.data.WorkflowController;
 import org.imixs.workflow.faces.data.WorkflowEvent;
+import org.imixs.workflow.util.XMLParser;
+import org.openbpmn.bpmn.BPMNModel;
 
 import jakarta.enterprise.context.ConversationScoped;
 import jakarta.enterprise.event.Observes;
@@ -35,6 +42,12 @@ public class AIAgentController implements Serializable {
 
     @Inject
     AIAgentCache aiAgentCache;
+
+    @Inject
+    private ModelService modelService;
+
+    @Inject
+    WorkflowService workflowService;
 
     @Inject
     DocumentService documentService;
@@ -261,8 +274,9 @@ public class AIAgentController implements Serializable {
      * context.
      *
      * @param workflowEvent the CDI workflow event
+     * @throws PluginException
      */
-    public void onWorkflowEvent(@Observes WorkflowEvent workflowEvent) {
+    public void onWorkflowEvent(@Observes WorkflowEvent workflowEvent) throws PluginException {
         if (workflowEvent == null || workflowEvent.getWorkitem() == null) {
             return;
         }
@@ -272,6 +286,98 @@ public class AIAgentController implements Serializable {
             cachedChatHistory = null;
             cachedOperatorWorkitems = null;
         }
+
+        // reset agent status
+        if (WorkflowEvent.WORKITEM_BEFORE_PROCESS == eventType) {
+            resetAgentStatusPending(workflowEvent.getWorkitem());
+        }
+    }
+
+    /**
+     * This helper method is called on the workitem event BEFORE_PROCESS to reset
+     * the agent status into PENDING. The method loads the BPMN event definition for
+     * the current workitem and checks whether the workflow result contains an
+     * eventlog configuration with the topic "ai.agent.process". If so, the method
+     * reset the agent status = PENDING.
+     *
+     * @param processingEvent the CDI processing event fired by the WorkflowService
+     * @throws PluginException
+     */
+    public void resetAgentStatusPending(ItemCollection workitem) throws PluginException {
+        long l = System.currentTimeMillis();
+        // Load the BPMN event definition from the model.
+        try {
+
+            ModelManager modelManager = new ModelManager(workflowService);
+            BPMNModel bpmnModel = modelService.getBPMNModel(workitem.getModelVersion());
+            ItemCollection event = modelManager.findEventByID(bpmnModel, workitem.getTaskID(), workitem.getEventID());
+
+            // Event not found in model — silently ignore.
+            // This happens for every processWorkItem() call where the event
+            // is not the ai.agent.process submit event (e.g. success-event, error-event).
+            if (event == null) {
+                return;
+            }
+
+            // parse for eventlog definition to see if we have a agent event....
+            List<ItemCollection> bpmnEventLogDefinitions = workflowService.evalWorkflowResultXML(event, "eventlog",
+                    AIAgentOperator.AGENT_TOPIC_PROCESS, workitem, true);
+            if (bpmnEventLogDefinitions == null || bpmnEventLogDefinitions.isEmpty()) {
+                // no op - return
+                return;
+            }
+
+            // parse the first eventLog document configuration
+            ItemCollection eventLogConfig = bpmnEventLogDefinitions.get(0);
+            String documentXML = eventLogConfig.getItemValueString("document");
+
+            // do we have a document definition?
+            if (!documentXML.isEmpty()) {
+                ItemCollection eventLogDocumentData = XMLParser.parseItemStructure(documentXML);
+
+                // Check whether the workflow result of this event contains an
+                // <eventlog name="ai.agent.process"> definition. This is the same
+                // signal the EventLogPlugin reacts on — no extra configuration needed.
+
+                String endpoint = eventLogDocumentData.getItemValueString(AIAgentOperator.AGENT_CONFIG_ENDPOINT);
+                int successEvent = eventLogDocumentData.getItemValueInteger(AIAgentOperator.AGENT_CONFIG_SUCCESS_EVENT);
+                int errorEvent = eventLogDocumentData.getItemValueInteger(AIAgentOperator.AGENT_CONFIG_ERROR_EVENT);
+
+                if (endpoint.isBlank()) {
+                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
+                            "AGENT_CONFIG_ERROR",
+                            AIAgentOperator.AGENT_CONFIG_ENDPOINT
+                                    + " must not be empty! Verify BPMN event configuration.");
+                }
+                if (successEvent == 0) {
+                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
+                            "AGENT_CONFIG_ERROR",
+                            AIAgentOperator.AGENT_CONFIG_SUCCESS_EVENT
+                                    + " must not be 0! Verify BPMN event configuration.");
+                }
+                if (errorEvent == 0) {
+                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
+                            "AGENT_CONFIG_ERROR",
+                            AIAgentOperator.AGENT_CONFIG_ERROR_EVENT
+                                    + " must not be 0! Verify BPMN event configuration.");
+                }
+                logger.info(
+                        "├── AIAgentController: resolved bpmn logevent in " + (System.currentTimeMillis() - l) + "ms");
+
+                workitem.setItemValue(AIAgentOperator.ITEM_AGENT_STATUS, AIAgentOperator.AGENT_STATUS_PENDING);
+                aiAgentCache.put(workitem);
+                logger.info("│   ├── Agent.status=" + workitem.getItemValueString(AIAgentOperator.ITEM_AGENT_STATUS));
+
+            }
+        } catch (ModelException e) {
+            // Model not found or event not resolvable — not an agent task
+            throw new PluginException(e.getErrorContext(), e.getErrorCode(), e.getMessage(), e);
+
+        }
+
+        logger.info("├── BPMNAgentProcessingHandler: building skill snapshot"
+                + " for workitem " + workitem.getUniqueID());
+
     }
 
     /**
