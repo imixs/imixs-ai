@@ -333,7 +333,7 @@ public class OpenAIAPIService implements Serializable {
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON);
             conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
             conn.setDoOutput(true);
 
