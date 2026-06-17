@@ -405,8 +405,6 @@ public class AIAgentOperator {
                         logger.log(Level.INFO,
                                 "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
                         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
-                        // Store the task result as comment
-                        workitem.setItemValue("comment.user", toolCallResult.getResultValue());
                         triggerWorkflowEvent(workitem, successEvent);
                         aiAgentCache.remove(workitem);
                         return;
