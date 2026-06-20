@@ -359,6 +359,19 @@ The Adapter can be configured similar to the OpenAIAPIAdapter class:
 
 The `result-item` holds the message history.
 
+Optional an existing context can be imported. This is helpful if the context is build from other tasks like an AI Agent.
+
+```xml
+<imixs-ai name="ASSISTANT">
+  <endpoint>my-llm</endpoint>
+  <context-item>my.context</context-item>
+  <result-item>request.response.text</result-item>
+  <result-event>JSON</result-event>
+</imixs-ai>
+```
+
+**Note:** In such a scenario there is typically no system prompt necessary as this is part of the existing context.
+
 ## The ConditionalAIAdapter
 
 The ConditionalAIAdapter reacts on CDI Events of type BPMNConditionEvent and evaluates a condition against an LLM.
