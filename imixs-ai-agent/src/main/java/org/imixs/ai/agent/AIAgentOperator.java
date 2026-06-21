@@ -462,6 +462,8 @@ public class AIAgentOperator {
 
         // set agent.ref
         agentWorkitem.appendItemValueUnique(AIAgentOperator.ITEM_AGENT_WORKITEM_REF, workitem.getUniqueID());
+        // set workitem ref
+        agentWorkitem.appendItemValueUnique("$workitemref", workitem.getUniqueID());
 
         // process workitem
         agentWorkitem = workflowService.processWorkItem(agentWorkitem);

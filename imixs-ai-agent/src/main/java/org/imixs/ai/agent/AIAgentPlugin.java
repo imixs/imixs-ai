@@ -83,7 +83,7 @@ public class AIAgentPlugin extends AbstractPlugin {
 				try {
 					ItemCollection agentWorkitem = aiAgentOperator.createAgent(agentConfig, workitem);
 					// set reference
-					workitem.setItemValue("$workitemref", agentWorkitem.getUniqueID());
+					workitem.appendItemValueUnique("$workitemref", agentWorkitem.getUniqueID());
 				} catch (AccessDeniedException | ProcessingErrorException | PluginException | ModelException e) {
 					throw new PluginException(AIAgentPlugin.class.getSimpleName(),
 							"AGENT_ERROR", "Unable to create new Agent: " + e.getMessage());
