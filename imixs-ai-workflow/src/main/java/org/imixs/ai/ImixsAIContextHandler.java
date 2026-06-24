@@ -62,6 +62,7 @@ public class ImixsAIContextHandler implements Serializable {
 
     public static final String ERROR_PROMPT_TEMPLATE = "ERROR_LLM_PROMPT_TEMPLATE";
     public static final String ERROR_INVALID_PARAMETER = "ERROR_INVALID_PARAMETER";
+    public static final String ERROR_UNDEFINED = "ERROR_UNDEFINED";
 
     public static final String ITEM_ROLE = "chat.role";
     public static final String ITEM_MESSAGE = "chat.message";
@@ -217,11 +218,15 @@ public class ImixsAIContextHandler implements Serializable {
             try {
                 llmPromptEventObservers.fire(llmPromptEvent);
             } catch (ObserverException e) {
-                // catch Adapter Exceptions
+                // Check for AdapterException in cause chain
                 if (e.getCause() instanceof AdapterException) {
                     AdapterException ae = (AdapterException) e.getCause();
                     throw new PluginException(ae);
                 }
+                // Re-throw unexpected causes with original error message
+                throw new PluginException(ImixsAIContextHandler.class.getSimpleName(),
+                        ImixsAIContextHandler.ERROR_UNDEFINED,
+                        e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
             }
             content = llmPromptEvent.getPromptTemplate();
         }
@@ -377,7 +382,7 @@ public class ImixsAIContextHandler implements Serializable {
                 String promptOptions = modelNode.getTextContent();
                 if (!promptOptions.isBlank()) {
                     log(Level.FINE, "│   ├── merge PromptOptions: " + promptOptions);
-                    this.addOptions(promptOptions);   // <-- Merge auf Layer 1+2 drauf
+                    this.addOptions(promptOptions); // <-- Merge auf Layer 1+2 drauf
                 }
             }
 
