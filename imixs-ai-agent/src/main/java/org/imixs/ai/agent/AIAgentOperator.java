@@ -18,7 +18,6 @@ import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.api.ToolCallResult;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.workflow.ImixsAIPromptService;
-import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.engine.EventLogService;
@@ -132,12 +131,6 @@ public class AIAgentOperator {
 
     @Inject
     ImixsAIContextHandler contextHandler;
-
-    @Inject
-    AIAgentCache aiAgentCache;
-
-    @Inject
-    private Event<ImixsAIResultEvent> llmResultEventObservers = null;
 
     // Function Events
     @Inject
@@ -300,7 +293,6 @@ public class AIAgentOperator {
             // Restore conversation context from workitem.
             // importContext calls init() internally, so functions must be added afterwards.
             contextHandler.importContext(workitem, contextItemName);
-            aiAgentCache.put(workitem);
 
             // Only initialize the system prompt on the very first call.
             // On subsequent calls the context already contains the system message
@@ -370,7 +362,8 @@ public class AIAgentOperator {
                 String response = openAIAPIService.postPromptCompletion(contextHandler, endpoint, debug);
 
                 // evaluate Tool Calls
-                ToolCallResult toolCallResult = openAIAPIService.processToolCallResult(response, contextHandler);
+                ToolCallResult toolCallResult = openAIAPIService.processToolCallResult(response, contextHandler,
+                        resultType);
 
                 if (toolCallResult == null || !toolCallResult.wasToolCall()) {
                     // Plain-text response — the agent is done.
@@ -390,13 +383,8 @@ public class AIAgentOperator {
                     triggerWorkflowEvent(workitem, nextEvent);
                     return;
                 } else {
-
-                    // process result
-                    if (resultType != null && !resultType.isEmpty()) {
-                        ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(toolCallResult.getResultValue(),
-                                resultType, workitem);
-                        llmResultEventObservers.fire(llmResultEvent);
-                    }
+                    logger.log(Level.INFO,
+                            "│   ├── 🔁 processing tool calls successful");
 
                     // Update context
                     contextHandler.storeContext();
@@ -406,20 +394,18 @@ public class AIAgentOperator {
                                 "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
                         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
                         triggerWorkflowEvent(workitem, successEvent);
-                        aiAgentCache.remove(workitem);
+
                         return;
 
                     }
                 }
             }
-            aiAgentCache.remove(workitem);
+
             throw new PluginException(AIAgentOperator.class.getSimpleName(),
                     "AGENT_LOOP_ERROR", "Max iterations reached without result");
 
         } catch (AdapterException | PluginException | ModelException e) {
             logger.log(Level.WARNING, "│   ├── ⚠️ Agent loop failed: {0}", e.getMessage());
-            // Clean up any pending cache entries for this agent
-            aiAgentCache.remove(workitem);
             workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_ERROR);
             try {
                 triggerWorkflowEvent(workitem, errorEvent);

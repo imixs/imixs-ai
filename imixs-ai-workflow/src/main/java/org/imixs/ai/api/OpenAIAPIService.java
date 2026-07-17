@@ -206,8 +206,7 @@ public class OpenAIAPIService implements Serializable {
      * @throws PluginException
      */
     public ToolCallResult processToolCallResult(String jsonCompletionResult,
-            ImixsAIContextHandler contextHandler) throws PluginException {
-        String resultValue = null;
+            ImixsAIContextHandler contextHandler, String resultType) throws PluginException {
         boolean taskComplete = false;
 
         // Parse the JSON result
@@ -276,20 +275,24 @@ public class OpenAIAPIService implements Serializable {
             logger.info("└── Tool Call handled: " + toolName
                     + " result length=" + toolCallEvent.getToolMessage().length());
 
-            // Capture resultValue if set
+            // Dispatch the business result for this tool call, if any was set
             if (toolCallEvent.getResultValue() != null) {
-                resultValue = toolCallEvent.getResultValue();
+                if (resultType != null && !resultType.isEmpty()) {
+                    ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(
+                            toolCallEvent.getResultValue(), resultType, contextHandler.getWorkItem());
+                    llmResultEventObservers.fire(llmResultEvent);
+                }
 
                 // is task completed?
                 if (toolCallEvent.isTaskCompleted()) {
                     taskComplete = true;
-                    break;
+                    // no break — remaining tool calls must still receive their addToolResult
                 }
             }
         }
 
         // return the toolCallResult object
-        return new ToolCallResult(true, taskComplete, resultValue);
+        return new ToolCallResult(true, taskComplete);
     }
 
     /**
