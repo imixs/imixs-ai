@@ -35,6 +35,8 @@ An **Imixs AI Agent** is itself described and embedded in a BPMN model — the *
 
 When users want to interact with the agent, they start a dedicated AI agent workflow, just like any other workflow in the system. Based on the AI agent model, the process is secure, documented, and every step is fully traceable.
 
+<img src="../doc/images/bpmn-agent-01.png" />
+
 The AI-Agent-Model consists typically of the following tasks:
 
 | Task      | Description                                                                                            |
@@ -43,8 +45,6 @@ The AI-Agent-Model consists typically of the following tasks:
 | Thinking  | Agent is running asynchronously; the task can be associated with a System Prompt instructing the agent |
 | Completed | Agent completed; user is redirected to the started workflow or sees the agent response                 |
 | Error     | Agent loop stopped because of an internal error                                                        |
-
-<img src="../doc/images/bpmn-agent-01.png" />
 
 This approach makes the agent very flexible and easy to adapt on individual enterprise needs:
 
