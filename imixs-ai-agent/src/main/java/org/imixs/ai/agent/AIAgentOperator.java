@@ -416,6 +416,27 @@ public class AIAgentOperator {
     }
 
     /**
+     * Triggers a BPMN workflow event on the workitem by setting the event ID and
+     * calling the WorkflowService. This advances the workitem to its next state
+     * according to the model — either the success task or the error task.
+     *
+     * @param workitem the AI-Task workitem
+     * @param eventId  BPMN event ID (success-event or error-event from agent
+     *                 config)
+     */
+    private void triggerWorkflowEvent(ItemCollection workitem, int eventId)
+            throws PluginException, ModelException {
+        workitem.event(eventId);
+
+        logger.info(" trigger event " + workitem.getModelVersion() + "  " + workitem.getTaskID() + "."
+                + workitem.getEventID());
+
+        workflowService.processWorkItem(workitem);
+        logger.info("│   └── ✅ Workflow event " + eventId + " triggered for " + workitem.getUniqueID());
+        return;
+    }
+
+    /**
      * This method creates a new Agent Workitem based on a given Agent configuration
      *
      * The method expects an instance of the parent process
@@ -441,10 +462,16 @@ public class AIAgentOperator {
     public ItemCollection createAgent(ItemCollection agentConfig, ItemCollection workitem)
             throws AccessDeniedException, ProcessingErrorException, PluginException, ModelException {
 
+        logger.log(Level.INFO, "├── 🔃 creating new AIAgent....");
         String model = agentConfig.getItemValueString(AIAgentOperator.AGENT_CONFIG_MODEL);
         int initTask = agentConfig.getItemValueInteger(AIAgentOperator.AGENT_CONFIG_INIT_TASK);
         int initEvent = agentConfig.getItemValueInteger(AIAgentOperator.AGENT_CONFIG_INIT_EVENT);
         ItemCollection agentWorkitem = new ItemCollection().model(model).task(initTask).event(initEvent);
+
+        logger.log(Level.INFO, "│   ├── ModelVersion: " + model);
+        logger.log(Level.INFO, "│   ├── InitTask: " + initTask);
+        logger.log(Level.INFO, "│   ├── InitEvent: " + initEvent);
+        logger.log(Level.INFO, "│   ├── Workitem Ref: " + workitem.getUniqueID());
 
         // set agent.ref
         agentWorkitem.appendItemValueUnique(AIAgentOperator.ITEM_AGENT_WORKITEM_REF, workitem.getUniqueID());
@@ -456,26 +483,4 @@ public class AIAgentOperator {
         logger.log(Level.INFO, "├── ✅ AI Agent created: {0}", agentWorkitem.getUniqueID());
         return agentWorkitem;
     }
-
-    /**
-     * Triggers a BPMN workflow event on the workitem by setting the event ID and
-     * calling the WorkflowService. This advances the workitem to its next state
-     * according to the model — either the success task or the error task.
-     *
-     * @param workitem the AI-Task workitem
-     * @param eventId  BPMN event ID (success-event or error-event from agent
-     *                 config)
-     */
-    private void triggerWorkflowEvent(ItemCollection workitem, int eventId)
-            throws PluginException, ModelException {
-        workitem.event(eventId);
-
-        logger.info(" trigger event " + workitem.getModelVersion() + "  " + workitem.getTaskID() + "."
-                + workitem.getEventID());
-
-        workflowService.processWorkItem(workitem);
-        logger.info("│   └── ✅ Workflow event " + eventId + " triggered for " + workitem.getUniqueID());
-        return;
-    }
-
 }

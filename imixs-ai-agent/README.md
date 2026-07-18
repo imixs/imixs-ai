@@ -1,8 +1,13 @@
 # Imixs AI AGENT
 
-The Imixs AI AGENT module provides a generic framework to build agentic business application. An agent runs in an autonomous loop — calling the LLM, evaluating responses, executing tools if requested — and continues until it either produces a plain-text answer or completes a workflow action on behalf of the user. An AI Agent can run in a dialog mode with a user to solve a specific problem or in an autonomous way calling tools or processing other workflows.
+The Imixs AI AGENT module provides a generic framework for building agentic business applications.
 
-**In the dialog modde an agent should be able:**
+Unlike most AI frameworks that execute agents entirely in memory, Imixs AI AGENT models every agent as a persistent BPMN workflow. Each reasoning step is executed asynchronously, the complete conversation state is persisted after every iteration, and tool execution is integrated through CDI events. This enables long-running, transactional, and recoverable AI processes that integrate seamlessly with enterprise workflows.
+
+An Imixs AI agent executes in an autonomous reasoning loop by calling an LLM, evaluating the response, executing requested tools, and repeating this cycle until it either produces a response for the user or completes a workflow action.
+Depending on the use case, an agent can either interact with a user in a conversational mode or operate autonomously as part of a larger business process.
+
+**A dialog agent typically performs the following tasks:**
 
 - Understand what the user wants — across languages and phrasings
 - Select the right workflow process, action or event from those available to the current user
@@ -12,7 +17,7 @@ The Imixs AI AGENT module provides a generic framework to build agentic business
 - Hand the user directly over to the completed workitem
 - Complete a task
 
-**In the autonomous mode an agent should be able:**
+**In the autonomous mode an agent is able:**
 
 - To start an agent loop based on a given processing context provided by a compliance workflow
 - Select data from existing process instances
@@ -26,7 +31,7 @@ The implementation is open and generic and mainly based on interfaces and CDI ev
 
 ## Architecture Overview: The AI-Agent-Model
 
-An **Imixs AI Agent** is itself described and embedded in a BPMN model — the **AI-Agent-Model**. This architecture makes the agent adoptable, scalable and transactional in a production-ready way.
+An **Imixs AI Agent** is itself described and embedded in a BPMN model — the **AI-Agent-Model**. This architecture makes AI agents scalable, transactional, and suitable for production environments.
 
 When users want to interact with the agent, they start a dedicated AI agent workflow, just like any other workflow in the system. Based on the AI agent model, the process is secure, documented, and every step is fully traceable.
 
@@ -53,13 +58,13 @@ This approach makes the agent very flexible and easy to adapt on individual ente
 ## Asynchronous Processing
 
 **BPMN AI Agents** run in an asynchronous way using the **Imixs EventLog Service**, which implements the **Change Data Capture (CDC)** pattern. Instead of running the agent synchronously inside one single transaction, the BPMN Agent holds the user task in a persistent transactional instance over the complete life cycle.
-The user can monitor the agent status as for any other business process. In the way, the agent shows no latency during the workflow processing cycle even if the agent loop calling external LLMs may take seconds to minutes.
+The user can monitor the agent status as for any other business process. As a result, users experience no blocking latency during workflow processing, even though individual LLM calls may take seconds or minutes.
 
 ---
 
-### AI Agent Configuration
+### AI Agent Processing Configuration
 
-AI Agents are defined and started in EventLog entries processed by the standard **EventLogPlugin**. This allows the configuration directly via the BPMN model. The configuration is defined in the `<document>` element and is read by the `AIAgentOperator`, which picks up the EventLog entry and runs the agent loop in its own isolated transaction.
+AI Agents are defined and started in EventLog entries processed by the standard plugin `org.imixs.workflow.engine.plugins.EventLogPlugin`. This event log definition allows the configuration of an AI Agent via the BPMN model in any BPMN event. The configuration is defined in the `<document>` element of teh event log entry and is read by the `AIAgentOperator`, which picks up the EventLog entry and runs the agent loop in its own isolated transaction.
 
 ```xml
 <eventlog name="ai.agent.process">
@@ -92,11 +97,11 @@ AI Agents are defined and started in EventLog entries processed by the standard 
 | `agent.result.type`    | An optional result type to process a completion result by a Imixs AI Result handler out                                                                                      |
 | `agent.debug`          | 'true' to activate the debug mode                                                                                                                                            |
 
-The workitem item defined by the parameter `agent.context.item` holds the complete conversation state of the AI Agent. The state is persisted with every process step and allows to continue an Agent process at any time. The agent context is a list of message entries consisting of 'system', 'user' and 'assistant' roles in an alternating mode according to the OpenAI API. The agent context also includes a protocol of all tool calls.
+The item referenced by `agent.context.item` contains the complete conversation state of the AI agent. It is represented as a sequence of `system`, `user`, and `assistant` messages following the OpenAI API format and includes the complete history of all tool calls. The context is persisted after each process step, allowing the agent process to be interrupted and resumed at any time without losing conversational state.
 
 ## The AIAgentPlugin
 
-The plugin class `org.imixs.ai.agent.AIAgentPlugin` is one way to trigger an agentic business process. The plugin can be used in any compliance workflow event to start a new agent.
+The plugin class `org.imixs.ai.agent.AIAgentPlugin` is one way to trigger an agentic business process. The plugin can be used in any compliance workflow event to start a new AI Agent process.
 
 ```xml
 <imixs-ai name="AGENT">
@@ -114,6 +119,7 @@ The plugin class `org.imixs.ai.agent.AIAgentPlugin` is one way to trigger an age
 | `agent.init.event` | The initial event ot start a new agentic process instance |
 
 The init event in an agentic model typically start the agent loop by defining a AI Agent Configuration as described before.
+The plugin automatically connects the compliance worklfow with the AI Agent workflow and provides a reference in the item `agent.workitem.ref`.
 
 ---
 

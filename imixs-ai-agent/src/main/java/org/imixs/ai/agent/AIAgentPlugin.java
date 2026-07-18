@@ -70,13 +70,10 @@ public class AIAgentPlugin extends AbstractPlugin {
 			// no op!
 			return workitem;
 		}
-
-		logger.finest("running RAGPlugin");
-
+		logger.finest("running AIAgentPlugin");
 		// read optional configuration form the model or imixs.properties....
 		List<ItemCollection> agentDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-ai",
 				AGENT, workitem, true);
-
 		// AGENT Mode?
 		if (agentDefinitions != null) {
 			for (ItemCollection agentConfig : agentDefinitions) {
