@@ -16,16 +16,12 @@ import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
-import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
 
-import jakarta.annotation.Priority;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.interceptor.Interceptor;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
@@ -69,9 +65,9 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
         return TOOL_LINK_WORKITEM;
     }
 
-    public void onToolRegistration(
-            @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
-        event.addFunction(
+    @Override
+    public void register(ImixsAIContextHandler contextHandler) {
+        contextHandler.addFunction(
                 TOOL_LINK_WORKITEM,
                 "Searches for workitems by a set of index field/value criteria (same mechanism as "
                         + "find_workitem) and links every match directly to the current workitem "

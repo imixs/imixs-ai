@@ -62,7 +62,7 @@ public class TestAIContextHandler {
                 "  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>\n" + //
                 "  <result-event>BOOLEAN</result-event>\n" + //
                 "  <PromptDefinition>\n" + //
-                "    <prompt_options>{\"n_predict\": 16, \"temperature\": 0 }</prompt_options>\n" + //
+                "    <options>{\"n_predict\": 16, \"temperature\": 0 }</options>\n" + //
                 "    <prompt role=\"system\"><![CDATA[\n" + //
                 "       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>\n" + //
                 "    </prompt>\n" + //
@@ -115,7 +115,7 @@ public class TestAIContextHandler {
                 "  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>\n" + //
                 "  <result-event>BOOLEAN</result-event>\n" + //
                 "  <PromptDefinition>\n" + //
-                "    <prompt_options>{\"n_predict\": 16, \"temperature\": 0 }</prompt_options>\n" + //
+                "    <options>{\"n_predict\": 16, \"temperature\": 0 }</options>\n" + //
                 "    <prompt role=\"system\"><![CDATA[\n" + //
                 "       You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>\n" + //
                 "    </prompt>\n" + //
@@ -247,9 +247,9 @@ public class TestAIContextHandler {
     }
 
     /**
-     * Verifies that prompt_options from the prompt definition merge on top of
-     * pre-seeded options instead of replacing them. This is the core change from
-     * the options layering refactoring.
+     * Verifies that options from the prompt definition merge on top of pre-seeded
+     * options instead of replacing them. This is the core change from the options
+     * layering refactoring.
      */
     @Test
     public void testPromptOptionsMergeWithSeededOptions() {
@@ -261,7 +261,7 @@ public class TestAIContextHandler {
         // Prompt definition overrides only temperature
         String promptDef = "<imixs-ai>\n" +
                 "  <PromptDefinition>\n" +
-                "    <prompt_options>{\"temperature\": 0.9}</prompt_options>\n" +
+                "    <options>{\"temperature\": 0.9}</options>\n" +
                 "    <prompt role=\"user\">Test</prompt>\n" +
                 "  </PromptDefinition>\n" +
                 "</imixs-ai>";
@@ -270,7 +270,7 @@ public class TestAIContextHandler {
             imixsAIContextHandler.addPromptDefinition(promptDef);
 
             JsonObject finalRequest = imixsAIContextHandler.getOpenAIMessageObject();
-            // temperature was overridden by prompt_options
+            // temperature was overridden by options
             assertEquals(0.9, finalRequest.getJsonNumber("temperature").doubleValue());
             // model and max_tokens survived from seeded options
             assertEquals("llama-3", finalRequest.getString("model"));
@@ -282,8 +282,8 @@ public class TestAIContextHandler {
     }
 
     /**
-     * Verifies that a prompt definition without prompt_options leaves the seeded
-     * options untouched.
+     * Verifies that a prompt definition without options leaves the seeded options
+     * untouched.
      */
     @Test
     public void testPromptWithoutOptionsKeepsSeededOptions() {

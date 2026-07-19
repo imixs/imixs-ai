@@ -76,7 +76,7 @@ public class ConditionalAIAdapter implements Serializable {
             "  <endpoint>llm-endpoint</endpoint>\n" + //
             "  <result-event>BOOLEAN</result-event>\n" + //
             "  <PromptDefinition>\n" + //
-            "    <prompt_options>{\"n_predict\": 16, \"temperature\": 0 }</prompt_options>\n" + //
+            "    <options>{\"n_predict\": 16, \"temperature\": 0 }</options>\n" + //
             "    <prompt role=\"system\"><![CDATA[\n" + //
             "       Evaluate the following condition to 'true' or 'false'. Do only answer with 'true' or 'false'. Do not add any additional context into your answer.]]>\n"
             + //

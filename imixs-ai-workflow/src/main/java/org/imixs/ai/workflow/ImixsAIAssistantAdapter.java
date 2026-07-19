@@ -187,7 +187,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     workitem.replaceItemValue("$event.name", event.getItemValueString("name"));
                     String eventPromptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
                     imixsAIContextHandler.addPromptDefinition(eventPromptTemplate);
-                    logger.setLevel(imixsAIContextHandler.getLogLevel());
+                    imixsAIContextHandler.setDebug(llmAPIDebug);
                     logger.fine("Event Template: " + eventPromptTemplate);
 
                     String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,

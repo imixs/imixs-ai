@@ -14,17 +14,14 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
-import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
 
-import jakarta.annotation.Priority;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.interceptor.Interceptor;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
@@ -56,9 +53,14 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
         return TOOL_FIND_WORKITEM;
     }
 
-    public void onToolRegistration(
-            @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
-        event.addFunction(
+    /**
+     * This method registers the ToolCall handler
+     * 
+     * @param event
+     */
+    @Override
+    public void register(ImixsAIContextHandler contextHandler) {
+        contextHandler.addFunction(
                 TOOL_FIND_WORKITEM,
                 "Searches for workitems by a set of index field/value criteria, combined with AND. "
                         + "Returns a list of matching workitems with their $uniqueid and $workflowsummary "

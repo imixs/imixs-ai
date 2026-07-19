@@ -13,6 +13,8 @@
  ****************************************************************************/
 package org.imixs.ai.tools;
 
+import org.imixs.ai.ImixsAIContextHandler;
+
 /**
  * Interface for a single tool call handler. Each implementation is responsible
  * for exactly one named tool.
@@ -23,6 +25,14 @@ public interface ToolCallHandler {
      * @return the unique tool name this handler is responsible for
      */
     String getToolName();
+
+    /**
+     * This method registers the ToolCall handler during AI Agent initialization
+     * 
+     * @param event
+     */
+
+    public void register(ImixsAIContextHandler contextHandler);
 
     /**
      * Executes the tool call. The handler is expected to set the result or error on

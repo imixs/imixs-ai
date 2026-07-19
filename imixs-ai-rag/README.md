@@ -35,7 +35,7 @@ A typical RAG setup needs two endpoints: one completion model and one embeddings
 Refer to the [imixs-ai-workflow README](../imixs-ai-workflow/README.md#llm-endpoint-configuration) for the full `imixs-llm.xml` reference, the `LLM_CONFIG_FILE` property, and the three-layer options layering. RAG-specific notes:
 
 - **Completion calls** (used in PROMPT mode) support all three options layers: endpoint defaults → BPMN event override → prompt definition override.
-- **Embedding calls** (used in INDEX, PROMPT and RETRIEVAL modes) support two layers: endpoint defaults → BPMN event override. The `<prompt_options>` from a PromptDefinition is **not** applied to embedding requests.
+- **Embedding calls** (used in INDEX, PROMPT and RETRIEVAL modes) support two layers: endpoint defaults → BPMN event override. The `<options>` from a PromptDefinition is **not** applied to embedding requests.
 
 ## Integration
 
@@ -118,7 +118,7 @@ This is useful for indexing AI-generated summaries or analyses rather than raw w
 | `options`             | JSON    | Optional options applied to the completion call (BPMN event layer) |
 | `debug`               | Boolean | Optional, prints processing information                            |
 
-The completion call uses the full three-layer options stack: endpoint defaults, the `<options>` above as BPMN event override, and `<prompt_options>` from the PromptDefinition. The subsequent embedding call uses the embeddings endpoint defaults only.
+The completion call uses the full three-layer options stack: endpoint defaults, the `<options>` above as BPMN event override, and `<options>` from the PromptDefinition. The subsequent embedding call uses the embeddings endpoint defaults only.
 
 ## RETRIEVAL
 

@@ -17,14 +17,10 @@ import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
-import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 
-import jakarta.annotation.Priority;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Named;
-import jakarta.interceptor.Interceptor;
 import jakarta.json.JsonObject;
 
 /**
@@ -60,9 +56,9 @@ public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializa
      * Registers the update_workitem function definition during the agent tool
      * registration phase.
      */
-    public void onToolRegistration(
-            @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
-        event.addFunction(
+    @Override
+    public void register(ImixsAIContextHandler contextHandler) {
+        contextHandler.addFunction(
                 TOOL_UPDATE_WORKITEM,
                 "Writes a set of field/value/type entries directly into the current workitem. "
                         + "Which field names are available and what they mean is described in the current "

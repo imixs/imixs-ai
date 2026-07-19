@@ -109,7 +109,6 @@ public class OpenAIAPIService implements Serializable {
     @Inject
     private Event<ImixsAIResultEvent> llmResultEventObservers = null;
 
-    // Function Events
     @Inject
     @Any
     private Instance<ToolCallHandler> toolCallHandlers;
@@ -335,12 +334,12 @@ public class OpenAIAPIService implements Serializable {
      * more than one handler claims the same name, since this indicates a
      * configuration error (duplicate tool registration).
      */
-    private ToolCallHandler resolveHandler(String toolName) {
+    public ToolCallHandler resolveHandler(String toolName) {
         ToolCallHandler found = null;
         for (ToolCallHandler handler : toolCallHandlers) {
             if (toolName.equals(handler.getToolName())) {
                 if (found != null) {
-                    logger.warning("├── ⚠️ Multiple ToolCallHandler implementations registered for tool '"
+                    logger.warning("├── ⚠️ Multiple ToolCallHandler implementations registered for tool call '"
                             + toolName + "' - using the first one found: "
                             + found.getClass().getSimpleName());
                     continue;
@@ -387,8 +386,9 @@ public class OpenAIAPIService implements Serializable {
             conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
                     OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
 
-            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
-                    "├── POST Completion: " + conn.getURL().toString());
+            if (debug) {
+                logger.info("├── POST Completion: " + conn.getURL().toString());
+            }
 
             // Set the appropriate HTTP method
             conn.setRequestMethod("POST");
@@ -399,9 +399,10 @@ public class OpenAIAPIService implements Serializable {
             // Write the JSON object to the output stream
             String jsonString = imixsAIContextHandler.getOpenAIMessageObject().toString();
 
-            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, "│   ├── 📥 Completion Request: ");
-            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, jsonString);
-
+            if (debug) {
+                logger.info("│   ├── 📥 Completion Request: ");
+                logger.info(jsonString);
+            }
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
                 os.write(input, 0, input.length);
@@ -419,8 +420,10 @@ public class OpenAIAPIService implements Serializable {
                         responseBody.append(responseLine.trim() + "\n");
                     }
                     response = responseBody.toString();
-                    imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, "│   ├── 📤 Completion Result: ");
-                    imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE, response);
+                    if (debug) {
+                        logger.info("│   ├── 📤 Completion Result: ");
+                        logger.info(response);
+                    }
                 }
             } else {
                 logger.severe("└──  ⚠️ postCompletion failed -  LLM HTTP Result=" + responseCode);
@@ -446,8 +449,11 @@ public class OpenAIAPIService implements Serializable {
                         "LLM Error - HTTP Result " + responseCode);
             }
 
-            imixsAIContextHandler.log(debug ? Level.INFO : Level.FINE,
-                    "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
+            if (debug) {
+                logger.info(
+                        "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
+
+            }
             return response;
 
         } catch (IOException e) {
@@ -605,10 +611,7 @@ public class OpenAIAPIService implements Serializable {
      * See details:
      * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
      *
-     * @param prompt
-     * @param stream         - boolean indicates if the client tries to stream the
-     *                       result.
-     * @param prompt_options
+     * @param imixsAIContextHandler - provides the current prompt context
      * @return
      */
     public JsonObject buildJsonPromptObjectV1(ImixsAIContextHandler imixsAIContextHandler) {
@@ -638,8 +641,7 @@ public class OpenAIAPIService implements Serializable {
      * fires a prompt event to all registered PromptEvent Observer classes. This
      * allows adaptors to customize the prompt.
      * 
-     * Finally the method stores the prompt_options in the item
-     * 'ai.prompt.prompt_options'
+     * Finally the method stores the prompt options in the item 'ai.prompt.options'
      * 
      * 
      * @param promptTemplate - a imixs-ai prompt XML-Template
@@ -678,11 +680,11 @@ public class OpenAIAPIService implements Serializable {
                         "Missing prompt tag in embedding prompt template!");
             }
 
-            // prompt_options
-            modelNodes = doc.getElementsByTagName("prompt_options");
+            // prompt options
+            modelNodes = doc.getElementsByTagName("options");
             if (modelNodes.getLength() > 0) {
                 Node modelNode = modelNodes.item(0);
-                workitem.setItemValue("ai.prompt.prompt_options", modelNode.getTextContent());
+                workitem.setItemValue("ai.prompt.options", modelNode.getTextContent());
             }
 
         } catch (IOException | ParserConfigurationException | SAXException e) {

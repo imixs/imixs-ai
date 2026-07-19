@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -22,6 +21,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.imixs.ai.api.LLMOptions;
+import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
@@ -34,6 +34,8 @@ import org.xml.sax.SAXException;
 
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.ObserverException;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.json.Json;
@@ -77,10 +79,14 @@ public class ImixsAIContextHandler implements Serializable {
 
     private ItemCollection workItem = null;
     private String itemNameContext;
-    private java.util.logging.Level logLevel = Level.INFO;
+    private boolean debug;
 
     @Inject
     private Event<ImixsAIPromptEvent> llmPromptEventObservers = null;
+
+    @Inject
+    @Any
+    private Instance<ToolCallHandler> toolCallHandlers;
 
     // Message container for API
     private List<ItemCollection> context = null;
@@ -126,45 +132,20 @@ public class ImixsAIContextHandler implements Serializable {
         return workItem;
     }
 
-    public java.util.logging.Level getLogLevel() {
-        return logLevel;
+    public boolean isDebug() {
+        return debug;
     }
 
-    public void setLogLevel(java.util.logging.Level logLevel) {
-        this.logLevel = logLevel;
-    }
-
-    /**
-     * Extract and apply logging level form prompt definition
-     * 
-     * @param doc
-     */
-    private void parseLogLevel(Document doc) {
-        NodeList loggingNodes = doc.getElementsByTagName("loglevel");
-        if (loggingNodes.getLength() > 0) {
-            Node loggingNode = loggingNodes.item(0);
-            String logLevelStr = loggingNode.getTextContent().trim();
-            if (!logLevelStr.isBlank()) {
-                try {
-                    // convert to java.util.logging.Level
-                    logLevel = java.util.logging.Level.parse(logLevelStr.toUpperCase());
-                    // Setze das Level für diesen Logger
-                    logger.setLevel(logLevel);
-                    logger.config("Logger level set to: " + logLevel.getName());
-                } catch (IllegalArgumentException e) {
-                    logger.warning("Invalid log level '" + logLevelStr +
-                            "' in XML. Using default level.");
-                }
-            }
-        }
+    public void setDebug(boolean debug) {
+        this.debug = debug;
     }
 
     /**
      * Custom log method that respects the configured logLevel. Always uses
      * logger.info() but checks the desired level first.
      */
-    public void log(Level level, String message) {
-        if (level.intValue() >= logLevel.intValue()) {
+    public void log(String message) {
+        if (debug) {
             logger.info(message);
         }
     }
@@ -372,17 +353,64 @@ public class ImixsAIContextHandler implements Serializable {
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
 
-            parseLogLevel(doc);
-            log(Level.FINE, "├── addPromptDefinition...");
+            log("├── addPromptDefinition...");
 
-            // check prompt_options
-            NodeList optionNodes = doc.getElementsByTagName("prompt_options");
+            // check prompt options
+            String promptOptions = "";
+            NodeList optionNodes = doc.getElementsByTagName("options");
             if (optionNodes.getLength() > 0) {
                 Node modelNode = optionNodes.item(0);
-                String promptOptions = modelNode.getTextContent();
-                if (!promptOptions.isBlank()) {
-                    log(Level.FINE, "│   ├── merge PromptOptions: " + promptOptions);
-                    this.addOptions(promptOptions); // <-- Merge auf Layer 1+2 drauf
+                promptOptions = modelNode.getTextContent();
+            }
+            // support deprecated prompt_options
+            if (promptOptions.isBlank()) {
+                optionNodes = doc.getElementsByTagName("prompt_options");
+                if (optionNodes.getLength() > 0) {
+                    logger.warning("Deprecated promptDefinition - use 'options' instead of 'prompt_options'!");
+                    Node modelNode = optionNodes.item(0);
+                    promptOptions = modelNode.getTextContent();
+                }
+            }
+            if (!promptOptions.isBlank()) {
+                log("│   ├── merge PromptOptions: " + promptOptions);
+                this.addOptions(promptOptions); // <-- Merge auf Layer 1+2 drauf
+            }
+
+            // register toolCall Handler.
+            // If prompt_tools are defined, only allowed tool calls will be added
+            if (toolCallHandlers != null) {
+                NodeList toolNodes = doc.getElementsByTagName("tools");
+                List<String> allowedToolCalls = new ArrayList<>();
+                if (toolNodes.getLength() > 0) {
+                    Node modelNode = toolNodes.item(0);
+                    String promptTools = modelNode.getTextContent();
+                    if (!promptTools.isBlank()) {
+                        String[] toolList = promptTools.split(",");
+                        for (String toolCall : toolList) {
+
+                            allowedToolCalls.add(toolCall.trim());
+
+                        }
+                    }
+                    // add default toolCall 'task_complete' if not yet added!
+                    if (allowedToolCalls.size() > 0 && !allowedToolCalls.contains("task_complete")) {
+                        allowedToolCalls.add("task_complete");
+                    }
+                }
+
+                for (ToolCallHandler handler : toolCallHandlers) {
+                    String toolName = handler.getToolName();
+                    // if no toolCalls are defined, all toolCallhandler can be registered
+                    if (allowedToolCalls.isEmpty()) {
+                        log("│   ├── register tool: '" + toolName + "'");
+                        handler.register(this);
+                    } else {
+                        // register the toolCall only if the name is listed
+                        if (allowedToolCalls.contains(toolName)) {
+                            log("│   ├── register tool: '" + toolName + "'");
+                            handler.register(this);
+                        }
+                    }
                 }
             }
 
@@ -558,7 +586,7 @@ public class ImixsAIContextHandler implements Serializable {
             builder.add("stream", true);
         }
         JsonObject result = builder.build();
-        log(Level.FINEST, "│   ├── generated JSON: " + result.toString());
+        logger.fine("│   ├── generated JSON: " + result.toString());
         return result;
     }
 

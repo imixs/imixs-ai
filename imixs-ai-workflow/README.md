@@ -85,7 +85,7 @@ LLM options can be defined on three levels. They are merged additively in the fo
 
 1. **Endpoint defaults** – defined in `imixs-llm.xml` and apply to every call against this endpoint
 2. **BPMN event override** – defined in the `<imixs-ai>` element of a BPMN signal event (see below)
-3. **Prompt definition override** – defined in the `<prompt_options>` element of a Prompt Template
+3. **Prompt definition override** – defined in the `<options>` element of a Prompt Template
 
 The final JSON body sent to the LLM endpoint is the merge of all three layers. A typical use case is to keep the model name and `max_tokens` stable on the endpoint level, while letting individual events or prompts override only the `temperature`.
 
@@ -127,17 +127,17 @@ The `endpoint` value is the logical id of an entry in `imixs-llm.xml` – not a 
 
 #### The Prompt Template
 
-The prompt is defined in a prompt template – an XML object containing the prompt messages and optional `prompt_options`. The prompt template may contain a sequence of prompt messages with one of the roles `system`, `user`, `assistant`, according to the OpenAI API chat template.
+The prompt is defined in a prompt template – an XML object containing the prompt messages and optional `options`. The prompt template may contain a sequence of prompt messages with one of the roles `system`, `user`, `assistant`, according to the OpenAI API chat template.
 
 ```xml
 <PromptDefinition>
-  <prompt_options>{"temperature": 0.3, "top_p": 0.9}</prompt_options>
+  <options>{"temperature": 0.3, "top_p": 0.9}</options>
   <prompt role="system">You are a computer expert.</prompt>
   <prompt role="user">How long is a byte?</prompt>
 </PromptDefinition>
 ```
 
-The `<prompt_options>` element holds a JSON object with options that are merged on top of the endpoint defaults and BPMN event options (Layer 3 of the options layering).
+The `<options>` element holds a JSON object with options that are merged on top of the endpoint defaults and BPMN event options (Layer 3 of the options layering).
 
 A prompt template should be defined in a separate BPMN DataObject associated with the corresponding BPMN event.
 
@@ -152,7 +152,7 @@ This is the recommended way to define a prompt template. Optionally the prompt t
   <result-event>BOOLEAN</result-event>
   <prompt-template>
     <PromptDefinition>
-      <prompt_options>{"temperature": 0.3}</prompt_options>
+      <options>{"temperature": 0.3}</options>
       <prompt role="system">You are a sales expert. Your task is to summarize ingoing orders. </prompt>
       <prompt role="user"><itemvalue>$workflowsummary</itemvalue></prompt>
     </PromptDefinition>
@@ -271,7 +271,7 @@ A provided prompt template may look like this example:
   <endpoint>my-llm</endpoint>
   <result-event>BOOLEAN</result-event>
   <PromptDefinition>
-    <prompt_options>{"temperature": 0}</prompt_options>
+    <options>{"temperature": 0}</options>
     <prompt role="system"><![CDATA[
        You are a sales expert. You evaluate the following condition to 'true' or 'false'. ]]>
     </prompt>
@@ -308,7 +308,7 @@ LLMOptions options = llmConfigService.getOptions("my-llm");
 // Layer 2: programmatic override
 options.merge("{\"temperature\": 0.5}");
 
-// Seed the context handler – Layer 3 (prompt_options) merges on top
+// Seed the context handler – Layer 3 (options) merges on top
 // when addPromptDefinition is called.
 imixsAIContextHandler.setOptions(options);
 imixsAIContextHandler.addPromptDefinition(myTemplate);

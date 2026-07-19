@@ -126,7 +126,7 @@ public class ImixsAIPromptService implements Serializable {
     <endpoint>.....</endpoint>
     <prompt-template>
         <PromptDefinition>
-            <prompt_options>{}</prompt_options>
+            <options>{}</options>
             <prompt role="system">... </prompt>
         </PromptDefinition>
     </prompt-template>
@@ -184,7 +184,7 @@ public class ImixsAIPromptService implements Serializable {
     /**
      * This method validates a given prompt definition. The method is parsing a list
      * of role based prompt tags e.g. `<prompt role='user'>...</prompt>` and the
-     * optional tag `<prompt_options>`.
+     * optional tag `<options>`.
      * 
      * @param _prompt
      */

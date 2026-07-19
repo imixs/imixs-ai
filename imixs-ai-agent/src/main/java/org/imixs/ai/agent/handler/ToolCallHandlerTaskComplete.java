@@ -3,14 +3,11 @@ package org.imixs.ai.agent.handler;
 import java.io.Serializable;
 import java.util.logging.Logger;
 
+import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
-import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.tools.ToolCallHandler;
 
-import jakarta.annotation.Priority;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Named;
-import jakarta.interceptor.Interceptor;
 
 /**
  * Handles the "task_complete" tool call. Signals the AIAgentOperator that the
@@ -35,9 +32,9 @@ public class ToolCallHandlerTaskComplete implements ToolCallHandler, Serializabl
      * Registers the task_complete function definition during the agent tool
      * registration phase.
      */
-    public void onToolRegistration(
-            @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
-        event.addFunction(
+    @Override
+    public void register(ImixsAIContextHandler contextHandler) {
+        contextHandler.addFunction(
                 TOOL_TASK_COMPLETE,
                 "Call this when your task is fully completed and no more user input is needed. "
                         + "Do NOT call this if you still have open questions for the user.",

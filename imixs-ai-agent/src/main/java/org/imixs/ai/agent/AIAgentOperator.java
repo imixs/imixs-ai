@@ -16,7 +16,6 @@ import java.util.logging.Logger;
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.api.ToolCallResult;
-import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
 import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;
@@ -36,7 +35,6 @@ import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
-import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.OptimisticLockException;
 
@@ -131,10 +129,6 @@ public class AIAgentOperator {
 
     @Inject
     ImixsAIContextHandler contextHandler;
-
-    // Function Events
-    @Inject
-    private Event<ImixsAIToolRegistrationEvent> toolRegistrationEvent;
 
     /**
      * Looks up EventLog entries for the topic "ai.agent.process" and processes each
@@ -267,6 +261,8 @@ public class AIAgentOperator {
         String resultType = workitem.getItemValueString(AGENT_CONFIG_RESULT_TYPE);
         boolean debug = workitem.getItemValueBoolean(AGENT_CONFIG_DEBUG);
 
+        contextHandler.setDebug(debug);
+
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ENDPOINT + "={0}", endpoint);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_CONTEXT_ITEM + "={0}", contextItemName);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_USER_ITEM + "={0}", userInputInput);
@@ -311,17 +307,6 @@ public class AIAgentOperator {
                             "AGENT_ERROR", "BPMN Task " + workitem.getTaskID() + " does not have a prompt definition!");
                 }
                 contextHandler.addPromptDefinition(taskPromptTemplate);
-            }
-
-            // Re-add function definitions — these are not persisted in the context
-            // and must be provided with every request.
-            // Fire registration event — all handlers add their function definitions
-            ImixsAIToolRegistrationEvent registrationEvent = new ImixsAIToolRegistrationEvent(contextHandler);
-            toolRegistrationEvent.fire(registrationEvent);
-
-            // Register all collected functions with the context
-            for (ImixsAIToolRegistrationEvent.FunctionDefinition fn : registrationEvent.getFunctions()) {
-                contextHandler.addFunction(fn.getName(), fn.getDescription(), fn.getSchema());
             }
 
             // Append the new user question to the conversation if userMessage is defined in
