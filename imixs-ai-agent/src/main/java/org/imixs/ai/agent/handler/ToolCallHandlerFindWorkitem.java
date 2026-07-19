@@ -84,7 +84,7 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
     }
 
     @Override
-    public void handle(@Observes ImixsAIToolCallEvent event) {
+    public void handle(ImixsAIToolCallEvent event) {
         if (!TOOL_FIND_WORKITEM.equals(event.getToolName())) {
             return;
         }

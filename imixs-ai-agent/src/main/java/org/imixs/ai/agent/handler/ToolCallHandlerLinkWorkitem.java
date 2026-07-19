@@ -101,7 +101,7 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
     }
 
     @Override
-    public void handle(@Observes ImixsAIToolCallEvent event) {
+    public void handle(ImixsAIToolCallEvent event) {
 
         JsonObject criteria = event.getArguments().getJsonObject("criteria");
         if (criteria == null || criteria.isEmpty()) {

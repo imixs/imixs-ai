@@ -114,9 +114,6 @@ public class OpenAIAPIService implements Serializable {
     @Any
     private Instance<ToolCallHandler> toolCallHandlers;
 
-    // @Inject
-    // private Event<ImixsAIToolCallEvent> toolCallEventObservers = null;
-
     /**
      * This method returns a string with all the text content of all documents
      * attached to a workitem.

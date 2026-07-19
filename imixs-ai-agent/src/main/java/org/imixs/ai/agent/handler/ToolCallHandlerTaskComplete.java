@@ -61,7 +61,7 @@ public class ToolCallHandlerTaskComplete implements ToolCallHandler, Serializabl
      * successEvent instead of nextEvent.
      */
     @Override
-    public void handle(@Observes ImixsAIToolCallEvent event) {
+    public void handle(ImixsAIToolCallEvent event) {
 
         if (!TOOL_TASK_COMPLETE.equals(event.getToolName())) {
             return;

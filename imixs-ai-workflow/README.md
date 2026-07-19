@@ -423,27 +423,31 @@ The `tool_choice` parameter controls how the LLM uses the defined functions. The
 
 ### Processing Tool Call Results
 
-When the LLM responds with a tool call (`finish_reason: "tool_calls"`), the `OpenAIAPIService` fires a CDI event of the type `ImixsAIToolCallEvent`. An observer can handle the tool call and set the result:
+When the LLM responds with a tool call (`finish_reason: "tool_calls"`), the `OpenAIAPIService` lookups all registered ToolCallHandler CDI beans and call the matching handler. A TollCallHandler must at least implement the methods `getToolName` and `handle()`:
 
 ```java
-@ApplicationScoped
-public class WorkflowToolCallObserver {
+@Named
+public class MyToolCallHandler implements ToolCallHandler {
 
     @Inject
     WorkflowService workflowService;
 
-    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
-        if ("load_skill".equals(event.getToolName())) {
-            String processId = event.getArguments().getString("process_id");
-            // Load process details from workflow engine
-            String skillContent = workflowService.loadSkill(processId);
-            event.setResult(skillContent);
-        }
+    @Override
+    public String getToolName() {
+        return "load_skill";
+    }
+
+    public void handle(ImixsAIToolCallEvent event) {
+        String processId = event.getArguments().getString("process_id");
+        // Load process details from workflow engine
+        String skillContent = workflowService.loadSkill(processId);
+        event.setResult(skillContent);
+
     }
 }
 ```
 
-If no observer handles the tool call a `PluginException` is thrown.
+If no registered handler handle the tool call a `PluginException` is thrown.
 
 The tool call result is automatically added to the conversation context so the LLM can continue:
 

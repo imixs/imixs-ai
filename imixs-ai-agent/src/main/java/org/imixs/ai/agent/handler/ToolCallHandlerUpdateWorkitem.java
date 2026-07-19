@@ -107,7 +107,7 @@ public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializa
      * remaining entries are still applied.
      */
     @Override
-    public void handle(@Observes ImixsAIToolCallEvent event) {
+    public void handle(ImixsAIToolCallEvent event) {
         if (!TOOL_UPDATE_WORKITEM.equals(event.getToolName())) {
             return;
         }
