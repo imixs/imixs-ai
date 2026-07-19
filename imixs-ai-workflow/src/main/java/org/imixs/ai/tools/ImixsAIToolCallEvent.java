@@ -92,11 +92,4 @@ public class ImixsAIToolCallEvent {
         this.taskCompleted = taskCompleted;
     }
 
-    /**
-     * Returns true if an observer has handled the tool call.
-     */
-    public boolean isHandled() {
-        return toolMessage != null;
-    }
-
 }

@@ -34,6 +34,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.FileData;
@@ -51,6 +52,8 @@ import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.ObserverException;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
@@ -108,7 +111,11 @@ public class OpenAIAPIService implements Serializable {
 
     // Function Events
     @Inject
-    private Event<ImixsAIToolCallEvent> toolCallEventObservers = null;
+    @Any
+    private Instance<ToolCallHandler> toolCallHandlers;
+
+    // @Inject
+    // private Event<ImixsAIToolCallEvent> toolCallEventObservers = null;
 
     /**
      * This method returns a string with all the text content of all documents
@@ -193,17 +200,32 @@ public class OpenAIAPIService implements Serializable {
     }
 
     /**
-     * This method processes a tool call response from the LLM. If the finish_reason
-     * is "tool_calls", the method fires an ImixsAIToolCallEvent for each tool call
-     * so that observers can handle it. The result is added to the context as a tool
-     * message.
-     *
-     * The method returns a ToolCallsResult if a tool calls were found and handled.
-     * Otherwise the method returns null
+     * This method processes a tool call response from the LLM.
+     * <p>
+     * If the finish_reason is "tool_calls", the method resolves the responsible
+     * {@link ToolCallHandler} for each requested tool call by matching its
+     * {@link ToolCallHandler#getToolName()} against the tool name returned by the
+     * LLM, and invokes that single handler directly - instead of firing a CDI event
+     * to broadcast it to all observers. This dispatch acts as a safeguard: exactly
+     * one handler is called per tool call, so a handler implementation does not
+     * need to filter by tool name itself.
+     * <p>
+     * If no handler is registered for a requested tool name, a PluginException is
+     * thrown. If a handler throws an unchecked exception, it is caught and
+     * converted into a tool call error instead of aborting the agent loop.
+     * <p>
+     * The result of each tool call is added to the context as a tool message so it
+     * can be sent back to the LLM on the next iteration.
      *
      * @param jsonCompletionResult - raw JSON response from the LLM
      * @param contextHandler       - the current conversation context
-     * @throws PluginException
+     * @param resultType           - optional event type used to dispatch the
+     *                             business result of a tool call via
+     *                             ImixsAIResultEvent
+     * @return a ToolCallResult if tool calls were found and handled, or null if the
+     *         response did not contain any tool calls
+     * @throws PluginException if a requested tool has no registered handler, or if
+     *                         a handler reports an error
      */
     public ToolCallResult processToolCallResult(String jsonCompletionResult,
             ImixsAIContextHandler contextHandler, String resultType) throws PluginException {
@@ -258,15 +280,30 @@ public class OpenAIAPIService implements Serializable {
             // Fire CDI event - observers handle the actual execution
             ImixsAIToolCallEvent toolCallEvent = new ImixsAIToolCallEvent(
                     toolName, arguments, toolCallId, contextHandler);
-            toolCallEventObservers.fire(toolCallEvent);
+
+            // Central dispatch: find exactly the one handler responsible for this
+            // tool name and verify if the handler is allowed.
+            ToolCallHandler matchingHandler = resolveHandler(toolName);
+            if (matchingHandler == null) {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_INFERENCE,
+                        "No handler registered for tool: " + toolName);
+            }
+
+            try {
+                matchingHandler.handle(toolCallEvent);
+            } catch (RuntimeException e) {
+                // Defensive: a handler must not be able to break the agent loop
+                // with an unchecked exception.
+                logger.log(Level.WARNING, "├── Tool handler '" + toolName + "' failed unexpectedly", e);
+                toolCallEvent.setError("Tool '" + toolName + "' failed: " + e.getMessage());
+            }
+
+            // toolCallEventObservers.fire(toolCallEvent);
+
             if (toolCallEvent.hasError()) {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
                         "TOOL_CALL_ERROR", toolCallEvent.getError());
-            }
-            if (!toolCallEvent.isHandled()) {
-                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                        ERROR_PROMPT_INFERENCE,
-                        "No observer handled tool call: " + toolName);
             }
 
             // Add tool result to context for next LLM request
@@ -293,6 +330,28 @@ public class OpenAIAPIService implements Serializable {
 
         // return the toolCallResult object
         return new ToolCallResult(true, taskComplete);
+    }
+
+    /**
+     * Resolves the single ToolCallHandler responsible for the given tool name.
+     * Returns null if no handler is registered for this name. Logs a warning if
+     * more than one handler claims the same name, since this indicates a
+     * configuration error (duplicate tool registration).
+     */
+    private ToolCallHandler resolveHandler(String toolName) {
+        ToolCallHandler found = null;
+        for (ToolCallHandler handler : toolCallHandlers) {
+            if (toolName.equals(handler.getToolName())) {
+                if (found != null) {
+                    logger.warning("├── ⚠️ Multiple ToolCallHandler implementations registered for tool '"
+                            + toolName + "' - using the first one found: "
+                            + found.getClass().getSimpleName());
+                    continue;
+                }
+                found = handler;
+            }
+        }
+        return found;
     }
 
     /**
