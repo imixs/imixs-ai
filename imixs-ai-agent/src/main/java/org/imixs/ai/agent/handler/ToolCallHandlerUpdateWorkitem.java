@@ -9,6 +9,7 @@
  ****************************************************************************/
 package org.imixs.ai.agent.handler;
 
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -17,12 +18,12 @@ import java.util.logging.Logger;
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
+import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 
 import jakarta.annotation.Priority;
-import jakarta.ejb.LocalBean;
-import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Named;
 import jakarta.interceptor.Interceptor;
 import jakarta.json.JsonObject;
 
@@ -38,10 +39,10 @@ import jakarta.json.JsonObject;
  * definition of the current task - this handler itself has no knowledge of any
  * specific business field.
  */
-@Stateless
-@LocalBean
-public class ToolCallHandlerUpdateWorkitem {
+@Named
+public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializable {
 
+    private static final long serialVersionUID = 1L;
     public static final String TOOL_UPDATE_WORKITEM = "update_workitem";
 
     // Workitem fields with this prefix are reserved for workflow control and
@@ -49,6 +50,11 @@ public class ToolCallHandlerUpdateWorkitem {
     private static final String PROTECTED_FIELD_PREFIX = "$";
 
     private static final Logger logger = Logger.getLogger(ToolCallHandlerUpdateWorkitem.class.getName());
+
+    @Override
+    public String getToolName() {
+        return TOOL_UPDATE_WORKITEM;
+    }
 
     /**
      * Registers the update_workitem function definition during the agent tool
@@ -100,7 +106,8 @@ public class ToolCallHandlerUpdateWorkitem {
      * Entries that fail type conversion are skipped with a warning as well - the
      * remaining entries are still applied.
      */
-    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
+    @Override
+    public void handle(@Observes ImixsAIToolCallEvent event) {
         if (!TOOL_UPDATE_WORKITEM.equals(event.getToolName())) {
             return;
         }

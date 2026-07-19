@@ -1,16 +1,15 @@
 package org.imixs.ai.agent.handler;
 
+import java.io.Serializable;
 import java.util.logging.Logger;
 
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
+import org.imixs.ai.tools.ToolCallHandler;
 
 import jakarta.annotation.Priority;
-import jakarta.annotation.security.DeclareRoles;
-import jakarta.annotation.security.RunAs;
-import jakarta.ejb.LocalBean;
-import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Observes;
+import jakarta.inject.Named;
 import jakarta.interceptor.Interceptor;
 
 /**
@@ -19,15 +18,18 @@ import jakarta.interceptor.Interceptor;
  * operator evaluates this flag after the loop to decide whether to trigger
  * successEvent instead of nextEvent.
  */
-@DeclareRoles({ "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
-@RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
-@Stateless
-@LocalBean
-public class ToolCallHandlerTaskComplete {
+@Named
+public class ToolCallHandlerTaskComplete implements ToolCallHandler, Serializable {
 
+    private static final long serialVersionUID = 1L;
     public static final String TOOL_TASK_COMPLETE = "task_complete";
 
     private static final Logger logger = Logger.getLogger(ToolCallHandlerTaskComplete.class.getName());
+
+    @Override
+    public String getToolName() {
+        return TOOL_TASK_COMPLETE;
+    }
 
     /**
      * Registers the task_complete function definition during the agent tool
@@ -58,7 +60,8 @@ public class ToolCallHandlerTaskComplete {
      * workitem. The AIAgentOperator evaluates this flag after the loop to trigger
      * successEvent instead of nextEvent.
      */
-    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
+    @Override
+    public void handle(@Observes ImixsAIToolCallEvent event) {
 
         if (!TOOL_TASK_COMPLETE.equals(event.getToolName())) {
             return;
@@ -67,13 +70,7 @@ public class ToolCallHandlerTaskComplete {
         String result = event.getArguments().getString("result");
         logger.info("├── ToolCallHandlerTaskComplete: task_complete - result=" + result);
 
-        // Set the completion flag on the agent workitem
-        // event.getContextHandler().getWorkItem()
-        // .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_COMPLETE, true);
-        // Store the result for the operator and UI
-        // event.getContextHandler().getWorkItem()
-        // .setItemValue(AIAgentOperator.ITEM_AGENT_TASK_RESULT, result);
-
+        // Set the completion flag
         logger.info("│   └── ✅ task_complete flag set for agent: "
                 + event.getContextHandler().getWorkItem().getUniqueID());
 

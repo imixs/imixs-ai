@@ -9,6 +9,7 @@
  ****************************************************************************/
 package org.imixs.ai.agent.handler;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,14 +17,14 @@ import java.util.logging.Logger;
 import org.imixs.ai.ImixsAIContextHandler;
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
+import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
 
 import jakarta.annotation.Priority;
-import jakarta.ejb.LocalBean;
-import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.interceptor.Interceptor;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
@@ -48,10 +49,10 @@ import jakarta.json.JsonObjectBuilder;
  * several matches, all of them are linked, and the UI's link list component
  * lets a manager review and adjust the list afterwards.
  */
-@Stateless
-@LocalBean
-public class ToolCallHandlerLinkWorkitem {
+@Named
+public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializable {
 
+    private static final long serialVersionUID = 1L;
     public static final String TOOL_LINK_WORKITEM = "link_workitem";
     public static final String DEFAULT_REF_FIELD = "$workitemref";
 
@@ -62,6 +63,11 @@ public class ToolCallHandlerLinkWorkitem {
 
     @Inject
     WorkitemSearchService workitemSearchService;
+
+    @Override
+    public String getToolName() {
+        return TOOL_LINK_WORKITEM;
+    }
 
     public void onToolRegistration(
             @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
@@ -94,10 +100,8 @@ public class ToolCallHandlerLinkWorkitem {
                         """);
     }
 
-    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
-        if (!TOOL_LINK_WORKITEM.equals(event.getToolName())) {
-            return;
-        }
+    @Override
+    public void handle(@Observes ImixsAIToolCallEvent event) {
 
         JsonObject criteria = event.getArguments().getJsonObject("criteria");
         if (criteria == null || criteria.isEmpty()) {

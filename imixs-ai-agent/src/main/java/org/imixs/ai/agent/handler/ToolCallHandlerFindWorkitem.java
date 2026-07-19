@@ -9,20 +9,21 @@
  ****************************************************************************/
 package org.imixs.ai.agent.handler;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.tools.ImixsAIToolCallEvent;
 import org.imixs.ai.tools.ImixsAIToolRegistrationEvent;
+import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
 
 import jakarta.annotation.Priority;
-import jakarta.ejb.LocalBean;
-import jakarta.ejb.Stateless;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.interceptor.Interceptor;
 import jakarta.json.Json;
 import jakarta.json.JsonArrayBuilder;
@@ -38,18 +39,22 @@ import jakarta.json.JsonObjectBuilder;
  * "link_workitem" instead if the goal is to link a match to the current
  * workitem.
  */
-@Stateless
-@LocalBean
-public class ToolCallHandlerFindWorkitem {
+@Named
+public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializable {
 
+    private static final long serialVersionUID = 1L;
     public static final String TOOL_FIND_WORKITEM = "find_workitem";
 
     private static final int MAX_RESULT_COUNT = 20;
-
     private static final Logger logger = Logger.getLogger(ToolCallHandlerFindWorkitem.class.getName());
 
     @Inject
     WorkitemSearchService workitemSearchService;
+
+    @Override
+    public String getToolName() {
+        return TOOL_FIND_WORKITEM;
+    }
 
     public void onToolRegistration(
             @Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) ImixsAIToolRegistrationEvent event) {
@@ -78,7 +83,8 @@ public class ToolCallHandlerFindWorkitem {
                         """);
     }
 
-    public void onToolCall(@Observes ImixsAIToolCallEvent event) {
+    @Override
+    public void handle(@Observes ImixsAIToolCallEvent event) {
         if (!TOOL_FIND_WORKITEM.equals(event.getToolName())) {
             return;
         }
