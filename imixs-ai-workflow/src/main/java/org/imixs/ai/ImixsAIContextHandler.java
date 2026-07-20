@@ -79,6 +79,7 @@ public class ImixsAIContextHandler implements Serializable {
 
     private ItemCollection workItem = null;
     private String itemNameContext;
+    private boolean toolCallsEnabled = false;
     private boolean debug;
 
     @Inject
@@ -130,6 +131,14 @@ public class ImixsAIContextHandler implements Serializable {
 
     public ItemCollection getWorkItem() {
         return workItem;
+    }
+
+    public void disableToolCalls() {
+        this.toolCallsEnabled = false;
+    }
+
+    public void enableToolCalls() {
+        this.toolCallsEnabled = true;
     }
 
     public boolean isDebug() {
@@ -376,9 +385,10 @@ public class ImixsAIContextHandler implements Serializable {
                 this.addOptions(promptOptions); // <-- Merge auf Layer 1+2 drauf
             }
 
-            // register toolCall Handler.
-            // If prompt_tools are defined, only allowed tool calls will be added
-            if (toolCallHandlers != null) {
+            // Register toolCall Handler:
+            // if toolCallsEnabled are enabled and prompt_tools are defined
+            // only allowed tool calls will be added
+            if (toolCallsEnabled && toolCallHandlers != null) {
                 NodeList toolNodes = doc.getElementsByTagName("tools");
                 List<String> allowedToolCalls = new ArrayList<>();
                 if (toolNodes.getLength() > 0) {
