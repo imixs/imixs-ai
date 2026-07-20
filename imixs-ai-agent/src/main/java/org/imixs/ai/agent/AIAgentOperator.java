@@ -29,9 +29,11 @@ import org.imixs.workflow.exceptions.PluginException;
 import org.imixs.workflow.exceptions.ProcessingErrorException;
 import org.openbpmn.bpmn.BPMNModel;
 
+import jakarta.annotation.Resource;
 import jakarta.annotation.security.DeclareRoles;
 import jakarta.annotation.security.RunAs;
 import jakarta.ejb.LocalBean;
+import jakarta.ejb.SessionContext;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
@@ -130,6 +132,12 @@ public class AIAgentOperator {
     @Inject
     ImixsAIContextHandler contextHandler;
 
+    @Resource
+    SessionContext ctx;
+
+    @Inject
+    AIAgentEventLogCleanupService cleanupService;
+
     /**
      * Looks up EventLog entries for the topic "ai.agent.process" and processes each
      * one in a new transaction. Uses optimistic locking to prevent concurrent
@@ -209,14 +217,22 @@ public class AIAgentOperator {
                 // Run the agent loop
                 runAgentLoop(agentWorkitem);
 
-                // finally remove event....
-                eventLogService.removeEvent(eventLogEntry.getId());
-
             } catch (OptimisticLockException e) {
                 logger.log(Level.INFO, "│   ├── ⚠️ unable to lock agent event: {0}", e.getMessage());
             } catch (Exception e) {
                 logger.log(Level.WARNING, "│   ├── ⚠️ agent processing failed: {0}", e.getMessage());
-                eventLogService.removeEvent(eventLogEntry.getId());
+            } finally {
+                // Remove the event log entry. If the enclosing transaction has already
+                // been marked for rollback (e.g. due to a PluginException from
+                // processWorkItem()), a normal removeEvent() call would be rolled back
+                // together with everything else - leaving the entry to be picked up
+                // again and causing an infinite loop. In that case we remove it in a
+                // dedicated, guaranteed-fresh transaction instead.
+                if (ctx.getRollbackOnly()) {
+                    cleanupService.removeEventInNewTransaction(eventLogEntry.getId());
+                } else {
+                    eventLogService.removeEvent(eventLogEntry.getId());
+                }
             }
         }
 
@@ -240,8 +256,9 @@ public class AIAgentOperator {
      * @param maxIterations maximum number of LLM calls
      * @param successEvent  BPMN event ID to trigger on successful completion
      * @param errorEvent    BPMN event ID to trigger on failure or timeout
+     * @throws PluginException
      */
-    private void runAgentLoop(ItemCollection workitem) {
+    private void runAgentLoop(ItemCollection workitem) throws PluginException {
 
         String workitemId = workitem.getUniqueID();
         logger.info("├── Starting agent loop for workitem " + workitemId);
@@ -289,6 +306,8 @@ public class AIAgentOperator {
             // Restore conversation context from workitem.
             // importContext calls init() internally, so functions must be added afterwards.
             contextHandler.importContext(workitem, contextItemName);
+            // Explizit enable tool calls
+            contextHandler.enableToolCalls();
 
             // Only initialize the system prompt on the very first call.
             // On subsequent calls the context already contains the system message
@@ -389,7 +408,7 @@ public class AIAgentOperator {
             throw new PluginException(AIAgentOperator.class.getSimpleName(),
                     "AGENT_LOOP_ERROR", "Max iterations reached without result");
 
-        } catch (AdapterException | PluginException | ModelException e) {
+        } catch (AdapterException | ModelException e) {
             logger.log(Level.WARNING, "│   ├── ⚠️ Agent loop failed: {0}", e.getMessage());
             workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_ERROR);
             try {
@@ -411,14 +430,12 @@ public class AIAgentOperator {
      */
     private void triggerWorkflowEvent(ItemCollection workitem, int eventId)
             throws PluginException, ModelException {
+
         workitem.event(eventId);
-
-        logger.info(" trigger event " + workitem.getModelVersion() + "  " + workitem.getTaskID() + "."
+        logger.info("│   ├── trigger event " + workitem.getModelVersion() + "  " + workitem.getTaskID() + "."
                 + workitem.getEventID());
-
         workflowService.processWorkItem(workitem);
         logger.info("│   └── ✅ Workflow event " + eventId + " triggered for " + workitem.getUniqueID());
-        return;
     }
 
     /**
