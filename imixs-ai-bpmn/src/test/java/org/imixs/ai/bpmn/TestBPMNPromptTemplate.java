@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.model.BPMNTemplateBuilder;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;

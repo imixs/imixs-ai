@@ -1,0 +1,85 @@
+{"messages":[{"role":"system","content":"
+You are a workflow assistant.
+
+YOUR TASK:
+
+1. Categorize the document into the following categories:
+   - document.sender = The sender of this document (e.g. the customer, the supplier, or the contract partner)
+   - document.language = The language the document is written in
+    
+2. Based on the content of the document find a appropriate workflow with the modelversion, taskid and eventid from the WORKFLOW LIST below.
+
+3. Write the data  into the current workitem using the tool call \"update_workitem\". Use exactly the following field names and types:
+
+ - \"document.sender\" (string) - The sender of this document
+ - \"document.language\" (string) - The language of the document
+ - \"document.type\" (string) - The type of the document (E-Mail, E-Mail with attachments, Office Document, PDF Document, ...)
+ - \"document.modelversion (string) - The model version matching the document content - leave blank if no model was selected
+ - \"document.taskid (int) - The matching start task for the selected model
+ - \"document.eventid (int) - The matching start event for the selected model
+
+DECISSION:
+
+Can you assign the process to a workflow based on the document content?
+
+YES → Call task_complete.
+
+NO → Answer in free text.  
+Formulate exactly ONE specific question for the user whose answer would help you assign the process to one of the workflows.
+
+
+WORKFLOW LIST:
+
+# Model: inbox-en-4.0
+The system utilizes OCR to analyze incoming emails, automatically detecting their document type and language. Once analyzed, the email undergoes classification to determine its core intent. Finally, the email is dynamically routed to the appropriate operational workflow (Support, Sales, Finance, or Legal) for processing.
+
+## Process: Inbox
+Process Document Import
+
+### Task: Inbox
+(modelversion: inbox-en-4.0, taskid: 100)
+
+#### Events: 
+  - **Import** (eventid: 10)
+
+**Form Fields:**
+- `document.company` (text): Company: 
+- `document.type` (text): Document Type: 
+- `document.language` (text): Language: 
+- `document.summary` (custom): 
+
+
+
+  "},{"role":"user","content":"Microsoft Outlook - Memoformat
+1
+empfang@mueller-ahlhorn.com
+Von: info@mueller-ahlhorn.com
+Gesendet: Dienstag, 6. Januar 2026 12:49
+An: empfang@mueller-ahlhorn.com
+Betreff: WG: 25-6215 Anfrage Flachdichtung
+Anlagen: 25-6215_Anfrage Flachdichtung.pdf; 1885 298_FlatSeal.jpg
+Von: Achim Koordt <achim.koordt@oke.de>
+Gesendet: Dienstag, 6. Januar 2026 10:34
+An: info@mueller-ahlhorn.com
+Cc: Martin Steingroever <Martin.Steingroever@oke.de>
+Betreff: 25-6215 Anfrage Flachdichtung
+Sehr geehrte Damen und Herren,
+via google bin ich auf Ihre Internetseite gestoßen.
+PORON-Schäume | Dr. Dietrich Müller GmbH
+Sie erhalten hiermit eine Anfrage für eine Flachdichtung, Skizze im Anhang.
+Szenario1: Max. 1.800 Stück/p.a.
+Szenario 2: Max. 3.600 Stück/p.a.
+Wir bitten um Prüfung und um Bewertung hinsichtlich Machbarkeit sowie um ein kostenloses Angebot.
+Eckdaten zum Volumen und zur Terminschiene finden Sie in dem beigefügten pdf.
+Lassen Sie uns bitte Ihr Angebot sowie Materialdatenblätter (sofern möglich)  bis Freitag, 9.1.2026 zukommen –
+vielen Dank !
+All orders are subject to the OKE Group's General Terms and Conditions of Purchase.
+We will make them available to you on request and you can also view them on our homepage.
+Für Fragen stehen wir gerne zur Verfügung.
+Please do not hesitate to contact us if you have any quesƟons.
+Mit freundlichen Grüßen / Kind regards
+Achim Koordt
+Projektmanagement
+OKE Spritzgusstechnik GmbH, Nobelstraße 7, 48477 Hörstel, Germany, Phone +49 5459 914-162,
+achim.koordt@oke.de / AG Steinfurt HRB 9901, Sitz Hörstel / CEO André Stockmann, Thomas Tillner /
+USt-IdNr.: DE815413012 / Eori: DE203735162634559 / See our legals on oke-group.com."}],"tools":[{"type":"function","function":{"name":"get_skill","description":"Retrieves the full content of a skill by its uniqueid. The uniqueid is provided by a prior find_skill call. The returned content contains the full instructions for the current task.","parameters":{"type":"object","properties":{"uniqueid":{"type":"string","description":"The uniqueid of the skill as returned by find_skill"}},"required":["uniqueid"]}}},{"type":"function","function":{"name":"link_workitem","description":"Searches for workitems by a set of index field/value criteria (same mechanism as find_workitem) and links every match directly to the current workitem (max 10 matches). Use this instead of find_workitem when the goal is to actually create the link, not just look at candidates. Which index field names are available and what they mean is described in the current task instructions.","parameters":{"type":"object","properties":{"criteria":{"type":"object","description":"Map of index field name to search value, combined with AND. Example: {\"$workflowgroup\": \"contract\", \"id\": \"M-AH-4524\"}","additionalProperties":{"type":"string"}},"refField":{"type":"string","description":"Optional name of an additional workitem field to store the link(s) in. The link is always also stored in '$workitemref' regardless of this parameter."}},"required":["criteria"]}}},{"type":"function","function":{"name":"update_workitem","description":"Writes a set of field/value/type entries directly into the current workitem. Which field names are available and what they mean is described in the current task instructions. Fields starting with '$' are reserved and will be ignored. Date values must be formatted as ISO 8601 (YYYY-MM-DD). Amount/number values must be formatted as plain decimal numbers (e.g. '46.77'), without currency symbols or thousands separators.","parameters":{"type":"object","properties":{"values":{"type":"object","description":"Map of workitem field name to value and type. Example: {\"payment.iban\": {\"value\": \"DE98500109000022175010\", \"type\": \"string\"}, \"payment.amount\": {\"value\": \"46.77\", \"type\": \"double\"}, \"payment.duedate\": {\"value\": \"2026-06-27\", \"type\": \"date\"}}","additionalProperties":{"type":"object","properties":{"value":{"type":"string","description":"The value as a string. For type 'date' use ISO 8601 (YYYY-MM-DD). For type 'double' use a plain decimal number."},"type":{"type":"string","enum":["string","double","date"],"description":"Target data type of the field"}},"required":["value","type"]}}},"required":["values"]}}},{"type":"function","function":{"name":"find_skill","description":"Searches for available skills by category. Returns a list of skills with their name, description and uniqueid. Use the name and description to select the most appropriate skill for the current task. Then call get_skill with the uniqueid to retrieve the full skill content.","parameters":{"type":"object","properties":{"category":{"type":"string","description":"The skill category to search for"}},"required":["category"]}}},{"type":"function","function":{"name":"task_complete","description":"Call this when your task is fully completed and no more user input is needed. Do NOT call this if you still have open questions for the user.","parameters":{"type":"object","properties":{"result":{"type":"string","description":"The final result or summary of the completed task"}},"required":["result"]}}},{"type":"function","function":{"name":"find_workitem","description":"Searches for workitems by a set of index field/value criteria, combined with AND. Returns a list of matching workitems with their $uniqueid and $workflowsummary (max 20 results). This is a read-only lookup - it does not modify the current workitem. Which index field names are available and what they mean is described in the current task instructions. Use link_workitem instead if the goal is to link a match to the current workitem.","parameters":{"type":"object","properties":{"criteria":{"type":"object","description":"Map of index field name to search value, combined with AND. Example: {\"$workflowgroup\": \"contract\", \"id\": \"M-AH-4524\"}","additionalProperties":{"type":"string"}}},"required":["criteria"]}}}],"tool_choice":"auto","n_predict":4096,"temperature":0}

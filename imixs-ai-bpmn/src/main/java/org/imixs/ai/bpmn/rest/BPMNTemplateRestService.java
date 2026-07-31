@@ -12,15 +12,15 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.rest;
+package org.imixs.ai.bpmn.rest;
 
 import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.model.BPMNTemplateBuilder;
+import org.imixs.ai.bpmn.BPMNTemplateBuilder;
+import org.imixs.ai.bpmn.skill.BPMNSkillCache;
 import org.imixs.workflow.ModelManager;
-import org.imixs.workflow.engine.ModelService;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.ModelException;
 import org.openbpmn.bpmn.BPMNModel;
@@ -33,10 +33,8 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.UriInfo;
 
 /**
  * The MCPRestService provides Model Context Protocol (MCP) endpoints for
@@ -46,28 +44,37 @@ import jakarta.ws.rs.core.UriInfo;
  */
 @Named
 @RequestScoped
-@Path("/ai/bpmn/template/")
+@Path("/ai/bpmn/")
 @Produces({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
 public class BPMNTemplateRestService implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private static Logger logger = Logger.getLogger(BPMNTemplateRestService.class.getSimpleName());
 
-    @Context
-    UriInfo uriInfo;
-
     @Inject
     WorkflowService workflowService;
 
     @Inject
-    ModelService modelService;
+    BPMNSkillCache bpmnSkillCache;
 
     /**
-     * MCP JSON-RPC 2.0 Endpoint All MCP protocol methods are handled here URL:
-     * /mcp/v1
+     * Translate all BPMN models into a skill tree
      */
     @GET
-    @Path("/model/version/{version}")
+    @Path("/skills")
+    @Produces({ MediaType.TEXT_PLAIN })
+    public Response buildSkillTree() {
+        String skillSnapshot = bpmnSkillCache.getBPMNSkillTree();
+
+        return Response.ok(skillSnapshot).build();
+
+    }
+
+    /**
+     * Translate a BPMN model in structured text
+     */
+    @GET
+    @Path("/template/model/version/{version}")
     @Produces({ MediaType.TEXT_PLAIN })
     public Response buildPromptTemplate(@PathParam("version") String version) {
 

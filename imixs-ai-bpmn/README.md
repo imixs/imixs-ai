@@ -6,9 +6,34 @@ The Imixs-AI-BPMN module provides Rest Services and Adapter classes to translate
 
 - **BPMNTemplateRestService** <br/>A Rest API to output a BPMN model as a text block that can be processed by a LLM<br/>
 
-## The Rest API
+## BPMN Skill 
 
-You can test the bpmn templates by calling the integrated Rest API
+The Imixs-AI-BPMN module provides a AIPrompt Handler to resove the available models with there initial tasks. 
+The handler can be integrated into a LLM call by using the following tag:
+
+```
+....
+WORKFLOW LIST:
+
+<skill.bpmn/>
+...
+```
+
+`skill.bpmn` will be replaced with the current BPMN skill. 
+
+
+### Rest API
+
+You can check geh BPMN Skill tree by calling the following Rest API Endpoint:
+
+```
+/api/ai/bpmn/skills
+```
+
+## BPMN Templates
+
+With the BPMN Template feature you can translate a BPMN Model in a LLM understandable markup text. 
+You can test the bpmn templates by calling the integrated Rest API for each model version. 
 
 To generate a template for a specific model version call:
 
