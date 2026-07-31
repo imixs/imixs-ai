@@ -47,7 +47,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.imixs.ai.bpmn.util.HtmlStripper;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;
-import org.imixs.workflow.WorkflowKernel;
 import org.imixs.workflow.bpmn.BPMNUtil;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.ModelService;
@@ -159,13 +158,6 @@ public class BPMNSkillCache {
 
     }
 
-    // /**
-    // * Reset the cached bpmn skill tree
-    // */
-    // public void resetBPMNSkillTree() {
-    // skillTree = null;
-    // }
-
     /**
      * In case no WorkflowController was used we observer also the before Save event
      * 
@@ -239,18 +231,21 @@ public class BPMNSkillCache {
      * @param workflowGroup - the workflow group name
      * @return resolved description string, or empty string if not found
      */
-    private String getProcessDescriptionByInitialTask(ItemCollection initialTask, String modelVersion,
-            String workflowGroup) {
-        String result = "";
-        if (initialTask != null) {
-            // Create a dummy workitem to resolve the correct textblock context
-            ItemCollection dummy = new ItemCollection();
-            dummy.setItemValue(WorkflowKernel.WORKFLOWSTATUS, initialTask.getItemValueString("name"));
-            dummy.setItemValue(WorkflowKernel.WORKFLOWGROUP, workflowGroup);
-            result = getProcessDescription(initialTask.getItemValueInteger("taskid"), modelVersion, dummy);
-        }
-        return result;
-    }
+    // private String getProcessDescriptionByInitialTask(ItemCollection initialTask,
+    // String modelVersion,
+    // String workflowGroup) {
+    // String result = "";
+    // if (initialTask != null) {
+    // // Create a dummy workitem to resolve the correct textblock context
+    // ItemCollection dummy = new ItemCollection();
+    // dummy.setItemValue(WorkflowKernel.WORKFLOWSTATUS,
+    // initialTask.getItemValueString("name"));
+    // dummy.setItemValue(WorkflowKernel.WORKFLOWGROUP, workflowGroup);
+    // result = getProcessDescription(initialTask.getItemValueInteger("taskid"),
+    // modelVersion, dummy);
+    // }
+    // return result;
+    // }
 
     /**
      * Returns the documentation of a process entity identified by its process ID
@@ -452,9 +447,7 @@ public class BPMNSkillCache {
                         continue;
                     }
 
-                    String taskDescription = HtmlStripper.stripHtml(
-                            this.getProcessDescriptionByInitialTask(
-                                    initialTask, modelVersion, group));
+                    String taskDescription = initialTask.getItemValueString("documentation");
 
                     // Explicit opt-out: a task can be hidden from the skill tree via the
                     // ignore tag. Blank documentation on task level is tolerated and does
@@ -465,27 +458,28 @@ public class BPMNSkillCache {
                         continue;
                     }
 
-                    TaskSkill initialTaskSkill = new TaskSkill(taskId, taskName, taskDescription);
+                    TaskSkill initialTaskSkill = new TaskSkill(taskId, taskName,
+                            HtmlStripper.stripHtml(taskDescription));
 
                     // Load all events for the initial task and add them as EventSkills.
                     List<ItemCollection> taskEvents = this.getModelManager()
                             .findEventsByTask(model, taskId);
-                    for (ItemCollection eventDoc : taskEvents) {
-                        int eventId = eventDoc.getItemValueInteger("eventid");
-                        String eventName = eventDoc.getItemValueString("name");
-                        String eventDoc2 = HtmlStripper.stripHtml(
-                                eventDoc.getItemValueString("documentation"));
+                    for (ItemCollection event : taskEvents) {
+                        int eventId = event.getItemValueInteger("eventid");
+                        String eventName = event.getItemValueString("name");
+                        String eventDocumentation = event.getItemValueString("documentation");
 
                         // Explicit opt-out: technical events not intended for the LLM can be
                         // hidden via the ignore tag. Blank documentation on event level is
                         // tolerated and does NOT lead to exclusion by itself.
-                        if (isIgnored(eventDoc2)) {
+                        if (isIgnored(eventDocumentation)) {
                             logger.info("Skipping event '" + eventName + "' (eventid: " + eventId
                                     + ") on task '" + taskName + "' — marked with ignore tag.");
                             continue;
                         }
 
-                        initialTaskSkill.addEvent(new EventSkill(eventId, eventName, eventDoc2));
+                        initialTaskSkill.addEvent(
+                                new EventSkill(eventId, eventName, HtmlStripper.stripHtml(eventDocumentation)));
                     }
 
                     // Load Form description...
@@ -537,7 +531,7 @@ public class BPMNSkillCache {
                 // Inital Task
                 if (groupSkill.getTasks().size() > 0) {
                     TaskSkill initialTaskSkill = groupSkill.getTasks().get(0);
-                    result.append("### Task: ").append(groupSkill.getName()).append("\n");
+                    result.append("### Task: ").append(initialTaskSkill.getName()).append("\n");
 
                     if (!initialTaskSkill.getDocumentation().isBlank()) {
                         result.append(initialTaskSkill.getDocumentation()).append("\n");
