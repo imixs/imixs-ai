@@ -253,9 +253,9 @@ public class IndexService {
             LLMOptions options = llmConfigService.getOptions(llmAPIEndpointCompletion);
             // Layer 2: BPMN event override
             options.merge(indexDefinition.getItemValueString("options"));
-            imixsAIContextHandler.setOptions(options);
+            imixsAIContextHandler.setLlmOptions(options);
 
-            imixsAIContextHandler.addPromptDefinition(promptTemplate);
+            imixsAIContextHandler.loadPromptDefinition(promptTemplate);
 
             String llmPrompt = imixsAIContextHandler.toString();
             // if we have a prompt we call the llm api endpoint

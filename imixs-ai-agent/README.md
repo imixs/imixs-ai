@@ -146,6 +146,15 @@ The `task_complete` tool call is the mechanism that ends the agent loop successf
 
 The LLM decides which tool to invoke based on the tool definitions provided with the request and the current conversation context. The `AIAgentOperator` only processes the tool calls returned by the LLM.
 
-To control which tools are available to a specific AI agent, the optional `tool-calls` tag can be defined in the Imixs prompt configuration. The tag contains a list of permitted tool names. If present, only these tool definitions are registered during the `ImixsAIToolRegistrationEvent` and exposed to the LLM.
+To control which tools are available to a specific AI agent, the optional tag `tools` can be defined in the Imixs prompt configuration. The tag contains a comma separated list of permitted tool names. If present, only these tool definitions are registered during the `ImixsAIToolRegistrationEvent` and exposed to the LLM.
+
+```xml
+<PromptDefinition>
+    <options>{"n_predict": 4096, "temperature": 0}</prompt_options>
+    <tools>update_workitem,find_workitem</tools>
+    <prompt role="system">
+    ....
+</PromptDefinition>
+```
 
 As a result, the LLM can only invoke the configured tools, and only those tool calls are dispatched through the `ImixsAIToolCallEvent`. This allows different AI agents to expose different capabilities without changing the deployed application.

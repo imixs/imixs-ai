@@ -74,7 +74,7 @@ public class TestAIContextHandler {
 
         try {
 
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             // we expect two prompt messages
             List<ItemCollection> context = imixsAIContextHandler.getContext();
@@ -134,7 +134,7 @@ public class TestAIContextHandler {
 
         try {
 
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             // we expect two prompt messages
             List<ItemCollection> context = imixsAIContextHandler.getContext();
@@ -173,7 +173,7 @@ public class TestAIContextHandler {
                 "</imixs-ai>";
 
         try {
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             List<ItemCollection> context = imixsAIContextHandler.getContext();
             assertEquals(1, context.size());
@@ -199,7 +199,7 @@ public class TestAIContextHandler {
                 "</imixs-ai>";
 
         try {
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             List<ItemCollection> context = imixsAIContextHandler.getContext();
             assertEquals(1, context.size());
@@ -229,7 +229,7 @@ public class TestAIContextHandler {
                 "</imixs-ai>";
 
         try {
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             List<ItemCollection> context = imixsAIContextHandler.getContext();
             assertEquals(1, context.size());
@@ -256,7 +256,7 @@ public class TestAIContextHandler {
         // Seed with endpoint defaults + BPMN overrides
         LLMOptions seeded = new LLMOptions(
                 "{\"model\": \"llama-3\", \"max_tokens\": 1024, \"temperature\": 0.2}");
-        imixsAIContextHandler.setOptions(seeded);
+        imixsAIContextHandler.setLlmOptions(seeded);
 
         // Prompt definition overrides only temperature
         String promptDef = "<imixs-ai>\n" +
@@ -267,7 +267,7 @@ public class TestAIContextHandler {
                 "</imixs-ai>";
 
         try {
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             JsonObject finalRequest = imixsAIContextHandler.getOpenAIMessageObject();
             // temperature was overridden by options
@@ -288,7 +288,7 @@ public class TestAIContextHandler {
     @Test
     public void testPromptWithoutOptionsKeepsSeededOptions() {
         LLMOptions seeded = new LLMOptions("{\"temperature\": 0.2}");
-        imixsAIContextHandler.setOptions(seeded);
+        imixsAIContextHandler.setLlmOptions(seeded);
 
         String promptDef = "<imixs-ai>\n" +
                 "  <PromptDefinition>\n" +
@@ -297,7 +297,7 @@ public class TestAIContextHandler {
                 "</imixs-ai>";
 
         try {
-            imixsAIContextHandler.addPromptDefinition(promptDef);
+            imixsAIContextHandler.loadPromptDefinition(promptDef);
 
             JsonObject finalRequest = imixsAIContextHandler.getOpenAIMessageObject();
             assertEquals(0.2, finalRequest.getJsonNumber("temperature").doubleValue());

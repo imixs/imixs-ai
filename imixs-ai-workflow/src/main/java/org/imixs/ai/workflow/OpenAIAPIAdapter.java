@@ -179,8 +179,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
                     String promptTemplate = imixsAIPromptService.loadPromptTemplate(promptDefinition, event);
                     imixsAIContextHandler.setWorkItem(workitem);
-                    imixsAIContextHandler.setOptions(options);          // pre-seed Layers 1+2
-                    imixsAIContextHandler.addPromptDefinition(promptTemplate);  // Layer 3 merges on top
+                    imixsAIContextHandler.setLlmOptions(options);          // pre-seed Layers 1+2
+                    imixsAIContextHandler.loadPromptDefinition(promptTemplate);  // Layer 3 merges on top
 
                     String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
                             llmAPIDebug);

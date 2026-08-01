@@ -97,8 +97,11 @@ public class ImixsAIContextHandler implements Serializable {
     // Tracked workitem references collected during the agent loop
     private List<String> workitemRefs = new ArrayList<>();
 
-    // Options as flexible JSON object
-    private LLMOptions options;
+    private String promptTemplate = null;
+    private String promptOptions = null;
+    private String promptTools = null;
+
+    private LLMOptions llmOptions;
 
     private boolean stream = false;
 
@@ -117,7 +120,10 @@ public class ImixsAIContextHandler implements Serializable {
         functions = new ArrayList<JsonObject>();
         workitemRefs = new ArrayList<>();
         toolChoice = "auto";
-        this.options = new LLMOptions();
+        this.llmOptions = new LLMOptions();
+        promptTemplate = null;
+        promptOptions = null;
+        promptTools = null;
     }
 
     /**
@@ -328,15 +334,15 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
-     * This method adds an Imixs PromptDefinition as a new message entry into the
-     * current context. The method evaluates the attribute 'role' from the tag
-     * prompt containing the template.
+     * This method reads an Imixs PromptDefinition and builds as a new message entry
+     * list into the current context. The method evaluates the attribute 'role' from
+     * the tag prompt containing the template.
      * <p>
      * The method fires a prompt event to all registered PromptEvent Observer
      * classes. This allows adaptors to customize the final prompt.
      * <p>
-     * If the prompt definition contains options, the method updates the options of
-     * the current Context.
+     * If the prompt definition contains options or tools, the method updates the
+     * current Context.
      * 
      * 
      * @param promptTemplate - a imixs-ai prompt XML-Template
@@ -344,7 +350,7 @@ public class ImixsAIContextHandler implements Serializable {
      * @throws PluginException
      * @throws AdapterException
      */
-    public ImixsAIContextHandler addPromptDefinition(String promptTemplate)
+    public ImixsAIContextHandler loadPromptDefinition(String promptTemplate)
             throws PluginException, AdapterException {
 
         if (workItem == null) {
@@ -354,18 +360,27 @@ public class ImixsAIContextHandler implements Serializable {
                     "Workitem is not set - call importContext or set workitem!");
         }
 
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            throw new PluginException(
+                    ImixsAIContextHandler.class.getSimpleName(),
+                    ERROR_INVALID_PARAMETER,
+                    "No prompt template defined - check BPMN configuration!");
+        }
+
+        this.promptTemplate = promptTemplate;
+
         String prompt = null;
         String role = null;
         // Extract Meta Information from XML....
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(this.promptTemplate.getBytes()));
 
             log("├── addPromptDefinition...");
 
             // check prompt options
-            String promptOptions = "";
+            promptOptions = "";
             NodeList optionNodes = doc.getElementsByTagName("options");
             if (optionNodes.getLength() > 0) {
                 Node modelNode = optionNodes.item(0);
@@ -385,42 +400,13 @@ public class ImixsAIContextHandler implements Serializable {
                 this.addOptions(promptOptions); // <-- Merge auf Layer 1+2 drauf
             }
 
-            // Register toolCall Handler:
-            // if toolCallsEnabled are enabled and prompt_tools are defined
-            // only allowed tool calls will be added
+            // check tools
             if (toolCallsEnabled && toolCallHandlers != null) {
                 NodeList toolNodes = doc.getElementsByTagName("tools");
-                List<String> allowedToolCalls = new ArrayList<>();
                 if (toolNodes.getLength() > 0) {
                     Node modelNode = toolNodes.item(0);
-                    String promptTools = modelNode.getTextContent();
-                    if (!promptTools.isBlank()) {
-                        String[] toolList = promptTools.split(",");
-                        for (String toolCall : toolList) {
-
-                            allowedToolCalls.add(toolCall.trim());
-
-                        }
-                    }
-                    // add default toolCall 'task_complete' if not yet added!
-                    if (allowedToolCalls.size() > 0 && !allowedToolCalls.contains("task_complete")) {
-                        allowedToolCalls.add("task_complete");
-                    }
-                }
-
-                for (ToolCallHandler handler : toolCallHandlers) {
-                    String toolName = handler.getToolName();
-                    // if no toolCalls are defined, all toolCallhandler can be registered
-                    if (allowedToolCalls.isEmpty()) {
-                        log("│   ├── register tool: '" + toolName + "'");
-                        handler.register(this);
-                    } else {
-                        // register the toolCall only if the name is listed
-                        if (allowedToolCalls.contains(toolName)) {
-                            log("│   ├── register tool: '" + toolName + "'");
-                            handler.register(this);
-                        }
-                    }
+                    promptTools = modelNode.getTextContent();
+                    log("│   ├── init tools: " + promptTools);
                 }
             }
 
@@ -446,6 +432,44 @@ public class ImixsAIContextHandler implements Serializable {
         }
 
         return this;
+    }
+
+    /**
+     * Register toolCall Handler:
+     * if toolCallsEnabled are enabled and prompt_tools are defined
+     * only allowed tool calls will be added
+     * 
+     * @throws PluginException
+     */
+    public void registerTools() throws PluginException {
+        if (toolCallsEnabled && toolCallHandlers != null) {
+            List<String> allowedToolCalls = new ArrayList<>();
+            if (promptTools != null && !promptTools.isBlank()) {
+                String[] toolList = promptTools.split(",");
+                for (String toolCall : toolList) {
+                    allowedToolCalls.add(toolCall.trim());
+                }
+                // add default toolCall 'task_complete' if not yet added!
+                if (allowedToolCalls.size() > 0 && !allowedToolCalls.contains("task_complete")) {
+                    allowedToolCalls.add("task_complete");
+                }
+            }
+
+            for (ToolCallHandler handler : toolCallHandlers) {
+                String toolName = handler.getToolName();
+                // if no toolCalls are defined, all toolCallhandler can be registered
+                if (allowedToolCalls.isEmpty()) {
+                    log("│   ├── register tool: '" + toolName + "'");
+                    handler.register(this);
+                } else {
+                    // register the toolCall only if the name is listed
+                    if (allowedToolCalls.contains(toolName)) {
+                        log("│   ├── register tool: '" + toolName + "'");
+                        handler.register(this);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -513,8 +537,8 @@ public class ImixsAIContextHandler implements Serializable {
      * handler with endpoint defaults and BPMN-event overrides before the prompt
      * definition is added.
      */
-    public ImixsAIContextHandler setOptions(LLMOptions options) {
-        this.options = (options != null) ? options : new LLMOptions();
+    public ImixsAIContextHandler setLlmOptions(LLMOptions options) {
+        this.llmOptions = (options != null) ? options : new LLMOptions();
         return this;
     }
 
@@ -522,7 +546,7 @@ public class ImixsAIContextHandler implements Serializable {
      * Replaces the current options from a JSON string. Convenience overload.
      */
     public ImixsAIContextHandler setOptions(String optionsJson) {
-        this.options = new LLMOptions(optionsJson);
+        this.llmOptions = new LLMOptions(optionsJson);
         return this;
     }
 
@@ -532,7 +556,7 @@ public class ImixsAIContextHandler implements Serializable {
      * overrides on top of seeded defaults.
      */
     public ImixsAIContextHandler addOptions(String optionsJson) {
-        this.options.merge(optionsJson);
+        this.llmOptions.merge(optionsJson);
         return this;
     }
 
@@ -540,7 +564,23 @@ public class ImixsAIContextHandler implements Serializable {
      * Merges additional options on top of the current options.
      */
     public ImixsAIContextHandler addOptions(LLMOptions other) {
-        this.options.merge(other);
+        this.llmOptions.merge(other);
+        return this;
+    }
+
+    /**
+     * Merges the given options as the BASE layer underneath whatever is already
+     * set in the current llmOptions (e.g. restored BPMN options or freshly
+     * parsed prompt-level options). Existing keys in llmOptions take precedence
+     * over the base layer - this lets the endpoint act as a fallback default,
+     * never overriding an explicit BPMN-level override.
+     */
+    public ImixsAIContextHandler mergeBaseOptions(LLMOptions baseOptions) {
+        if (baseOptions != null && !baseOptions.isEmpty()) {
+            LLMOptions combined = new LLMOptions(baseOptions.toJson());
+            combined.merge(this.llmOptions); // current (higher-priority) options win
+            this.llmOptions = combined;
+        }
         return this;
     }
 
@@ -587,7 +627,7 @@ public class ImixsAIContextHandler implements Serializable {
         }
 
         // Merge all resolved options into the request body
-        JsonObject opts = options.toJson();
+        JsonObject opts = llmOptions.toJson();
         for (String key : opts.keySet()) {
             builder.add(key, opts.get(key));
         }
@@ -631,6 +671,30 @@ public class ImixsAIContextHandler implements Serializable {
     }
 
     /**
+     * Returns the content of the last message by role. If no role is defined, the
+     * method returns the last Assistent Message. Tool-call messages (raw JSON) are
+     * skipped, since they don't represent a plain text answer.
+     *
+     * @return the last message content, or null if none exists
+     */
+    public String getLastMessage(String role) {
+        if (context == null) {
+            return null;
+        }
+        if (role == null || role.isBlank()) {
+            role = ROLE_ASSISTANT;
+        }
+        for (int i = context.size() - 1; i >= 0; i--) {
+            ItemCollection message = context.get(i);
+            boolean isToolCall = message.getItemValueBoolean("chat.is_tool_call");
+            if (role.equals(message.getItemValueString(ITEM_ROLE)) && !isToolCall) {
+                return message.getItemValueString(ITEM_MESSAGE);
+            }
+        }
+        return null;
+    }
+
+    /**
      * converts the Map List of a workitem into a List of ItemCollections
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -647,6 +711,15 @@ public class ImixsAIContextHandler implements Serializable {
                 context.add(itemCol);
             }
         }
+
+        // restore prompt options
+        this.promptOptions = workitem.getItemValueString(itemNameContext + ".options");
+        if (this.promptOptions != null && !this.promptOptions.isBlank()) {
+            this.addOptions(this.promptOptions);
+        }
+
+        // restore tools
+        this.promptTools = workitem.getItemValueString(itemNameContext + ".tools");
 
     }
 
@@ -668,5 +741,9 @@ public class ImixsAIContextHandler implements Serializable {
             logger.fine("...store " + messages.size() + " messages back into " + itemNameContext);
             workItem.replaceItemValue(itemNameContext, messages);
         }
+
+        // store current options and tools
+        workItem.replaceItemValue(this.itemNameContext + ".options", promptOptions);
+        workItem.replaceItemValue(this.itemNameContext + ".tools", promptTools);
     }
 }

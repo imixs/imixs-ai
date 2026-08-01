@@ -163,7 +163,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     }
 
                     imixsAIContextHandler.importContext(workitem, contextItem);
-                    imixsAIContextHandler.setOptions(options); // pre-seed Layers 1+2
+                    imixsAIContextHandler.setLlmOptions(options); // pre-seed Layers 1+2
 
                     ModelManager modelManager = new ModelManager(workflowService);
                     BPMNModel model = modelManager.getModelByWorkitem(workitem);
@@ -178,7 +178,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                                 logger.log(Level.INFO,
                                         "│   ├── init system prompt from task " + workitem.getTaskID() + "...");
                             }
-                            imixsAIContextHandler.addPromptDefinition(taskPromptTemplate);
+                            imixsAIContextHandler.loadPromptDefinition(taskPromptTemplate);
                             logger.fine("Task Template: " + taskPromptTemplate);
                         }
                     }
@@ -186,7 +186,7 @@ public class ImixsAIAssistantAdapter extends OpenAIAPIAdapter {
                     // Build Event Template
                     workitem.replaceItemValue("$event.name", event.getItemValueString("name"));
                     String eventPromptTemplate = imixsAIPromptService.loadPromptTemplateByModelElement(event);
-                    imixsAIContextHandler.addPromptDefinition(eventPromptTemplate);
+                    imixsAIContextHandler.loadPromptDefinition(eventPromptTemplate);
                     imixsAIContextHandler.setDebug(llmAPIDebug);
                     logger.fine("Event Template: " + eventPromptTemplate);
 

@@ -114,8 +114,8 @@ public class ConditionalAIAdapter implements Serializable {
                 options.merge(promptDefinition.getItemValueString("options"));
 
                 imixsAIContextHandler.setWorkItem(conditionalEvent.getWorkitem());
-                imixsAIContextHandler.setOptions(options);                          // pre-seed Layers 1+2
-                imixsAIContextHandler.addPromptDefinition(DEFAULT_EXPRESSION_TEMPLATE);  // Layer 3 from DEFAULT
+                imixsAIContextHandler.setLlmOptions(options);                          // pre-seed Layers 1+2
+                imixsAIContextHandler.loadPromptDefinition(DEFAULT_EXPRESSION_TEMPLATE);  // Layer 3 from DEFAULT
 
                 String userPrompt = promptDefinition.getItemValueString("prompt");
 

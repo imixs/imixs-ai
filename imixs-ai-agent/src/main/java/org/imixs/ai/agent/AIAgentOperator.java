@@ -14,6 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.LLMConfigService;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.api.ToolCallResult;
 import org.imixs.ai.workflow.ImixsAIPromptService;
@@ -122,6 +123,9 @@ public class AIAgentOperator {
 
     @Inject
     WorkflowService workflowService;
+
+    @Inject
+    LLMConfigService llmConfigService;
 
     @Inject
     OpenAIAPIService openAIAPIService;
@@ -309,6 +313,12 @@ public class AIAgentOperator {
             // Explizit enable tool calls
             contextHandler.enableToolCalls();
 
+            // Seed endpoint-level defaults (e.g. required model name for Claude) as the
+            // base layer, underneath whatever BPMN-level options are already present
+            // (freshly loaded or restored from a previous loop iteration). This must
+            // run on EVERY call, since llmOptions is transient and never persisted.
+            contextHandler.mergeBaseOptions(llmConfigService.getOptions(endpoint));
+
             // Only initialize the system prompt on the very first call.
             // On subsequent calls the context already contains the system message
             // and we must not reset it.
@@ -325,7 +335,8 @@ public class AIAgentOperator {
                     throw new PluginException(AIAgentOperator.class.getSimpleName(),
                             "AGENT_ERROR", "BPMN Task " + workitem.getTaskID() + " does not have a prompt definition!");
                 }
-                contextHandler.addPromptDefinition(taskPromptTemplate);
+                contextHandler.loadPromptDefinition(taskPromptTemplate);
+
             }
 
             // Append the new user question to the conversation if userMessage is defined in
@@ -335,9 +346,9 @@ public class AIAgentOperator {
                 logger.log(Level.INFO, "│   ├── 💥 User question provided - adding user user message...");
                 String userPrompt = userMessage;
                 // append also an optional file context
-                if (workitem.getFileNames().size() > 0) {
-                    userPrompt = userPrompt + PROMPT_FILECONTEXT;
-                }
+                // if (workitem.getFileNames().size() > 0) {
+                // userPrompt = userPrompt + PROMPT_FILECONTEXT;
+                // }
                 contextHandler.addQuestion(userPrompt, workitem.getItemValueString("$creator"), null);
             }
 
@@ -348,6 +359,9 @@ public class AIAgentOperator {
                 logger.log(Level.WARNING,
                         "│   ├── ⚠️ Context does not finish with Question (chat.role==user) - verify bpmn agent-model !");
             }
+
+            // finally register Tools
+            contextHandler.registerTools();
 
             // Agent loop — iterate until the LLM returns a plain-text response,
             // the timeout is reached, or the maximum number of iterations is exceeded.
