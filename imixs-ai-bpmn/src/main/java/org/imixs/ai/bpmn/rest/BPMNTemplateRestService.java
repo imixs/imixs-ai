@@ -18,8 +18,9 @@ import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.bpmn.BPMNTemplateBuilder;
-import org.imixs.ai.bpmn.skill.BPMNSkillCache;
+import org.imixs.ai.bpmn.util.BPMNSkillTreeCache;
+import org.imixs.ai.bpmn.util.BPMNTemplateBuilder;
+import org.imixs.ai.bpmn.util.SharedModelManager;
 import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.ModelException;
@@ -55,7 +56,10 @@ public class BPMNTemplateRestService implements Serializable {
     WorkflowService workflowService;
 
     @Inject
-    BPMNSkillCache bpmnSkillCache;
+    SharedModelManager sharedModelManager;
+
+    @Inject
+    BPMNSkillTreeCache skillTreeCache;
 
     /**
      * Translate all BPMN models into a skill tree
@@ -64,7 +68,7 @@ public class BPMNTemplateRestService implements Serializable {
     @Path("/skills")
     @Produces({ MediaType.TEXT_PLAIN })
     public Response buildSkillTree() {
-        String skillSnapshot = bpmnSkillCache.getBPMNSkillTree();
+        String skillSnapshot = skillTreeCache.getBPMNSkillTree();
 
         return Response.ok(skillSnapshot).build();
 
@@ -89,7 +93,7 @@ public class BPMNTemplateRestService implements Serializable {
         try {
             model = workflowService.fetchModel(version);
 
-            ModelManager modelManager = new ModelManager(workflowService);
+            ModelManager modelManager = sharedModelManager.getModelManager();
             String template = BPMNTemplateBuilder.buildPromptTemplate(model, modelManager);
             // verify template result
             if (template == null || template.trim().isEmpty()) {

@@ -18,6 +18,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.imixs.ai.bpmn.util.BPMNSkillTreeCache;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.exceptions.AdapterException;
 
@@ -28,7 +29,8 @@ import jakarta.inject.Inject;
  * The AIPromptHandlerBPMNSkills adds a BPMN Skill template in a workitem into
  * the prompt template. The template must provide a <BPMNSKILLs/> place holder.
  * <p>
- * The method uses the BPMNSkillService to build/load a bpmn skill tree form the
+ * The method uses the BPMNSkillTreeCache to build/load a bpmn skill tree form
+ * the
  * current workitem
  * <p>
  * Filtering rules applied while building the skill tree:
@@ -56,7 +58,7 @@ public class AIPromptHandlerBPMNSkills {
     public static final String PROMPT_ERROR = "PROMPT_ERROR";
 
     @Inject
-    BPMNSkillCache bpmnSkillCache;
+    BPMNSkillTreeCache skillTreeCache;
 
     /**
      * Matches: <skill.bpmn/> <SKILL.BPMN/> <Skill.Bpmn /> etc.
@@ -80,7 +82,7 @@ public class AIPromptHandlerBPMNSkills {
         Matcher matcher = BPMN_SKILLS_PATTERN.matcher(prompt);
         // Update Prompt Template?
         if (matcher.find()) {
-            String skillSnapshot = bpmnSkillCache.getBPMNSkillTree();
+            String skillSnapshot = skillTreeCache.getBPMNSkillTree();
             if (skillSnapshot != null && !skillSnapshot.isBlank()) {
                 logger.info("├── AIPromptHandlerBPMNSkills: resolving bpmn skills...");
                 prompt = matcher.replaceAll(Matcher.quoteReplacement(skillSnapshot));

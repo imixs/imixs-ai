@@ -24,19 +24,15 @@
  *  	Imixs Software Solutions GmbH - initial API and implementation
  *  	Ralph Soika - Software Developer
  *******************************************************************************/
-
-package org.imixs.ai.bpmn.skill;
+package org.imixs.ai.bpmn.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -44,24 +40,21 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.imixs.ai.bpmn.util.HtmlStripper;
+import org.imixs.ai.bpmn.skill.EventSkill;
+import org.imixs.ai.bpmn.skill.ItemSkill;
+import org.imixs.ai.bpmn.skill.ModelSkill;
+import org.imixs.ai.bpmn.skill.ProcessSkill;
+import org.imixs.ai.bpmn.skill.TaskSkill;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.ModelManager;
-import org.imixs.workflow.bpmn.BPMNUtil;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.ModelService;
-import org.imixs.workflow.engine.WorkflowService;
-import org.imixs.workflow.exceptions.InvalidAccessException;
 import org.imixs.workflow.exceptions.ModelException;
-import org.imixs.workflow.exceptions.PluginException;
-import org.imixs.workflow.faces.data.WorkflowController;
 import org.openbpmn.bpmn.BPMNModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Priority;
 import jakarta.ejb.Singleton;
 import jakarta.enterprise.event.Observes;
@@ -69,31 +62,24 @@ import jakarta.inject.Inject;
 import jakarta.interceptor.Interceptor;
 
 /**
- * The BPMNSkillCache is a application-scoped singleton EJB that holds a
- * shared instance of the {@link ModelManager} POJO for use in the AI BPMN Skill
- * layer
- * (e.g. AIPromptHandlerBPMNSkills). Used instead of creating a local
- * ModelManager
- * instance.
+ * The BPMNSkillTreeCache is an application-scoped singleton EJB that builds
+ * and caches a Markdown-formatted "skill tree" representation of all BPMN
+ * models, for use in the AI BPMN Skill layer (e.g. AIPromptHandlerBPMNSkills).
  * <p>
- * In contrast to the ModelManager instances used by the WorkflowKernel during
- * processing - which are always session or request-local - this shared instance
- * is intentionally global and serves as a cache for model meta data in the
- * frontend.
+ * The skill tree describes, per model, workflow group and start task, the
+ * available events and form fields, so an LLM-based agent can decide which
+ * business process to start and which data to collect.
  * <p>
- * The internal ModelManager can be reset at any time (e.g. after a model upload
- * or deletion) without affecting any ongoing workflow processing, since the
- * WorkflowKernel always holds its own local ModelManager instance during a
- * transaction.
+ * This class builds on top of {@link SharedModelManager} for read-only access
+ * to BPMN model meta data. It does not access the ModelManager directly.
  *
- * @see ModelController
- * @see ModelManager
+ * @see SharedModelManager
  * @author rsoika
  */
 @Singleton
-public class BPMNSkillCache {
+public class BPMNSkillTreeCache {
 
-    private static final Logger logger = Logger.getLogger(BPMNSkillCache.class.getName());
+    private static final Logger logger = Logger.getLogger(BPMNSkillTreeCache.class.getName());
 
     /**
      * Matches an explicit opt-out tag within a Model's, Process/Group's, Task's
@@ -108,34 +94,36 @@ public class BPMNSkillCache {
     ModelService modelService;
 
     @Inject
-    WorkflowService workflowService;
-
-    // The shared ModelManager instance - volatile to ensure visibility across
-    // threads
-    private volatile ModelManager modelManager;
-
-    // Collect model warnings for frontend display
-    private final Set<String> modelWarnings = Collections.synchronizedSet(new LinkedHashSet<>());
+    SharedModelManager sharedModelManager;
 
     String skillTree = null;
 
     /**
-     * Initializes the shared ModelManager instance on startup.
+     * Default no-arg constructor required by CDI.
      */
-    @PostConstruct
-    public void init() {
-        modelManager = new ModelManager(workflowService);
-        logger.info("├── SkillModelManager initialized.");
+    public BPMNSkillTreeCache() {
     }
 
     /**
-     * This method loads the BPMN skill tree if not yet cached. If the SkillCache
-     * already contains a bpmn skillTree the method returns the stored version
+     * Test-only constructor allowing to inject pre-built dependencies directly,
+     * bypassing CDI. Intended to be used together with a
+     * MockWorkflowEnvironment in unit/integration tests.
+     *
+     * @param modelService       a ModelService instance
+     * @param sharedModelManager a pre-configured SharedModelManager instance
+     */
+    BPMNSkillTreeCache(ModelService modelService, SharedModelManager sharedModelManager) {
+        this.modelService = modelService;
+        this.sharedModelManager = sharedModelManager;
+    }
+
+    /**
+     * This method loads the BPMN skill tree if not yet cached. If the cache
+     * already contains a bpmn skillTree the method returns the stored version.
      * <p>
-     * A client can call resetBPMNSkillTree to reset the stored version
-     * 
-     * @param workitem - the current workitem
-     * @throws PluginException
+     * A client can call reset() to force a rebuild on the next access.
+     *
+     * @return the cached or freshly built skill tree as Markdown text
      */
     public String getBPMNSkillTree() {
 
@@ -144,7 +132,6 @@ public class BPMNSkillCache {
         if (skillTree != null) {
             return skillTree; // already cached
         }
-        // Load the BPMN event definition from the model.);
 
         // Build the skill snapshot within the active user session context.
         // BPMNSkillController is @SessionScoped and applies ACL filtering
@@ -159,197 +146,27 @@ public class BPMNSkillCache {
     }
 
     /**
-     * In case no WorkflowController was used we observer also the before Save event
-     * 
-     * @param documentEvent
-     * @throws PluginException
+     * Resets the cached skill tree, forcing a rebuild on the next access.
      */
-    public void onDocumentEvent(@Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) DocumentEvent documentEvent)
-            throws PluginException {
+    public synchronized void reset() {
+        skillTree = null;
+        logger.info("├── BPMNSkillTreeCache reset - skill tree cache cleared.");
+    }
+
+    /**
+     * Model uploads/deletions invalidate the cached skill tree.
+     *
+     * @param documentEvent
+     */
+    public void onDocumentEvent(@Observes @Priority(Interceptor.Priority.LIBRARY_BEFORE) DocumentEvent documentEvent) {
 
         int eventType = documentEvent.getEventType();
-        // before the workitem is saved we update the field txtOrderItems
         if (DocumentEvent.ON_DOCUMENT_SAVE == eventType) {
             if (documentEvent.getDocument() != null && "model".equals(documentEvent.getDocument().getType())) {
-                logger.info("└── Reset BPMN Skills");
-                // resetBPMNSkillTree();
+                logger.info("└── Reset BPMNSkillTreeCache");
                 this.reset();
             }
         }
-    }
-
-    /**
-     * Returns the shared ModelManager instance.
-     * <p>
-     * Note: this instance is shared across all active user sessions. It is suitable
-     * for read-only UI operations (e.g. resolving model groups, start tasks,
-     * process descriptions). It must not be used inside workflow processing
-     * transactions.
-     *
-     * @return the shared {@link ModelManager} instance
-     */
-    public ModelManager getModelManager() {
-        return modelManager;
-    }
-
-    /**
-     * Resets the shared ModelManager by creating a new instance.
-     * <p>
-     * This clears all internal caches (modelStore, bpmnEntityCache,
-     * bpmnElementCache, groupCache) and forces a fresh reload of model data on the
-     * next access.
-     * <p>
-     * This method should be called after a model upload or deletion to ensure all
-     * active user sessions see the updated model data immediately.
-     * <p>
-     * Ongoing workflow processing is not affected since the WorkflowKernel holds
-     * its own local ModelManager instance.
-     */
-    public synchronized void reset() {
-        modelManager = new ModelManager(workflowService);
-        modelWarnings.clear();
-        skillTree = null;
-        logger.info("├── SkillModelManager reset - all model caches cleared.");
-    }
-
-    public void addModelWarning(String message) {
-        modelWarnings.add(message);
-    }
-
-    public Set<String> getModelWarnings() {
-        return modelWarnings;
-    }
-
-    /**
-     * Returns the documentation of the initial task for a given workflow group,
-     * with textblock entries resolved.
-     * <p>
-     * A dummy workitem is created to resolve the correct textblock context.
-     *
-     * @param initialTask   - the initial task entity
-     * @param modelVersion  - the model version
-     * @param workflowGroup - the workflow group name
-     * @return resolved description string, or empty string if not found
-     */
-    // private String getProcessDescriptionByInitialTask(ItemCollection initialTask,
-    // String modelVersion,
-    // String workflowGroup) {
-    // String result = "";
-    // if (initialTask != null) {
-    // // Create a dummy workitem to resolve the correct textblock context
-    // ItemCollection dummy = new ItemCollection();
-    // dummy.setItemValue(WorkflowKernel.WORKFLOWSTATUS,
-    // initialTask.getItemValueString("name"));
-    // dummy.setItemValue(WorkflowKernel.WORKFLOWGROUP, workflowGroup);
-    // result = getProcessDescription(initialTask.getItemValueInteger("taskid"),
-    // modelVersion, dummy);
-    // }
-    // return result;
-    // }
-
-    /**
-     * Returns the documentation of a process entity identified by its process ID
-     * and model version. Dynamic text replacement is applied using the given
-     * document context.
-     *
-     * @param processid       - the process ID
-     * @param modelversion    - the model version
-     * @param documentContext - the workitem used for text replacement
-     * @return resolved description string, or empty string if not found
-     */
-    public String getProcessDescription(int processid, String modelversion, ItemCollection documentContext) {
-        ItemCollection pe = null;
-        try {
-            BPMNModel model = modelManager.getModel(modelversion);
-            pe = modelManager.findTaskByID(model, processid);
-        } catch (ModelException | InvalidAccessException e1) {
-            logger.warning("Unable to load task " + processid + " in model version '" + modelversion + "' - "
-                    + e1.getMessage());
-        }
-        if (pe == null) {
-            return "";
-        }
-        String desc = pe.getItemValueString(BPMNUtil.TASK_ITEM_DOCUMENTATION);
-        try {
-            desc = workflowService.adaptText(desc, documentContext);
-        } catch (PluginException e) {
-            logger.warning("Unable to update processDescription: " + e.getMessage());
-        }
-        return desc;
-    }
-
-    /**
-     * Returns a list of all valid Imixs Start Tasks for a given workflow group.
-     * <p>
-     * The method validates the structure of each start task. A task with an
-     * unexpected type is logged as a warning and excluded from the result.
-     *
-     * @param version - the model version
-     * @param group   - the workflow group name
-     * @return list of valid start task entities
-     */
-    public List<ItemCollection> findAllStartTasksByGroup(String version, String group) {
-        List<ItemCollection> result = new ArrayList<>();
-        try {
-            BPMNModel model = modelManager.getModel(version);
-            List<ItemCollection> _result = modelManager.findStartTasks(model, group);
-
-            // Validate each start task - type is a mandatory field
-            for (ItemCollection task : _result) {
-                String type = task.getItemValueString("txttype");
-                if (!type.isEmpty() && !WorkflowController.DEFAULT_TYPE.equals(type)) {
-                    String msg = "Invalid initial task in model='" + version + "' workflowGroup='"
-                            + group + "' task=" + task.getItemValueString("numProcessID")
-                            + " wrong type='" + type + "' -> expected: '" + WorkflowController.DEFAULT_TYPE + "'";
-                    logger.warning(msg);
-                    addModelWarning(msg);
-                    continue;
-                }
-                result.add(task);
-            }
-        } catch (ModelException e) {
-            logger.severe(
-                    "Failed to find start tasks for workflow group '" + group + "' : " + e.getMessage());
-        }
-        return result;
-    }
-
-    /**
-     * Returns a BPMN form definition associated with a given task ItemCollection.
-     * 
-     * The form definition is read from an optional <code>bpmn:DataObject</code>
-     * associated with the current task element. A <code>bpmn:DataObject</code> must
-     * contain a `form-tag` containing the form definition. If not matching
-     * <code>bpmn:DataObject</code> is defined the method returns an empty string.
-     * 
-     * @param workitem
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    public String fetchFormDefinitionByTask(ItemCollection task) {
-
-        // return if no modelversion is defined
-        if (task == null) {
-            return "";
-        }
-
-        List<List<String>> dataObjects = task.getItemValue("dataObjects");
-        for (List<String> dataObject : dataObjects) {
-            // there can be more than one dataOjects be attached.
-            // We need the one with the tag <imixs-form>
-            String templateName = dataObject.get(0);
-            String content = dataObject.get(1);
-            // we expect that the content contains at least one occurrence of <imixs-form>
-            if (content.contains("<imixs-form>")) {
-                logger.finest("......DataObject name=" + templateName);
-                logger.finest("......DataObject content=" + content);
-                return content;
-            } else {
-                // seems not to be a imixs-form definition!
-            }
-        }
-        // nothing found!
-        return "";
     }
 
     /**
@@ -365,15 +182,13 @@ public class BPMNSkillCache {
 
     /**
      * Builds the skill tree from the BPMN models.
-     * Iterates over all BPMN Model Groups, their tasks and events, and
-     * stores the result in the skillCache.
+     * Iterates over all BPMN Model Groups, their tasks and events, and stores
+     * the result in the skill cache.
      * <p>
      * Model and Process/Group level are excluded (together with everything
      * beneath them) if their documentation is blank or explicitly marked with
      * the ignore tag. Task and Event level tolerate blank documentation and are
      * only excluded if explicitly marked with the ignore tag.
-     * 
-     * @throws ModelException
      */
     private List<ModelSkill> loadSkills() {
         logger.info("├── loading bpmn skills...");
@@ -383,7 +198,6 @@ public class BPMNSkillCache {
         // Group workflow groups by model version
         Map<String, List<String>> groupsByModelVersion = new LinkedHashMap<>();
         for (String group : workflowGroups) {
-            // String modelVersion = modelController.getVersionByGroup(group);
             String modelVersion;
             try {
                 modelVersion = modelService.findVersionByGroup(group);
@@ -393,21 +207,17 @@ public class BPMNSkillCache {
             } catch (ModelException e) {
                 logger.warning("Model for group '" + group + "' not found: " + e.getMessage());
             }
-
         }
 
         for (Map.Entry<String, List<String>> entry : groupsByModelVersion.entrySet()) {
 
             try {
                 String modelVersion = entry.getKey();
-
                 List<String> groups = entry.getValue();
 
-                BPMNModel model;
+                BPMNModel model = sharedModelManager.getModelManager().getModel(modelVersion);
 
-                model = this.getModelManager().getModel(modelVersion);
-
-                String modelDoc = this.getModelManager()
+                String modelDoc = sharedModelManager.getModelManager()
                         .loadDefinition(model)
                         .getItemValueString("documentation");
 
@@ -424,7 +234,7 @@ public class BPMNSkillCache {
                 ModelSkill modelSkill = new ModelSkill(modelVersion, modelDoc);
 
                 for (String group : groups) {
-                    List<ItemCollection> startTasks = this.findAllStartTasksByGroup(modelVersion,
+                    List<ItemCollection> startTasks = sharedModelManager.findAllStartTasksByGroup(modelVersion,
                             group);
                     if (startTasks.isEmpty()) {
                         continue;
@@ -434,7 +244,7 @@ public class BPMNSkillCache {
                     int taskId = initialTask.getItemValueInteger("taskid");
                     String taskName = initialTask.getItemValueString("name");
 
-                    String poolDoc = this.getModelManager()
+                    String poolDoc = sharedModelManager.getModelManager()
                             .loadProcess(group, model)
                             .getItemValueString("documentation");
 
@@ -462,7 +272,7 @@ public class BPMNSkillCache {
                             HtmlStripper.stripHtml(taskDescription));
 
                     // Load all events for the initial task and add them as EventSkills.
-                    List<ItemCollection> taskEvents = this.getModelManager()
+                    List<ItemCollection> taskEvents = sharedModelManager.getModelManager()
                             .findEventsByTask(model, taskId);
                     for (ItemCollection event : taskEvents) {
                         int eventId = event.getItemValueInteger("eventid");
@@ -483,7 +293,7 @@ public class BPMNSkillCache {
                     }
 
                     // Load Form description...
-                    String formXml = this.fetchFormDefinitionByTask(initialTask);
+                    String formXml = sharedModelManager.fetchFormDefinitionByTask(initialTask);
                     List<ItemSkill> formItems = parseFormFields(formXml);
                     initialTaskSkill.setItems(formItems);
 
@@ -493,24 +303,20 @@ public class BPMNSkillCache {
                 }
 
                 if (!modelSkill.getGroups().isEmpty()) {
-
                     modelSkills.add(modelSkill);
-
                 }
             } catch (ModelException e) {
                 logger.warning("Failed to compute model : " + e.getMessage());
             }
-
         }
 
         return modelSkills;
-
     }
 
     /**
-     * Renders the skill cache as a Markdown-formatted string for use in the agent
-     * system prompt. Events are rendered beneath their task with eventid so the LLM
-     * can select the correct one.
+     * Renders the skill cache as a Markdown-formatted string for use in the
+     * agent system prompt. Events are rendered beneath their task with eventid
+     * so the LLM can select the correct one.
      */
     private String buildSkillTree(List<ModelSkill> modelSkills) {
         StringBuilder result = new StringBuilder();
@@ -528,7 +334,7 @@ public class BPMNSkillCache {
                     result.append(groupSkill.getDocumentation()).append("\n\n");
                 }
 
-                // Inital Task
+                // Initial Task
                 if (groupSkill.getTasks().size() > 0) {
                     TaskSkill initialTaskSkill = groupSkill.getTasks().get(0);
                     result.append("### Task: ").append(initialTaskSkill.getName()).append("\n");
@@ -559,10 +365,8 @@ public class BPMNSkillCache {
                     if (!formSection.isBlank()) {
                         result.append(formSection).append("\n");
                     }
-
                 }
             }
-
         }
         return result.toString();
     }
@@ -574,8 +378,7 @@ public class BPMNSkillCache {
      *
      * @param formXml the raw XML string of the form definition, may be null or
      *                blank
-     * @return list of FormFieldSkill objects, empty if formXml is
-     *         null/blank/invalid
+     * @return list of ItemSkill objects, empty if formXml is null/blank/invalid
      */
     private List<ItemSkill> parseFormFields(String formXml) {
         List<ItemSkill> fields = new ArrayList<>();
@@ -609,7 +412,7 @@ public class BPMNSkillCache {
     }
 
     /**
-     * Renders a list of FormFieldSkills as a Markdown snippet for use in the agent
+     * Renders a list of ItemSkills as a Markdown snippet for use in the agent
      * skill description.
      *
      * @param fields the list of form fields to render

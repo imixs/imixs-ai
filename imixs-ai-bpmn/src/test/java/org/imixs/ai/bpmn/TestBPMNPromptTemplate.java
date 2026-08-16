@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.imixs.ai.bpmn.util.BPMNTemplateBuilder;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;
@@ -53,6 +54,7 @@ public class TestBPMNPromptTemplate {
         workflowEnvironment.setUp();
         // Load Models
         workflowEnvironment.loadBPMNModelFromFile("/bpmn/rechnungseingang-de-1.2.41.bpmn");
+
     }
 
     /**

@@ -12,7 +12,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
  ****************************************************************************/
 
-package org.imixs.ai.bpmn;
+package org.imixs.ai.bpmn.util;
 
 import java.util.ArrayList;
 import java.util.Collections;
