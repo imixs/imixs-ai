@@ -128,18 +128,18 @@ If no `description` is provided, the handler falls back to the item's `label`.
 Given a form definition with invoice fields, the following minimal prompt:
 
 ```
-You are a clerk at the logistic company 'Alexander Global Logistics'. Your task is to check incoming invoices.
+You are a clerk at a logistic company. Your task is to check incoming invoices.
 <bpmn.form root="invoice" readonly="ignore" />
 ```
 
 is resolved into:
 
 ```
-You are a clerk at the logistic company 'Alexander Global Logistics'. Your task is to check incoming invoices.
+You are a clerk at a logistic company. Your task is to check incoming invoices.
 Transfer the data into an XML object with the following structure:
 <invoice>
   <invoice.number>...</invoice.number>
-  <invoice.date type="date">2024-12-31</invoice.date>
+  <invoice.date type="date">2026-08-16</invoice.date>
   <invoice.total type="double">1234.00</invoice.total>
   <cdtr.iban>...</cdtr.iban>
   <cdtr.bic>...</cdtr.bic>
