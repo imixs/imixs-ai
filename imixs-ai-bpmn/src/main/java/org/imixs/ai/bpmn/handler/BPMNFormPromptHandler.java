@@ -21,7 +21,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import org.imixs.ai.bpmn.util.SharedModelManager;
+import org.imixs.ai.bpmn.util.AIModelManager;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
@@ -105,7 +105,7 @@ public class BPMNFormPromptHandler {
             corresponding tag empty.""";
 
     @Inject
-    SharedModelManager sharedModelManager;
+    AIModelManager sharedModelManager;
 
     /**
      * Test-only setter allowing to inject a SharedModelManager instance from
@@ -114,7 +114,7 @@ public class BPMNFormPromptHandler {
      *
      * @param sharedModelManager a pre-configured SharedModelManager instance
      */
-    public void setSharedModelManager(SharedModelManager sharedModelManager) {
+    public void setSharedModelManager(AIModelManager sharedModelManager) {
         this.sharedModelManager = sharedModelManager;
     }
 
@@ -316,7 +316,7 @@ public class BPMNFormPromptHandler {
             boolean required = "true".equalsIgnoreCase(itemElement.getAttribute("required"));
             boolean readonly = isReadonly(itemElement);
 
-            result.append(buildFieldLine(name, formType, label, description, options, required, readonly));
+            result.append(buildFieldLine(name, formType, label, description, options));
         }
         return result.toString();
     }
@@ -378,7 +378,7 @@ public class BPMNFormPromptHandler {
      * @return one formatted line, terminated by a newline
      */
     private String buildFieldLine(String name, String formType, String label, String description,
-            String options, boolean required, boolean readonly) {
+            String options) {
         String llmType = mapFormTypeToLLMType(formType);
         String formatHint = mapFormTypeToFormatHint(formType);
         String enumHint = buildEnumHint(formType, options);
@@ -395,14 +395,16 @@ public class BPMNFormPromptHandler {
 
         String text = (description != null && !description.isBlank()) ? description : label;
         if (text != null && !text.isBlank()) {
+
+            // cut ending ':'
+            text = text.trim();
+            if (text.endsWith(":")) {
+                text = text.substring(0, text.length() - 1);
+            }
+
             line.append(": ").append(text.trim());
         }
-        if (required) {
-            line.append(" [required]");
-        }
-        if (readonly) {
-            line.append(" [readonly]");
-        }
+
         line.append("\n");
         return line.toString();
     }

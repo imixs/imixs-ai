@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.bpmn.util.SharedModelManager;
+import org.imixs.ai.bpmn.util.AIModelManager;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.MockWorkflowEnvironment;
 import org.imixs.workflow.exceptions.ModelException;
@@ -62,7 +62,7 @@ public class TestBPMNFormPromptHandler {
         // ModelManager instance used by the MockWorkflowEnvironment, so the
         // handler resolves the Data Object against the loaded test model.
         handler = new BPMNFormPromptHandler();
-        handler.setSharedModelManager(new SharedModelManager(workflowEnvironment.getModelManager()));
+        handler.setSharedModelManager(new AIModelManager(workflowEnvironment.getModelManager()));
         workitem = new ItemCollection();
         workitem.model(MODEL_VERSION).task(TASK_ID);
     }

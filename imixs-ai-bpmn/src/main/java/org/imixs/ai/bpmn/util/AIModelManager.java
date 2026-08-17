@@ -51,7 +51,7 @@ import jakarta.inject.Inject;
 import jakarta.interceptor.Interceptor;
 
 /**
- * The SharedModelManager is an application-scoped singleton EJB that holds a
+ * The AIModelManager is an application-scoped singleton EJB that holds a
  * shared instance of the {@link ModelManager} POJO for read-only access to
  * BPMN model meta data (e.g. by AI BPMN Skill layer or Prompt Handlers).
  * <p>
@@ -74,9 +74,9 @@ import jakarta.interceptor.Interceptor;
  * @author rsoika
  */
 @Singleton
-public class SharedModelManager {
+public class AIModelManager {
 
-    private static final Logger logger = Logger.getLogger(SharedModelManager.class.getName());
+    private static final Logger logger = Logger.getLogger(AIModelManager.class.getName());
 
     @Inject
     WorkflowService workflowService;
@@ -96,7 +96,7 @@ public class SharedModelManager {
      * @param modelManager a pre-configured ModelManager instance (e.g. from
      *                     MockWorkflowEnvironment.getModelManager())
      */
-    public SharedModelManager(ModelManager modelManager) {
+    public AIModelManager(ModelManager modelManager) {
         this.modelManager = modelManager;
     }
 
@@ -112,7 +112,7 @@ public class SharedModelManager {
     /**
      * Default no-arg constructor required by CDI.
      */
-    public SharedModelManager() {
+    public AIModelManager() {
     }
 
     /**

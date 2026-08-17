@@ -70,10 +70,10 @@ import jakarta.interceptor.Interceptor;
  * available events and form fields, so an LLM-based agent can decide which
  * business process to start and which data to collect.
  * <p>
- * This class builds on top of {@link SharedModelManager} for read-only access
+ * This class builds on top of {@link AIModelManager} for read-only access
  * to BPMN model meta data. It does not access the ModelManager directly.
  *
- * @see SharedModelManager
+ * @see AIModelManager
  * @author rsoika
  */
 @Singleton
@@ -94,7 +94,7 @@ public class BPMNSkillTreeCache {
     ModelService modelService;
 
     @Inject
-    SharedModelManager sharedModelManager;
+    AIModelManager sharedModelManager;
 
     String skillTree = null;
 
@@ -112,7 +112,7 @@ public class BPMNSkillTreeCache {
      * @param modelService       a ModelService instance
      * @param sharedModelManager a pre-configured SharedModelManager instance
      */
-    BPMNSkillTreeCache(ModelService modelService, SharedModelManager sharedModelManager) {
+    BPMNSkillTreeCache(ModelService modelService, AIModelManager sharedModelManager) {
         this.modelService = modelService;
         this.sharedModelManager = sharedModelManager;
     }

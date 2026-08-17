@@ -18,9 +18,9 @@ import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.imixs.ai.bpmn.util.AIModelManager;
 import org.imixs.ai.bpmn.util.BPMNSkillTreeCache;
 import org.imixs.ai.bpmn.util.BPMNTemplateBuilder;
-import org.imixs.ai.bpmn.util.SharedModelManager;
 import org.imixs.workflow.ModelManager;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.ModelException;
@@ -56,7 +56,7 @@ public class BPMNTemplateRestService implements Serializable {
     WorkflowService workflowService;
 
     @Inject
-    SharedModelManager sharedModelManager;
+    AIModelManager sharedModelManager;
 
     @Inject
     BPMNSkillTreeCache skillTreeCache;
