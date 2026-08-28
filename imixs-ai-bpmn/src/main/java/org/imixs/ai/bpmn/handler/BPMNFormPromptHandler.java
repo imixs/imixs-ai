@@ -471,6 +471,8 @@ public class BPMNFormPromptHandler {
                 return "date";
             case "currency":
                 return "double";
+            case "double":
+                return "double";
             case "selectBooleanCheckbox":
                 return "boolean";
             case "custom":
