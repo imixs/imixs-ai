@@ -37,7 +37,6 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.bpmn.skill.EventSkill;
@@ -49,6 +48,7 @@ import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.ModelService;
 import org.imixs.workflow.exceptions.ModelException;
+import org.imixs.workflow.util.XMLParser;
 import org.openbpmn.bpmn.BPMNModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -388,8 +388,7 @@ public class BPMNSkillTreeCache {
         }
 
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
+            DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
             Document doc = builder.parse(new ByteArrayInputStream(formXml.getBytes(StandardCharsets.UTF_8)));
 
             NodeList items = doc.getElementsByTagName("item");

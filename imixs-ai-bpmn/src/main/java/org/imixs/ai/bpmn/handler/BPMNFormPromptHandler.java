@@ -17,9 +17,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.imixs.ai.bpmn.util.AIModelManager;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
@@ -510,11 +508,7 @@ public class BPMNFormPromptHandler {
      */
     private Document parseXML(String xml) {
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            factory.setNamespaceAware(false);
-            DocumentBuilder builder = factory.newDocumentBuilder();
+            DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
             return builder.parse(new InputSource(new StringReader(xml)));
         } catch (Exception e) {
             logger.log(Level.WARNING, "unable to parse form definition: " + e.getMessage(), e);

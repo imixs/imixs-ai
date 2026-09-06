@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.ImixsAIContextHandler;
@@ -14,6 +13,7 @@ import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.PluginException;
+import org.imixs.workflow.util.XMLParser;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -190,11 +190,8 @@ public class ImixsAIPromptService implements Serializable {
      */
     public void validatePromptTemplate(String promptTemplate) throws PluginException {
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc;
-
-            doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+            DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
 
             // validate prompt tags
             NodeList modelNodes = doc.getElementsByTagName("prompt");

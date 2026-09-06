@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -26,6 +25,7 @@ import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
+import org.imixs.workflow.util.XMLParser;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -373,8 +373,7 @@ public class ImixsAIContextHandler implements Serializable {
         String role = null;
         // Extract Meta Information from XML....
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
+            DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
             Document doc = builder.parse(new java.io.ByteArrayInputStream(this.promptTemplate.getBytes()));
 
             log("├── addPromptDefinition...");

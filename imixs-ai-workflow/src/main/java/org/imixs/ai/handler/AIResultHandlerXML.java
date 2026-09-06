@@ -25,11 +25,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.workflow.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.util.XMLParser;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -144,9 +144,7 @@ public class AIResultHandlerXML {
             throws ParserConfigurationException, SAXException, IOException {
 
         String xmlStringWrapped = wrapTextWithCDATA(xmlString);
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder;
-        builder = factory.newDocumentBuilder();
+        DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
 
         // Parse the XML string to create a Document object
         Document document = builder.parse(new java.io.ByteArrayInputStream(xmlStringWrapped.getBytes()));

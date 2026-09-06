@@ -17,9 +17,9 @@ import java.util.Optional;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.workflow.util.XMLParser;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -240,10 +240,7 @@ public class LLMConfigService {
      * Parses an imixs-llm.xml input stream into a DOM Document.
      */
     private Document parseXML(InputStream is) throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        // Disable external entities to prevent XXE attacks
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        DocumentBuilder builder = factory.newDocumentBuilder();
+        DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
         Document doc = builder.parse(is);
         doc.getDocumentElement().normalize();
         return doc;
