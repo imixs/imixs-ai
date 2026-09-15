@@ -179,8 +179,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
 
                     String promptTemplate = imixsAIPromptService.loadPromptTemplate(promptDefinition, event);
                     imixsAIContextHandler.setWorkItem(workitem);
-                    imixsAIContextHandler.setLlmOptions(options);          // pre-seed Layers 1+2
-                    imixsAIContextHandler.loadPromptDefinition(promptTemplate);  // Layer 3 merges on top
+                    imixsAIContextHandler.setLlmOptions(options); // pre-seed Layers 1+2
+                    imixsAIContextHandler.loadPromptDefinition(promptTemplate); // Layer 3 merges on top
 
                     String completionResult = llmService.postPromptCompletion(imixsAIContextHandler, llmAPIEndpoint,
                             llmAPIDebug);
@@ -207,6 +207,7 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                 ItemCollection suggestDefinition = llmSuggestDefinitions.get(0);
                 String llmSuggestItems = suggestDefinition.getItemValueString("items");
                 String llmSuggestMode = suggestDefinition.getItemValueString("mode");
+                String llmSuggestSource = suggestDefinition.getItemValueString("source");
                 // do we have a suggest-mode?
                 if (llmSuggestMode.equalsIgnoreCase("ON") || llmSuggestMode.equalsIgnoreCase("OFF")) {
                     workitem.setItemValue(OpenAIAPIService.ITEM_SUGGEST_MODE, llmSuggestMode.toUpperCase());
@@ -219,6 +220,8 @@ public class OpenAIAPIAdapter implements SignalAdapter {
                 for (String item : suggestItemList) {
                     workitem.appendItemValue(OpenAIAPIService.ITEM_SUGGEST_ITEMS, item.trim());
                 }
+                // source item
+                workitem.setItemValue(OpenAIAPIService.ITEM_SUGGEST_SOURCE, llmSuggestSource);
             }
 
         } catch (PluginException e) {

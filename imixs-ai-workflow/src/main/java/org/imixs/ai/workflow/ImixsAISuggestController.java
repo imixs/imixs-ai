@@ -141,10 +141,15 @@ public class ImixsAISuggestController implements Serializable {
         logger.fine("search for=" + phrase);
         searchResult = new ArrayList<String>();
 
-        // the text to search for is stored by the LLMService in the item with the name
-        // 'ai.result.item'
-        String suggestItem = workflowController.getWorkitem().getItemValueString(OpenAIAPIService.ITEM_AI_RESULT_ITEM);
-        String text = workflowController.getWorkitem().getItemValueString(suggestItem);
+        // the text to search for is stored by the LLMService during the PROMPT action
+        // in an item.
+        // The item name is stored in the item 'ai.suggest.source'
+        String sourceItem = this.workflowController.getWorkitem()
+                .getItemValueString(OpenAIAPIService.ITEM_SUGGEST_SOURCE);
+        if (sourceItem.isBlank()) {
+            sourceItem = OpenAIAPIService.ITEM_AI_RESULT_ITEM; // default item
+        }
+        String text = workflowController.getWorkitem().getItemValueString(sourceItem);
         if (text != null) {
             searchResult = findMatches(phrase, text);
         }
