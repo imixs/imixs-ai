@@ -89,6 +89,7 @@ public class OpenAIAPIService implements Serializable {
     public static final String ITEM_AI_RESULT_ITEM = "ai.result.item";
     public static final String ITEM_SUGGEST_ITEMS = "ai.suggest.items";
     public static final String ITEM_SUGGEST_MODE = "ai.suggest.mode";
+    public static final String ITEM_SUGGEST_SOURCE = "ai.suggest.source";
 
     public static final String LLM_MODEL = "llm.model";
 
