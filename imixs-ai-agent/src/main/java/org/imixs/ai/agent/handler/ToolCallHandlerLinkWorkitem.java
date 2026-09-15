@@ -36,10 +36,21 @@ import jakarta.json.JsonObjectBuilder;
  * equivalent of the "link workitem" UX component a user would use manually in a
  * form.
  * <p>
- * The uniqueid never has to be reproduced by the LLM - the search and the
- * linking both happen server-side in a single call, avoiding transcription
- * errors when passing a uniqueid from a prior find_workitem result into a
- * separate tool call.
+ * The MATCHED workitem's uniqueid never has to be reproduced by the LLM - the
+ * search and the linking both happen server-side in a single call, avoiding
+ * transcription errors when passing a uniqueid from a prior find_workitem
+ * result into a separate tool call. Additionally, a criteria VALUE can itself
+ * reference a field of the CURRENT workitem via {@code {{itemname}}} instead
+ * of being retyped by the LLM - see {@link WorkitemSearchService} for the
+ * resolution mechanism. Between the two, no uniqueid - neither the current
+ * workitem's nor a matched one's - ever has to pass through the LLM as
+ * free-form text.
+ * <p>
+ * An optional {@code filter} further narrows the matches for conditions that
+ * cannot be expressed as an indexed search criterion (e.g. a business field
+ * that is not part of the search index). It is applied per raw match via
+ * {@link WorkitemHelper#matches(ItemCollection, String)}, after the search and
+ * before linking - a non-matching item is simply never linked.
  * <p>
  * The reference field can hold more than one uniqueid - if the search returns
  * several matches, all of them are linked, and the UI's link list component
@@ -72,19 +83,33 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                 "Searches for workitems by a set of index field/value criteria (same mechanism as "
                         + "find_workitem) and links every match directly to the current workitem "
                         + "(max " + MAX_LINK_COUNT + " matches). Use this instead of find_workitem when the "
-                        + "goal is to actually create the link, not just look at candidates. Which index "
-                        + "field names are available and what they mean is described in the current task "
-                        + "instructions.",
+                        + "goal is to actually create the link, not just look at candidates. Each criteria "
+                        + "value can be a literal string, or can reference a field of the CURRENT workitem "
+                        + "using {{itemname}} syntax instead of retyping its value - e.g. {{$uniqueid}} or "
+                        + "{{fine.plate.number}}, optionally combined with surrounding literal text such as "
+                        + "\"INV-{{project.id}}\". Always prefer {{itemname}} over retyping a value yourself "
+                        + "whenever that value already exists as a field on the current workitem - this is "
+                        + "especially important for long or unstructured values such as $uniqueid, where "
+                        + "retyping risks a transcription mistake that would silently produce a wrong result "
+                        + "set. An optional 'filter' can further narrow down the matches for special cases "
+                        + "not covered by criteria - only use it if the task instructions explicitly give you "
+                        + "a filter expression, and pass it through exactly as given; never invent one "
+                        + "yourself. Which index field names and filter expressions are available is "
+                        + "described in the current task instructions.",
                 """
                         {
                             "type": "object",
                             "properties": {
                                 "criteria": {
                                     "type": "object",
-                                    "description": "Map of index field name to search value, combined with AND. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"}",
+                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains {{itemname}} to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. {{$uniqueid}}. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"} or {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"{{$uniqueid}}\\"}",
                                     "additionalProperties": {
                                         "type": "string"
                                     }
+                                },
+                                "filter": {
+                                    "type": "string",
+                                    "description": "Optional additional condition to narrow down the selected workitems further, applied after criteria. Only use this if the task instructions explicitly provide a filter expression - copy it exactly as given, do not construct or modify it yourself. Example: \\"(service.billable:true)\\""
                                 },
                                 "refField": {
                                     "type": "string",
@@ -105,6 +130,9 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
             return;
         }
 
+        String filter = event.getArguments().containsKey("filter")
+                ? event.getArguments().getString("filter")
+                : null;
         String refField = event.getArguments().containsKey("refField")
                 ? event.getArguments().getString("refField")
                 : null;
@@ -113,13 +141,22 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                 + (refField != null ? refField : "(none)") + "'");
 
         try {
-            List<ItemCollection> matches = workitemSearchService.findWorkitems(criteria, MAX_LINK_COUNT);
+            List<ItemCollection> matches = workitemSearchService.findWorkitems(criteria,
+                    event.getContextHandler().getWorkItem(), MAX_LINK_COUNT, 0);
 
             ImixsAIContextHandler contextHandler = event.getContextHandler();
             ItemCollection workitem = contextHandler.getWorkItem();
 
             JsonArrayBuilder matchesArrayBuilder = Json.createArrayBuilder();
+            int linkedCount = 0;
             for (ItemCollection match : matches) {
+                // Filter is applied per raw match, after the search and before
+                // linking - a non-matching item is simply never linked.
+                if (!WorkitemHelper.matches(match, filter)) {
+                    continue;
+                }
+                linkedCount++;
+
                 // Always link via the default reference field
                 workitem.appendItemValueUnique(DEFAULT_REF_FIELD, match.getUniqueID());
 
@@ -135,13 +172,14 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
             }
 
             String resultJson = Json.createObjectBuilder()
-                    .add("linkedCount", matches.size())
+                    .add("linkedCount", linkedCount)
                     .add("matches", matchesArrayBuilder)
                     .build().toString();
 
-            logger.info("│   └── ✅ link_workitem: linked " + matches.size() + " workitem(s) to '"
+            logger.info("│   └── ✅ link_workitem: linked " + linkedCount + " workitem(s) to '"
                     + DEFAULT_REF_FIELD + "'"
-                    + (refField != null && !DEFAULT_REF_FIELD.equals(refField) ? " and '" + refField + "'" : ""));
+                    + (refField != null && !DEFAULT_REF_FIELD.equals(refField) ? " and '" + refField + "'" : "")
+                    + (linkedCount != matches.size() ? " (" + matches.size() + " before filter)" : ""));
 
             event.setToolMessage(resultJson);
 

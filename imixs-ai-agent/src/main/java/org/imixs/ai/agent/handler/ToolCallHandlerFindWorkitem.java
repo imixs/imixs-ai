@@ -35,6 +35,18 @@ import jakarta.json.JsonObjectBuilder;
  * a read-only lookup - it does not modify the current workitem. Use
  * "link_workitem" instead if the goal is to link a match to the current
  * workitem.
+ * <p>
+ * Criteria values may reference a field of the current workitem via
+ * {@code {{itemname}}} instead of being retyped by the LLM - see
+ * {@link WorkitemSearchService} for the resolution mechanism and the
+ * rationale (avoiding transcription mistakes for values such as
+ * $uniqueid that already exist on the current workitem).
+ * <p>
+ * An optional {@code filter} further narrows the matches for conditions that
+ * cannot be expressed as an indexed search criterion (e.g. a business field
+ * that is not part of the search index). It is applied per match via
+ * {@link WorkitemHelper#matches(ItemCollection, String)}, after the search -
+ * a non-matching item is simply left out of the returned list.
  */
 @Named
 public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializable {
@@ -63,21 +75,37 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
         contextHandler.addFunction(
                 TOOL_FIND_WORKITEM,
                 "Searches for workitems by a set of index field/value criteria, combined with AND. "
+                        + "Each criteria value can be a literal string, or can reference a field of the "
+                        + "CURRENT workitem using {{itemname}} syntax instead of retyping its value - e.g. "
+                        + "{{$uniqueid}} or {{fine.plate.number}}. The actual value is then read directly "
+                        + "from the current workitem before the search runs. A {{itemname}} reference can "
+                        + "also be combined with surrounding literal text, e.g. \"INV-{{project.id}}\". "
+                        + "Always prefer {{itemname}} over retyping a value yourself whenever that value "
+                        + "already exists as a field on the current workitem - this is especially important "
+                        + "for long or unstructured values such as $uniqueid, where retyping risks a "
+                        + "transcription mistake that would silently produce a wrong result set. An optional "
+                        + "'filter' can further narrow down the matches for special cases not covered by "
+                        + "criteria - only use it if the task instructions explicitly give you a filter "
+                        + "expression, and pass it through exactly as given; never invent one yourself. "
                         + "Returns a list of matching workitems with their $uniqueid and $workflowsummary "
                         + "(max " + MAX_RESULT_COUNT + " results). This is a read-only lookup - it does not "
-                        + "modify the current workitem. Which index field names are available and what they "
-                        + "mean is described in the current task instructions. Use link_workitem instead if "
-                        + "the goal is to link a match to the current workitem.",
+                        + "modify the current workitem. Which index field names and filter expressions are "
+                        + "available is described in the current task instructions. Use link_workitem "
+                        + "instead if the goal is to link a match to the current workitem.",
                 """
                         {
                             "type": "object",
                             "properties": {
                                 "criteria": {
                                     "type": "object",
-                                    "description": "Map of index field name to search value, combined with AND. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"}",
+                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains {{itemname}} to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. {{$uniqueid}}. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"} or {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"{{$uniqueid}}\\"}",
                                     "additionalProperties": {
                                         "type": "string"
                                     }
+                                },
+                                "filter": {
+                                    "type": "string",
+                                    "description": "Optional additional condition to narrow down the selected workitems further, applied after criteria. Only use this if the task instructions explicitly provide a filter expression - copy it exactly as given, do not construct or modify it yourself. Example: \\"(service.billable:true)\\""
                                 }
                             },
                             "required": ["criteria"]
@@ -97,11 +125,23 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
             return;
         }
 
+        String filter = event.getArguments().containsKey("filter")
+                ? event.getArguments().getString("filter")
+                : null;
+
         try {
-            List<ItemCollection> result = workitemSearchService.findWorkitems(criteria, MAX_RESULT_COUNT);
+            List<ItemCollection> result = workitemSearchService.findWorkitems(criteria,
+                    event.getContextHandler().getWorkItem(), MAX_RESULT_COUNT, 0);
 
             JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
+            int matchedCount = 0;
             for (ItemCollection workitem : result) {
+                // Filter is applied per raw match, after the search - a
+                // non-matching item is simply left out of the returned list.
+                if (!WorkitemHelper.matches(workitem, filter)) {
+                    continue;
+                }
+                matchedCount++;
                 JsonObjectBuilder entry = Json.createObjectBuilder()
                         .add("uniqueid", workitem.getUniqueID())
                         .add("workflowsummary", workitem.getItemValueString("$workflowsummary"));
@@ -109,7 +149,8 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
             }
             String resultJson = arrayBuilder.build().toString();
 
-            logger.info("│   └── ✅ find_workitem returned " + result.size() + " workitem(s)");
+            logger.info("│   └── ✅ find_workitem returned " + matchedCount + " workitem(s)"
+                    + (matchedCount != result.size() ? " (" + result.size() + " before filter)" : ""));
             event.setResultValue(resultJson);
             event.setToolMessage(resultJson);
 
