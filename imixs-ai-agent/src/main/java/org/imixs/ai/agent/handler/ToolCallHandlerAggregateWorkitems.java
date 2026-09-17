@@ -124,6 +124,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
 
     @Override
     public void handle(ImixsAIToolCallEvent event) {
+        long l = System.currentTimeMillis();
         if (!TOOL_AGGREGATE_WORKITEMS.equals(event.getToolName())) {
             return;
         }
@@ -177,9 +178,11 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
             String resultJson = aggregateWorkitemsService.buildResultJson(result, targetField, matchIdsField)
                     .toString();
 
-            logger.info("│   └── ✅ aggregate_workitems: " + function + " over " + result.matchCount
+            logger.info("│   └── ⚙️ aggregate_workitems: " + function + " over " + result.matchCount
                     + " match(es) = " + result.value
                     + (result.skippedCount > 0 ? " (" + result.skippedCount + " skipped)" : ""));
+
+            logger.info("│   └── ✅ aggregate_workitems completed in " + (System.currentTimeMillis() - l) + "ms");
 
             event.setToolMessage(resultJson);
 

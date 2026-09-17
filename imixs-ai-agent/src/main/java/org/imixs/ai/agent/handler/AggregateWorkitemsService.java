@@ -18,7 +18,8 @@ import java.util.logging.Logger;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
 
-import jakarta.enterprise.context.Dependent;
+import jakarta.ejb.LocalBean;
+import jakarta.ejb.Stateless;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
@@ -41,7 +42,8 @@ import jakarta.json.JsonObjectBuilder;
  * workitems never leave this class - only the resulting scalar and
  * bookkeeping metadata are exposed.
  */
-@Dependent
+@Stateless
+@LocalBean
 public class AggregateWorkitemsService {
 
     // Batch size used to page through the full result set, independent of any
