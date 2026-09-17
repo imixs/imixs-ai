@@ -102,6 +102,7 @@ public class AIAgentOperator {
     public static final String AGENT_CONFIG_INIT_TASK = "agent.init.task";
     public static final String AGENT_CONFIG_INIT_EVENT = "agent.init.event";
     public static final String AGENT_CONFIG_USER_ITEM = "agent.user.item";
+    public static final String AGENT_CONFIG_RESULT_ITEM = "agent.result.item";
     public static final String AGENT_CONFIG_RESULT_TYPE = "agent.result.type";
     public static final String AGENT_CONFIG_ENDPOINT = "agent.endpoint";
     public static final String AGENT_CONFIG_TIMEOUT = "agent.timeout";
@@ -272,6 +273,10 @@ public class AIAgentOperator {
         if (userInputInput.isBlank()) {
             userInputInput = "agent.user.input";
         }
+        String agentResultItem = workitem.getItemValueString(AGENT_CONFIG_RESULT_ITEM);
+        if (agentResultItem.isBlank()) {
+            agentResultItem = "agent.result";
+        }
 
         String endpoint = workitem.getItemValueString(AGENT_CONFIG_ENDPOINT);
         long timeout = workitem.getItemValueLong(AGENT_CONFIG_TIMEOUT);
@@ -292,6 +297,7 @@ public class AIAgentOperator {
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_NEXT_EVENT + "={0}", nextEvent);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_SUCCESS_EVENT + "={0}", successEvent);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ERROR_EVENT + "={0}", errorEvent);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_ITEM + "={0}", agentResultItem);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_TYPE + "={0}", resultType);
 
         if (timeout <= 0) {
@@ -394,6 +400,7 @@ public class AIAgentOperator {
                     workitem.insertItemValue(userInputInput, "");
                     // add comment
                     workitem.setItemValue("comment.user", agentResponse);
+                    workitem.setItemValue(agentResultItem, agentResponse);
                     logger.log(Level.INFO,
                             "│   ├── ⏳ awaiting user input — triggering next event {0}", nextEvent);
 
@@ -403,6 +410,19 @@ public class AIAgentOperator {
                 } else {
                     logger.log(Level.INFO,
                             "│   ├── 🔁 processing tool calls successful");
+
+                    String agentResponse = openAIAPIService.processPromptResult(response, resultType, workitem);
+
+                    // Full narrative report (the LLM's free-text content alongside the tool
+                    // call), independent of comment.user - for display in the web UI.
+                    workitem.setItemValue(agentResultItem, agentResponse);
+
+                    // Prefer the concise result a tool call (typically task_complete) provided
+                    // via resultValue as the case comment. Fall back to the full report only
+                    // if no tool call in this completion set one.
+                    String toolResultValue = toolCallResult.getResultValue();
+                    workitem.setItemValue("comment.user",
+                            (toolResultValue != null && !toolResultValue.isBlank()) ? toolResultValue : agentResponse);
 
                     // Update context
                     contextHandler.storeContext();
@@ -414,7 +434,6 @@ public class AIAgentOperator {
                         triggerWorkflowEvent(workitem, successEvent);
 
                         return;
-
                     }
                 }
             }

@@ -227,6 +227,7 @@ public class OpenAIAPIService implements Serializable {
     public ToolCallResult processToolCallResult(String jsonCompletionResult,
             ImixsAIContextHandler contextHandler, String resultType) throws PluginException {
         boolean taskComplete = false;
+        String resultValue = null;
 
         // Parse the JSON result
         JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
@@ -311,6 +312,16 @@ public class OpenAIAPIService implements Serializable {
 
             // Dispatch the business result for this tool call, if any was set
             if (toolCallEvent.getResultValue() != null) {
+
+                // Always carry the raw value on the returned ToolCallResult, independent
+                // of resultType - the caller decides what to do with it (e.g. a
+                // task_complete summary written into a comment field), without
+                // requiring a result adapter to be configured for this agent.
+                resultValue = toolCallEvent.getResultValue();
+
+                // Additionally dispatch it as structured business data, but only when
+                // resultType is configured and a matching result adapter is listening
+                // (e.g. the XML/JSON result handlers that map it into workitem fields).
                 if (resultType != null && !resultType.isEmpty()) {
                     ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(
                             toolCallEvent.getResultValue(), resultType, contextHandler.getWorkItem());
@@ -326,7 +337,7 @@ public class OpenAIAPIService implements Serializable {
         }
 
         // return the toolCallResult object
-        return new ToolCallResult(true, taskComplete);
+        return new ToolCallResult(true, taskComplete, resultValue);
     }
 
     /**

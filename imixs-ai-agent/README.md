@@ -83,6 +83,7 @@ The user can monitor the agent status as for any other business process. As a re
         <agent.event.next>100</agent.event.next>
         <agent.event.error>280</agent.event.error>
         <agent.result.type>XML</agent.result.type>
+        <agent.result.item>report.summary</agent.result.item>
         <agent.debug>true</agent.debug>
     </document>
 </eventlog>
@@ -99,6 +100,7 @@ The user can monitor the agent status as for any other business process. As a re
 | `agent.event.next`     | BPMN event ID to trigger when the agent is waiting for more user input - routes the workitem back to Task "Ask" so the conversation can continue in the next turn. |
 | `agent.event.error`    | BPMN event ID to trigger when the agent fails or times out.                                                                                                        |
 | `agent.result.type`    | An optional result type to process a completion result by a Imixs AI Result handler.                                                                               |
+| `agent.result.item`    | An optional result item to store the final agent result message (assistant message)                                                                                |
 | `agent.debug`          | 'true' to activate the debug mode                                                                                                                                  |
 
 The item referenced by `agent.context.item` contains the complete conversation state of the AI agent. It is represented as a sequence of `system`, `user`, and `assistant` messages following the OpenAI API format and includes the complete history of all tool calls. The context is persisted after each process step, allowing the agent process to be interrupted and resumed at any time without losing conversational state.
