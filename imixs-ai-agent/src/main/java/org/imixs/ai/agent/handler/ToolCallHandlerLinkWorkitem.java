@@ -40,7 +40,8 @@ import jakarta.json.JsonObjectBuilder;
  * search and the linking both happen server-side in a single call, avoiding
  * transcription errors when passing a uniqueid from a prior find_workitem
  * result into a separate tool call. Additionally, a criteria VALUE can itself
- * reference a field of the CURRENT workitem via {@code {{itemname}}} instead
+ * reference a field of the CURRENT workitem via {@code <item>itemname</item>}
+ * instead
  * of being retyped by the LLM - see {@link WorkitemSearchService} for the
  * resolution mechanism. Between the two, no uniqueid - neither the current
  * workitem's nor a matched one's - ever has to pass through the LLM as
@@ -85,9 +86,9 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                         + "(max " + MAX_LINK_COUNT + " matches). Use this instead of find_workitem when the "
                         + "goal is to actually create the link, not just look at candidates. Each criteria "
                         + "value can be a literal string, or can reference a field of the CURRENT workitem "
-                        + "using {{itemname}} syntax instead of retyping its value - e.g. {{$uniqueid}} or "
-                        + "{{fine.plate.number}}, optionally combined with surrounding literal text such as "
-                        + "\"INV-{{project.id}}\". Always prefer {{itemname}} over retyping a value yourself "
+                        + "using <item>itemname</item> syntax instead of retyping its value - e.g. <item>$uniqueid</item> or "
+                        + "<item>fine.plate.number</item>, optionally combined with surrounding literal text such as "
+                        + "\"INV-<item>project.id</item>\". Always prefer <item>itemname</item> over retyping a value yourself "
                         + "whenever that value already exists as a field on the current workitem - this is "
                         + "especially important for long or unstructured values such as $uniqueid, where "
                         + "retyping risks a transcription mistake that would silently produce a wrong result "
@@ -102,7 +103,7 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                             "properties": {
                                 "criteria": {
                                     "type": "object",
-                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains {{itemname}} to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. {{$uniqueid}}. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"} or {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"{{$uniqueid}}\\"}",
+                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains <item>itemname</item> to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. <item>$uniqueid</item>. Example: {\\"$workflowgroup\\": \\"contract\\", \\"id\\": \\"M-AH-4524\\"} or {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"<item>$uniqueid</item>\\"}",
                                     "additionalProperties": {
                                         "type": "string"
                                     }

@@ -30,7 +30,8 @@ import jakarta.json.JsonObject;
  * mechanism as find_workitem/link_workitem) and computes a single aggregate
  * value over a numeric field of the matches. The relation to the current
  * workitem is not a separate concept - it is expressed like any other
- * criterion, typically as {@code "$workitemref": "{{$uniqueid}}"}, resolved
+ * criterion, typically as {@code "$workitemref": "<item>$uniqueid</item>"},
+ * resolved
  * server-side by {@link WorkitemSearchService} so the LLM never has to
  * reproduce a uniqueid itself.
  * <p>
@@ -56,9 +57,6 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
     private static final Logger logger = Logger.getLogger(ToolCallHandlerAggregateWorkitems.class.getName());
 
     @Inject
-    WorkitemSearchService workitemSearchService;
-
-    @Inject
     AggregateWorkitemsService aggregateWorkitemsService;
 
     @Override
@@ -75,7 +73,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
                         + "over a numeric field of the matches. The computation always runs server-side - "
                         + "individual field values of the matched workitems are never returned. Each criteria "
                         + "value can be a literal, or reference a field of the CURRENT workitem using "
-                        + "{{itemname}} syntax instead of retyping its value, e.g. {{$uniqueid}} - always "
+                        + "<item>itemname</item> syntax instead of retyping its value, e.g. <item>$uniqueid</item> - always "
                         + "prefer this for identifiers already present on the current workitem. An optional "
                         + "'filter' can further narrow down the matches for special cases not covered by "
                         + "criteria - only use it if the task instructions explicitly give you a filter "
@@ -90,7 +88,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
                             "properties": {
                                 "criteria": {
                                     "type": "object",
-                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains {{itemname}} to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. {{$uniqueid}}. Example: {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"{{$uniqueid}}\\"}",
+                                    "description": "Map of index field name to search value, combined with AND. A value is either a literal, or contains <item>itemname</item> to reference a field of the current workitem instead of retyping its value - always prefer this for identifiers already present on the current workitem, e.g. <item>$uniqueid</item>. Example: {\\"$workflowgroup\\": \\"Efforts\\", \\"$workitemref\\": \\"<item>$uniqueid</item>\\"}",
                                     "additionalProperties": {
                                         "type": "string"
                                     }
@@ -170,9 +168,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
 
         try {
             AggregateWorkitemsService.AggregateResult result = aggregateWorkitemsService.aggregate(
-                    pageIndex -> workitemSearchService.findWorkitems(
-                            criteria, workitem, AggregateWorkitemsService.PAGE_SIZE, pageIndex),
-                    function, aggregateField, filter, collectMatchIds);
+                    criteria, workitem, function, aggregateField, filter, collectMatchIds);
 
             aggregateWorkitemsService.persistResult(workitem, result, targetField, matchIdsField);
             String resultJson = aggregateWorkitemsService.buildResultJson(result, targetField, matchIdsField)
@@ -182,7 +178,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
                     + " match(es) = " + result.value
                     + (result.skippedCount > 0 ? " (" + result.skippedCount + " skipped)" : ""));
 
-            logger.info("│   └── ✅ aggregate_workitems completed in " + (System.currentTimeMillis() - l) + "ms");
+            logger.info("└── ✅ aggregate_workitems completed in " + (System.currentTimeMillis() - l) + "ms");
 
             event.setToolMessage(resultJson);
 

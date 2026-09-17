@@ -20,27 +20,21 @@ import org.imixs.workflow.exceptions.QueryException;
 
 import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
+import jakarta.inject.Inject;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
 
 /**
- * Shared aggregation logic used by all "aggregate_workitems*" tool call
- * handlers (currently {@code aggregate_workitems} and
- * {@code aggregate_workitems_by_ref}).
+ * Aggregation logic backing the "aggregate_workitems" tool call.
  * <p>
- * The handlers differ only in how the set of matching workitems is
- * determined (generic criteria query vs. a direct reference-field lookup).
- * Everything downstream of "here is a page fetcher" - paging through the full
- * result set, applying an optional post-search filter, extracting and
- * summing numeric values, capping the persisted id list, writing results
- * back into the workitem, and building the compact JSON returned to the LLM
- * - is identical and lives here exactly once.
- * <p>
- * As with all aggregate_workitems* handlers, the computation is always
- * performed server-side in Java. Individual field values of the matched
- * workitems never leave this class - only the resulting scalar and
- * bookkeeping metadata are exposed.
+ * Pages through {@link WorkitemSearchService#findWorkitems} for the given
+ * criteria, applies an optional post-search filter, and computes a single
+ * aggregate value (sum, count, avg, min, max) over a numeric field of the
+ * matches. The computation is always performed server-side in Java -
+ * individual field values of the matched workitems never leave this class,
+ * only the resulting scalar and bookkeeping metadata are exposed to the
+ * calling handler (and, from there, to the LLM).
  */
 @Stateless
 @LocalBean
@@ -61,15 +55,8 @@ public class AggregateWorkitemsService {
 
     private static final Logger logger = Logger.getLogger(AggregateWorkitemsService.class.getName());
 
-    /**
-     * Supplies one page of matching workitems for a given zero-based page index.
-     * Implemented by each calling handler as a thin adapter around its own
-     * WorkitemSearchService lookup method.
-     */
-    @FunctionalInterface
-    public interface PageFetcher {
-        List<ItemCollection> fetch(int pageIndex) throws QueryException;
-    }
+    @Inject
+    WorkitemSearchService workitemSearchService;
 
     /**
      * Result of an aggregation run. Immutable value holder - callers persist and
@@ -97,8 +84,7 @@ public class AggregateWorkitemsService {
     }
 
     /**
-     * Validates the function/aggregateField combination shared by all
-     * aggregate_workitems* handlers.
+     * Validates the function/aggregateField combination.
      *
      * @return an error message describing the problem, or {@code null} if the
      *         arguments are valid.
@@ -117,12 +103,13 @@ public class AggregateWorkitemsService {
     }
 
     /**
-     * Pages through all matches supplied by the given fetcher and computes the
-     * aggregate. The fetcher is called repeatedly with increasing page indices
-     * until a page smaller than {@link #PAGE_SIZE} is returned. Pagination is
-     * always governed by the RAW page size returned by the fetcher - filtering
-     * (see below) never affects this, so a page that is fully consumed by the
-     * filter still correctly continues to the next page.
+     * Pages through all workitems matching {@code criteria} for
+     * {@code currentWorkitem} and computes the aggregate. Paging continues until
+     * a raw page smaller than {@link #PAGE_SIZE} is returned by
+     * {@link WorkitemSearchService#findWorkitems}. Pagination is always governed
+     * by that RAW page size - filtering (see below) never affects it, so a page
+     * that is fully consumed by the filter still correctly continues to the next
+     * page.
      * <p>
      * If {@code filter} is given, each raw match is additionally tested against
      * it via {@link WorkitemHelper#matches(ItemCollection, String)} before being
@@ -131,15 +118,18 @@ public class AggregateWorkitemsService {
      * A blank or {@code null} filter matches everything, so passing it through
      * unconditionally is safe and needs no separate null check.
      *
-     * @param fetcher         supplies pages of matching workitems
+     * @param criteria        search criteria, as passed to
+     *                        {@link WorkitemSearchService#findWorkitems}
+     * @param currentWorkitem the workitem {@code <item>itemname</item>}
+     *                        references in criteria are resolved against
      * @param function        one of sum, count, avg, min, max (case-insensitive)
      * @param aggregateField  numeric field to aggregate; ignored for "count"
      * @param filter          optional WorkitemHelper filter expression applied
      *                        per item, e.g. {@code "(service.billable:true)"}
      * @param collectMatchIds whether to collect matched $uniqueids at all
      */
-    public AggregateResult aggregate(PageFetcher fetcher, String function, String aggregateField, String filter,
-            boolean collectMatchIds) throws QueryException {
+    public AggregateResult aggregate(JsonObject criteria, ItemCollection currentWorkitem, String function,
+            String aggregateField, String filter, boolean collectMatchIds) throws QueryException {
 
         function = function.toLowerCase();
         long matchCount = 0;
@@ -152,7 +142,8 @@ public class AggregateWorkitemsService {
         int pageIndex = 0;
         List<ItemCollection> page;
         do {
-            page = fetcher.fetch(pageIndex);
+            page = workitemSearchService.findWorkitems(criteria, currentWorkitem, PAGE_SIZE, pageIndex);
+
             for (ItemCollection match : page) {
 
                 // Filter is applied per raw item, before any counting. The raw
@@ -297,5 +288,4 @@ public class AggregateWorkitemsService {
             return null;
         }
     }
-
 }

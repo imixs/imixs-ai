@@ -98,26 +98,34 @@ Fields starting with `$` are reserved and ignored, so the agent can never accide
 
 ```json
 {
-  "criteria": { "$workflowgroup": "Efforts", "$workitemref": "{{$uniqueid}}" },
+  "criteria": {
+    "$workflowgroup": "Efforts",
+    "$workitemref": "<item>$uniqueid</item>"
+  },
   "filter": "(service.billable:true)"
 }
 ```
 
 The filter format is a list of `(fieldname:pattern)` blocks. Always spell it out completely in your prompt instructions and tell the agent to pass it through unchanged — never ask the agent to construct or adapt a filter itself. Which fields need `filter` instead of `criteria` for a given case type is something you determine once while modeling the process, not something the agent should have to work out at runtime.
 
-### Referencing the current case: `{{itemname}}`
+### Referencing the current case: `<item>itemname</item>`
 
 A criteria value is usually a literal the agent fills in itself — an extracted license plate number, a fixed category name. But sometimes the value you need is already sitting in a field on the _current_ case, and retyping it is both unnecessary and risky. This is especially true for a case ID (`$uniqueid`): it's a long, unstructured string, and asking the agent to copy it by hand invites the occasional transcription mistake — which produces a wrong search result with no error message to warn you.
 
-Instead, write `{{itemname}}` in place of the value, and the platform substitutes the actual field value from the current case before the search runs:
+Instead, write `<item>itemname</item>` in place of the value, and the platform substitutes the actual field value from the current case before the search runs:
 
 ```json
-{ "criteria": { "$workflowgroup": "Efforts", "$workitemref": "{{$uniqueid}}" } }
+{
+  "criteria": {
+    "$workflowgroup": "Efforts",
+    "$workitemref": "<item>$uniqueid</item>"
+  }
+}
 ```
 
-`{{itemname}}` can also sit inside a larger literal, e.g. `"INV-{{project.id}}"`. Prefer `{{itemname}}` over a literal whenever the value already exists on the current case — it removes an entire class of mistake, not just reduces its likelihood. If the referenced field doesn't exist or is empty on the current case, the tool call fails with a clear error rather than silently searching for nothing or for the wrong thing.
+`<item>itemname</item>` can also sit inside a larger literal, e.g. `"INV-<item>project.id</item>"`. Prefer `<item>itemname</item>` over a literal whenever the value already exists on the current case — it removes an entire class of mistake, not just reduces its likelihood. If the referenced field doesn't exist or is empty on the current case, the tool call fails with a clear error rather than silently searching for nothing or for the wrong thing. The same happens if a tag is malformed or incomplete (e.g. an `<item>` without its closing `</item>`) — the call fails rather than treating the broken tag as a literal value.
 
-`{{itemname}}` is not supported inside `filter` — a filter expression is always a fixed string you write in the prompt, never something built at runtime.
+`<item>itemname</item>` is not supported inside `filter` — a filter expression is always a fixed string you write in the prompt, never something built at runtime.
 
 ---
 
@@ -145,7 +153,7 @@ were found and that a manager needs to review the case.
 ```
 Use the tool call "aggregate_workitems" to sum up all billable hours booked to the current
 project. Pass the following as the criteria parameter:
-{"$workflowgroup": "Efforts", "$workitemref": "{{$uniqueid}}"}
+{"$workflowgroup": "Efforts", "$workitemref": "<item>$uniqueid</item>"}
 
 Pass the following as the filter parameter, exactly as given:
 (service.billable:true)
@@ -165,7 +173,7 @@ any percentage or budget comparison yourself.
 A few habits that make tool calls reliable in practice:
 
 - **Describe what the arguments mean, not just their names.** Which fields exist and what they represent depends entirely on your process — the agent only knows what your prompt tells it.
-- **Prefer `{{itemname}}` over asking the agent to retype a value.** Especially for `$uniqueid` and other identifiers already present on the current case.
+- **Prefer `<item>itemname</item>` over asking the agent to retype a value.** Especially for `$uniqueid` and other identifiers already present on the current case.
 - **Write out `filter` expressions completely in the prompt.** Never ask the agent to construct or adapt one itself — a filter is a fixed piece of text you provide, not something the agent reasons about.
 - **Give the model something concrete to react to.** A tool result like _"zero matches found"_ is far more actionable than a bare success/failure flag — it tells the agent what to do next.
 - **Design for the branch, not just the happy path.** Every tool call your prompt relies on should have a clear instruction for what happens when it returns nothing, one match, or several.
