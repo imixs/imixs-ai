@@ -89,25 +89,27 @@ The user can monitor the agent status as for any other business process. As a re
 </eventlog>
 ```
 
-| Parameter              | Description                                                                                                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `agent.context.item`   | Item name in the workitem that holds the agent context. This indirection allows different AI-Tasks to use different context data.                                  |
-| `agent.user.item`      | Item name in the workitem that holds the user's natural-language prompt. This indirection allows different input fields for user input.                            |
-| `agent.endpoint`       | Logical LLM endpoint ID as registered in `imixs-llm.xml`.                                                                                                          |
-| `agent.timeout`        | Maximum wall-clock time in milliseconds before the agent is aborted.                                                                                               |
-| `agent.max-iterations` | Maximum number of LLM calls in one agent run to prevent runaway loops.                                                                                             |
-| `agent.event.success`  | BPMN event ID to trigger when the agent completes successfully via the `task_complete` tool call.                                                                  |
-| `agent.event.next`     | BPMN event ID to trigger when the agent is waiting for more user input - routes the workitem back to Task "Ask" so the conversation can continue in the next turn. |
-| `agent.event.error`    | BPMN event ID to trigger when the agent fails or times out.                                                                                                        |
-| `agent.result.type`    | An optional result type to process a completion result by a Imixs AI Result handler.                                                                               |
-| `agent.result.item`    | An optional result item to store the final agent result message (assistant message)                                                                                |
-| `agent.debug`          | 'true' to activate the debug mode                                                                                                                                  |
+| Parameter              | Mandatory | Description                                                                                                                                                                 |               Default                |
+| ---------------------- | :-------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------: |
+| `agent.context.item`   |     x     | Item name in the workitem that holds the agent context. This indirection allows different AI-Tasks to use different context data.                                           |                                      |
+| `agent.endpoint`       |     x     | Logical LLM endpoint ID as registered in `imixs-llm.xml`.                                                                                                                   |
+| `agent.event.success`  |     x     | BPMN event ID to trigger when the agent completes successfully via the `task_complete` tool call.                                                                           |
+| `agent.event.next`     |           | Optional BPMN event ID to trigger when the agent is waiting for more user input - routes the workitem back to Task "Ask" so the conversation can continue in the next turn. | defaults to 'success' if not defined |
+| `agent.event.error`    |           | Optional BPMN event ID to trigger when the agent fails or times out.                                                                                                        | defaults to 'success' if not defined |
+| `agent.user.item`      |           | Item name in the workitem that holds the user's natural-language prompt. This indirection allows different input fields for user input.                                     |          `agent.user.input`          |
+| `agent.timeout`        |           | Maximum wall-clock time in milliseconds before the agent is aborted.                                                                                                        |               120000ms               |
+| `agent.max-iterations` |           | Maximum number of LLM calls in one agent run to prevent runaway loops.                                                                                                      |                  10                  |
+| `agent.result.type`    |           | An optional result type to process a completion result by a Imixs AI Result handler.                                                                                        |
+| `agent.result.item`    |           | An optional result item to store the final agent result message (assistant message)                                                                                         |            `agent.result`            |
+| `agent.debug`          |           | 'true' to activate the debug mode                                                                                                                                           |                false                 |
 
 The item referenced by `agent.context.item` contains the complete conversation state of the AI agent. It is represented as a sequence of `system`, `user`, and `assistant` messages following the OpenAI API format and includes the complete history of all tool calls. The context is persisted after each process step, allowing the agent process to be interrupted and resumed at any time without losing conversational state.
 
+**Note:** If the BPMN Model dose not provide an `next` or `error` event these events default to the `success` event.
+
 ## The AIAgentPlugin
 
-The plugin class `org.imixs.ai.agent.AIAgentPlugin` is one way to trigger an agentic business process. The plugin can be used in any compliance workflow event to start a new AI Agent process.
+The plugin class `org.imixs.ai.agent.AIAgentPlugin` is another optional way to trigger an agentic business process. The plugin can be used in any compliance workflow event to start a new AI Agent in a separate workflow process.
 
 ```xml
 <imixs-ai name="AGENT">

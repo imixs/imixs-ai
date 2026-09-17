@@ -184,10 +184,14 @@ public class AIAgentOperator {
                             "⚠️ agent workitem not found - eventLog ref=" + eventLogEntry.getRef());
                 }
 
+                // clear defaults
+                agentWorkitem.removeItem(AGENT_CONFIG_NEXT_EVENT);
+                agentWorkitem.removeItem(AGENT_CONFIG_ERROR_EVENT);
+                agentWorkitem.removeItem(AGENT_CONFIG_TIMEOUT);
+                agentWorkitem.removeItem(AGENT_CONFIG_MAX_ITERATIONS);
+
                 String endpoint = agentConfig.getItemValueString(AGENT_CONFIG_ENDPOINT);
                 int successEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_SUCCESS_EVENT);
-                int errorEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_ERROR_EVENT);
-                int nextEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_NEXT_EVENT);
                 String contextItem = agentConfig.getItemValueString(AGENT_CONFIG_CONTEXT_ITEM);
 
                 if (endpoint.isBlank()) {
@@ -204,16 +208,6 @@ public class AIAgentOperator {
                     throw new PluginException(AIAgentOperator.class.getSimpleName(),
                             "AGENT_CONFIG_ERROR",
                             AGENT_CONFIG_SUCCESS_EVENT + " must not be 0! Verify BPMN event configuration.");
-                }
-                if (errorEvent == 0) {
-                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
-                            "AGENT_CONFIG_ERROR",
-                            AGENT_CONFIG_ERROR_EVENT + " must not be 0! Verify BPMN event configuration.");
-                }
-                if (nextEvent == 0) {
-                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
-                            "AGENT_CONFIG_ERROR",
-                            AGENT_CONFIG_NEXT_EVENT + " must not be 0! Verify BPMN event configuration.");
                 }
 
                 // copy agent configuration
@@ -287,6 +281,20 @@ public class AIAgentOperator {
         String resultType = workitem.getItemValueString(AGENT_CONFIG_RESULT_TYPE);
         boolean debug = workitem.getItemValueBoolean(AGENT_CONFIG_DEBUG);
 
+        // set defaults if param not defined
+        if (nextEvent == 0) {
+            nextEvent = successEvent;
+        }
+        if (errorEvent == 0) {
+            errorEvent = successEvent;
+        }
+        if (timeout <= 0) {
+            timeout = DEFAULT_TIMEOUT_MS;
+        }
+        if (maxIterations <= 0) {
+            maxIterations = DEFAULT_MAX_ITERATIONS;
+        }
+
         contextHandler.setDebug(debug);
 
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ENDPOINT + "={0}", endpoint);
@@ -299,13 +307,6 @@ public class AIAgentOperator {
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ERROR_EVENT + "={0}", errorEvent);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_ITEM + "={0}", agentResultItem);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_TYPE + "={0}", resultType);
-
-        if (timeout <= 0) {
-            timeout = DEFAULT_TIMEOUT_MS;
-        }
-        if (maxIterations <= 0) {
-            maxIterations = DEFAULT_MAX_ITERATIONS;
-        }
 
         // Mark the workitem as running
         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_RUNNING);
