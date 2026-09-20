@@ -42,13 +42,13 @@ When users want to interact with the agent, they start a dedicated AI agent work
 
 The AI-Agent-Model consists typically of the following tasks:
 
-| Task      | Description                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------ |
-| Asking    | User enters a natural-language prompt and optionally attaches files                                    |
-| Thinking  | Agent is running asynchronously; the task can be associated with a System Prompt instructing the agent |
-| Completed | Agent completed; user is redirected to the started workflow or sees the agent response                 |
-| Next      | The agent repeats the cycle with a question to the user                                                |
-| Error     | Agent loop stopped because of an internal error                                                        |
+| Task      | Description                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Asking    | User enters a natural-language prompt and optionally attaches files and triggeres the agent-loop.                                     |
+| Thinking  | the task sis associated with a System Prompt instructing the agent which is running the agent-loop asynchronously.                    |
+| Callback  | The agent was unable to solve the request and answers with a callback. The user can enter additional data and restart the agent-loop. |
+| Completed | The agent has completed the agent-loop. The user is redirected to the workflow to verify the agent response                           |
+| Error     | Agent loop stopped because of an internal error                                                                                       |
 
 This approach makes the agent very flexible and easy to adapt on individual enterprise needs:
 

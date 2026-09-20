@@ -84,10 +84,7 @@ public class AIAgentOperator {
     public static final String AGENT_TOPIC_PROCESS = "ai.agent.process";
 
     public static final String ITEM_AGENT_STATUS = "agent.status";
-    // public static final String ITEM_AGENT_SKILLS = "agent.skills";
     public static final String ITEM_AGENT_WORKITEM_REF = "agent.workitem.ref";
-    // public static final String ITEM_AGENT_TASK_COMPLETE = "agent.task.complete";
-    // public static final String ITEM_AGENT_TASK_RESULT = "agent.task.result";
 
     public static final String AGENT_STATUS_WAITING = "WAITING";
     private static final String AGENT_STATUS_RUNNING = "RUNNING";
@@ -107,10 +104,12 @@ public class AIAgentOperator {
     public static final String AGENT_CONFIG_ENDPOINT = "agent.endpoint";
     public static final String AGENT_CONFIG_TIMEOUT = "agent.timeout";
     public static final String AGENT_CONFIG_MAX_ITERATIONS = "agent.max-iterations";
-    public static final String AGENT_CONFIG_SUCCESS_EVENT = "agent.event.success";
-    public static final String AGENT_CONFIG_ERROR_EVENT = "agent.event.error";
-    public static final String AGENT_CONFIG_NEXT_EVENT = "agent.event.next";
     public static final String AGENT_CONFIG_DEBUG = "agent.debug";
+
+    // Agent Loop Events
+    public static final String AGENT_CONFIG_EVENT_COMPLETED = "agent.event.completed";
+    public static final String AGENT_CONFIG_EVENT_ERROR = "agent.event.error";
+    public static final String AGENT_CONFIG_EVENT_CALLBACK = "agent.event.callback";
 
     public static final String PROMPT_FILECONTEXT = "\n\n<FILECONTEXT>^.+\\.(pdf|PDF|eml|msg)$</FILECONTEXT>";
 
@@ -185,13 +184,13 @@ public class AIAgentOperator {
                 }
 
                 // clear defaults
-                agentWorkitem.removeItem(AGENT_CONFIG_NEXT_EVENT);
-                agentWorkitem.removeItem(AGENT_CONFIG_ERROR_EVENT);
+                agentWorkitem.removeItem(AGENT_CONFIG_EVENT_CALLBACK);
+                agentWorkitem.removeItem(AGENT_CONFIG_EVENT_ERROR);
                 agentWorkitem.removeItem(AGENT_CONFIG_TIMEOUT);
                 agentWorkitem.removeItem(AGENT_CONFIG_MAX_ITERATIONS);
 
                 String endpoint = agentConfig.getItemValueString(AGENT_CONFIG_ENDPOINT);
-                int successEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_SUCCESS_EVENT);
+                int completedEvent = agentConfig.getItemValueInteger(AGENT_CONFIG_EVENT_COMPLETED);
                 String contextItem = agentConfig.getItemValueString(AGENT_CONFIG_CONTEXT_ITEM);
 
                 if (endpoint.isBlank()) {
@@ -204,10 +203,18 @@ public class AIAgentOperator {
                             "AGENT_CONFIG_ERROR",
                             AGENT_CONFIG_CONTEXT_ITEM + " must not be empty! Verify BPMN event configuration.");
                 }
-                if (successEvent == 0) {
-                    throw new PluginException(AIAgentOperator.class.getSimpleName(),
-                            "AGENT_CONFIG_ERROR",
-                            AGENT_CONFIG_SUCCESS_EVENT + " must not be 0! Verify BPMN event configuration.");
+                if (completedEvent == 0) {
+                    // check deprecated config item name
+                    completedEvent = agentConfig.getItemValueInteger("agent.event.success");
+                    if (completedEvent == 0) {
+                        throw new PluginException(AIAgentOperator.class.getSimpleName(),
+                                "AGENT_CONFIG_ERROR",
+                                AGENT_CONFIG_EVENT_COMPLETED + " must not be 0! Verify BPMN event configuration.");
+                    } else {
+                        agentConfig.setItemValue(AGENT_CONFIG_EVENT_COMPLETED, completedEvent);
+                        logger.warning(
+                                "AGENT_CONFIG_ERROR: parameter 'agent.event.success' is deprecated and should be replaced by 'agent.event.completed'.");
+                    }
                 }
 
                 // copy agent configuration
@@ -275,18 +282,26 @@ public class AIAgentOperator {
         String endpoint = workitem.getItemValueString(AGENT_CONFIG_ENDPOINT);
         long timeout = workitem.getItemValueLong(AGENT_CONFIG_TIMEOUT);
         int maxIterations = workitem.getItemValueInteger(AGENT_CONFIG_MAX_ITERATIONS);
-        int successEvent = workitem.getItemValueInteger(AGENT_CONFIG_SUCCESS_EVENT);
-        int errorEvent = workitem.getItemValueInteger(AGENT_CONFIG_ERROR_EVENT);
-        int nextEvent = workitem.getItemValueInteger(AGENT_CONFIG_NEXT_EVENT);
+        int eventCompleted = workitem.getItemValueInteger(AGENT_CONFIG_EVENT_COMPLETED);
+        int eventError = workitem.getItemValueInteger(AGENT_CONFIG_EVENT_ERROR);
+        int eventCallback = workitem.getItemValueInteger(AGENT_CONFIG_EVENT_CALLBACK);
         String resultType = workitem.getItemValueString(AGENT_CONFIG_RESULT_TYPE);
         boolean debug = workitem.getItemValueBoolean(AGENT_CONFIG_DEBUG);
 
         // set defaults if param not defined
-        if (nextEvent == 0) {
-            nextEvent = successEvent;
+        if (eventCallback == 0) {
+            // test for deprecated config item
+            if (workitem.hasItem("agent.event.next")) {
+                eventCallback = workitem.getItemValueInteger("agent.event.next");
+                logger.warning(
+                        "AGENT_CONFIG_ERROR: parameter 'agent.event.next' is deprecated and should be replaced by 'agent.event.callback'.");
+            }
+            if (eventCallback == 0) { // still not defined
+                eventCallback = eventCompleted;
+            }
         }
-        if (errorEvent == 0) {
-            errorEvent = successEvent;
+        if (eventError == 0) {
+            eventError = eventCompleted;
         }
         if (timeout <= 0) {
             timeout = DEFAULT_TIMEOUT_MS;
@@ -302,9 +317,9 @@ public class AIAgentOperator {
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_USER_ITEM + "={0}", userInputInput);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_TIMEOUT + "={0}", timeout);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_MAX_ITERATIONS + "={0}", maxIterations);
-        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_NEXT_EVENT + "={0}", nextEvent);
-        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_SUCCESS_EVENT + "={0}", successEvent);
-        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ERROR_EVENT + "={0}", errorEvent);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_EVENT_CALLBACK + "={0}", eventCallback);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_EVENT_COMPLETED + "={0}", eventCompleted);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_EVENT_ERROR + "={0}", eventError);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_ITEM + "={0}", agentResultItem);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RESULT_TYPE + "={0}", resultType);
 
@@ -403,10 +418,10 @@ public class AIAgentOperator {
                     workitem.setItemValue("comment.user", agentResponse);
                     workitem.setItemValue(agentResultItem, agentResponse);
                     logger.log(Level.INFO,
-                            "│   ├── ⏳ awaiting user input — triggering next event {0}", nextEvent);
+                            "│   ├── ⏳ awaiting user input — triggering callback event {0}", eventCallback);
 
                     workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_WAITING);
-                    triggerWorkflowEvent(workitem, nextEvent);
+                    triggerWorkflowEvent(workitem, eventCallback);
                     return;
                 } else {
                     logger.log(Level.INFO,
@@ -430,9 +445,9 @@ public class AIAgentOperator {
                     // Check if task_complete was called in this tool call iteration
                     if (toolCallResult.isTaskComplete()) {
                         logger.log(Level.INFO,
-                                "│   ├── ✅ task complete via tool call — triggering success event {0}", successEvent);
+                                "│   ├── ✅ task complete via tool call — triggering success event {0}", eventCompleted);
                         workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_DONE);
-                        triggerWorkflowEvent(workitem, successEvent);
+                        triggerWorkflowEvent(workitem, eventCompleted);
 
                         return;
                     }
@@ -446,7 +461,7 @@ public class AIAgentOperator {
             logger.log(Level.WARNING, "│   ├── ⚠️ Agent loop failed: {0}", e.getMessage());
             workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_ERROR);
             try {
-                triggerWorkflowEvent(workitem, errorEvent);
+                triggerWorkflowEvent(workitem, eventError);
             } catch (Exception ex) {
                 logger.log(Level.SEVERE, "│   └── ❌ Failed to trigger error event: {0}", ex.getMessage());
             }
