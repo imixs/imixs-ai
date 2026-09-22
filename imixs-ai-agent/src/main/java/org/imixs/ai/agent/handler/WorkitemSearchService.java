@@ -194,16 +194,23 @@ public class WorkitemSearchService {
 
     /**
      * Builds a Lucene query from the given, already-resolved criteria map -
-     * always scoped to type:workitem.
+     * always scoped to (type:workitem OR type:workitemarchive).
+     * 
+     * The method throws an exeption if a criteria is not allowed (e.g. type)
      *
      * @param criteria map of index field name to search value (combined with
      *                 AND); values here are already resolved - no
      *                 {@code <item>itemname</item>} references remain at this
      *                 point
+     * @throws QueryException
      */
-    String buildQuery(JsonObject criteria) {
-        StringBuilder queryBuilder = new StringBuilder("(type:workitem)");
+    String buildQuery(JsonObject criteria) throws QueryException {
+        StringBuilder queryBuilder = new StringBuilder("(type:workitem OR type:workitemarchive)");
         for (String field : criteria.keySet()) {
+            if ("type".equalsIgnoreCase(field)) {
+                throw new QueryException(QueryException.QUERY_NOT_UNDERSTANDABLE,
+                        "Criteria '" + field + "' is not allowed!");
+            }
             String value = criteria.getString(field);
             // Quote the value to handle spaces and Lucene special characters
             // like the hyphen in a license plate (e.g. "M-AH-4524")
