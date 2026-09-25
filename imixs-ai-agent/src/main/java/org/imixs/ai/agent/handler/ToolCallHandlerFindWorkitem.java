@@ -15,7 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
@@ -38,15 +38,15 @@ import jakarta.json.JsonObjectBuilder;
  * <p>
  * Criteria values may reference a field of the current workitem via
  * {@code <item>itemname</item>} instead of being retyped by the LLM - see
- * {@link WorkitemSearchService} for the resolution mechanism and the
- * rationale (avoiding transcription mistakes for values such as
- * $uniqueid that already exist on the current workitem).
+ * {@link WorkitemSearchService} for the resolution mechanism and the rationale
+ * (avoiding transcription mistakes for values such as $uniqueid that already
+ * exist on the current workitem).
  * <p>
  * An optional {@code filter} further narrows the matches for conditions that
  * cannot be expressed as an indexed search criterion (e.g. a business field
  * that is not part of the search index). It is applied per match via
- * {@link WorkitemHelper#matches(ItemCollection, String)}, after the search -
- * a non-matching item is simply left out of the returned list.
+ * {@link WorkitemHelper#matches(ItemCollection, String)}, after the search - a
+ * non-matching item is simply left out of the returned list.
  */
 @Named
 public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializable {
@@ -114,24 +114,24 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
     }
 
     @Override
-    public void handle(ImixsAIToolCallEvent event) {
-        if (!TOOL_FIND_WORKITEM.equals(event.getToolName())) {
+    public void handle(ToolCallFunction _function) {
+        if (!TOOL_FIND_WORKITEM.equals(_function.getToolName())) {
             return;
         }
 
-        JsonObject criteria = event.getArguments().getJsonObject("criteria");
+        JsonObject criteria = _function.getArguments().getJsonObject("criteria");
         if (criteria == null || criteria.isEmpty()) {
-            event.setError("Missing or empty 'criteria' argument!");
+            _function.setError("Missing or empty 'criteria' argument!");
             return;
         }
 
-        String filter = event.getArguments().containsKey("filter")
-                ? event.getArguments().getString("filter")
+        String filter = _function.getArguments().containsKey("filter")
+                ? _function.getArguments().getString("filter")
                 : null;
 
         try {
             List<ItemCollection> result = workitemSearchService.findWorkitems(criteria,
-                    event.getContextHandler().getWorkItem(), MAX_RESULT_COUNT, 0);
+                    _function.getContextHandler().getWorkItem(), MAX_RESULT_COUNT, 0);
 
             JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
             int matchedCount = 0;
@@ -151,12 +151,12 @@ public class ToolCallHandlerFindWorkitem implements ToolCallHandler, Serializabl
 
             logger.info("│   └── ✅ find_workitem returned " + matchedCount + " workitem(s)"
                     + (matchedCount != result.size() ? " (" + result.size() + " before filter)" : ""));
-            event.setResultValue(resultJson);
-            event.setToolMessage(resultJson);
+            _function.setResultValue(resultJson);
+            _function.setToolMessage(resultJson);
 
         } catch (QueryException e) {
             logger.log(Level.WARNING, "│   └── ⚠️ find_workitem failed: " + e.getMessage());
-            event.setError(e.getMessage());
+            _function.setError(e.getMessage());
         }
     }
 }

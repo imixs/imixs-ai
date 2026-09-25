@@ -14,7 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
@@ -26,20 +26,28 @@ import jakarta.json.JsonObject;
 /**
  * Handles the "aggregate_workitems" tool call.
  * <p>
- * Searches for workitems by a set of index field/value criteria (same
- * mechanism as find_workitem/link_workitem) and computes a single aggregate
- * value over a numeric field of the matches. The relation to the current
- * workitem is not a separate concept - it is expressed like any other
- * criterion, typically as {@code "$workitemref": "<item>$uniqueid</item>"},
- * resolved
- * server-side by {@link WorkitemSearchService} so the LLM never has to
- * reproduce a uniqueid itself.
+ * Searches for workitems by a set of index field/value criteria (same mechanism
+ * as find_workitem/link_workitem) and computes a single aggregate value over a
+ * numeric field of the matches. The relation to the current workitem is not a
+ * separate concept - it is expressed like any other criterion, typically as
+ * {@code "$workitemref": "<item>$uniqueid</item>"}, resolved server-side by
+ * {@link WorkitemSearchService} so the LLM never has to reproduce a uniqueid
+ * itself.
  * <p>
- * An optional {@code filter} further narrows the matches for conditions that
- * cannot be expressed as an indexed search criterion (e.g. a business field
- * that is not part of the search index). It is applied per raw item, after
- * the search, without affecting pagination - see
+ * {@code filter} further narrows the matches for conditions that cannot be
+ * expressed as an indexed search criterion (e.g. a business field that is not
+ * part of the search index). It is applied per raw item, after the search,
+ * without affecting pagination - see
  * {@link AggregateWorkitemsService#aggregate} for details.
+ * <p>
+ * {@code filter} is a required schema field, even though it is empty in most
+ * calls. This is a deliberate choice, not an oversight: a field only ever
+ * omitted "when not needed" is - in practice, with several locally hosted
+ * models tested - dropped noticeably more often than a field the schema always
+ * requires the model to emit (even with an empty value). Marking it required
+ * removed an observed, reproducible failure mode where the model silently left
+ * the filter out of one of several very similar calls in the same completion.
+ * See the tool documentation for the full rationale.
  * <p>
  * This handler is only responsible for parsing arguments and paging through
  * {@code WorkitemSearchService.findWorkitems(...)}. All actual aggregation
@@ -68,20 +76,21 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
     public void register(ImixsAIContextHandler contextHandler) {
         contextHandler.addFunction(
                 TOOL_AGGREGATE_WORKITEMS,
-                "Searches for workitems by a set of index field/value criteria (same mechanism as "
-                        + "find_workitem) and computes a single aggregate value (sum, count, avg, min or max) "
+                "Searches for workitems by a set of index field/value criteria "
+                        + "and computes a single aggregate value (sum, count, avg, min or max) "
                         + "over a numeric field of the matches. The computation always runs server-side - "
                         + "individual field values of the matched workitems are never returned. Each criteria "
                         + "value can be a literal, or reference a field of the CURRENT workitem using "
-                        + "<item>itemname</item> syntax instead of retyping its value, e.g. <item>$uniqueid</item> - always "
-                        + "prefer this for identifiers already present on the current workitem. An optional "
-                        + "'filter' can further narrow down the matches for special cases not covered by "
-                        + "criteria - only use it if the task instructions explicitly give you a filter "
-                        + "expression, and pass it through exactly as given; never invent one yourself. Which "
-                        + "index field names, numeric fields, and filter expressions are available is "
-                        + "described in the current task instructions. Do not attempt to compute sums, counts "
-                        + "or averages yourself from other tool results - always use this tool for that "
-                        + "purpose.",
+                        + "<item>itemname</item> syntax instead of retyping its value, e.g. "
+                        + "<item>$uniqueid</item> - always prefer this for identifiers already present on "
+                        + "the current workitem. A 'filter' can further narrow down the matches for special "
+                        + "cases not covered by criteria - use a non-empty value only if the task "
+                        + "instructions explicitly give you a filter expression, and pass it through exactly "
+                        + "as given; never invent one yourself. This field is required - pass an empty value "
+                        + "when no filter is needed. Which index field names, numeric fields, and filter "
+                        + "expressions are available is described in the current task instructions. Do not "
+                        + "attempt to compute sums, counts or averages yourself from other tool results - "
+                        + "always use this tool for that purpose.",
                 """
                         {
                             "type": "object",
@@ -95,7 +104,7 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
                                 },
                                 "filter": {
                                     "type": "string",
-                                    "description": "Optional additional condition to narrow down the selected workitems further, applied after criteria. Only use this if the task instructions explicitly provide a filter expression - copy it exactly as given, do not construct or modify it yourself. Example: \\"(service.billable:true)\\""
+                                    "description": "Additional condition to narrow down the selected workitems further, applied after criteria, or an empty value when no filter is needed. Only use a non-empty value if the task instructions explicitly provide a filter expression - copy it exactly as given, do not construct or modify it yourself. This field must always be present in the call, even when empty. Example: (service.billable:true)"
                                 },
                                 "aggregateField": {
                                     "type": "string",
@@ -115,49 +124,49 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
                                     "description": "Optional name of a field on the current workitem the list of matched $uniqueids is written into, for traceability. Independent of targetField."
                                 }
                             },
-                            "required": ["criteria", "function"]
+                            "required": ["criteria", "function", "filter"]
                         }
                         """);
     }
 
     @Override
-    public void handle(ImixsAIToolCallEvent event) {
+    public void handle(ToolCallFunction _function) {
         long l = System.currentTimeMillis();
-        if (!TOOL_AGGREGATE_WORKITEMS.equals(event.getToolName())) {
+        if (!TOOL_AGGREGATE_WORKITEMS.equals(_function.getToolName())) {
             return;
         }
 
-        JsonObject criteria = event.getArguments().getJsonObject("criteria");
+        JsonObject criteria = _function.getArguments().getJsonObject("criteria");
         if (criteria == null || criteria.isEmpty()) {
-            event.setError("Missing or empty 'criteria' argument!");
+            _function.setError("Missing or empty 'criteria' argument!");
             return;
         }
 
-        String function = event.getArguments().containsKey("function")
-                ? event.getArguments().getString("function")
+        String function = _function.getArguments().containsKey("function")
+                ? _function.getArguments().getString("function")
                 : null;
-        String aggregateField = event.getArguments().containsKey("aggregateField")
-                ? event.getArguments().getString("aggregateField")
+        String aggregateField = _function.getArguments().containsKey("aggregateField")
+                ? _function.getArguments().getString("aggregateField")
                 : null;
 
         String validationError = aggregateWorkitemsService.validateFunction(function, aggregateField);
         if (validationError != null) {
-            event.setError(validationError);
+            _function.setError(validationError);
             return;
         }
         function = function.toLowerCase();
 
-        String filter = event.getArguments().containsKey("filter")
-                ? event.getArguments().getString("filter")
+        String filter = _function.getArguments().containsKey("filter")
+                ? _function.getArguments().getString("filter")
                 : null;
-        String targetField = event.getArguments().containsKey("targetField")
-                ? event.getArguments().getString("targetField")
+        String targetField = _function.getArguments().containsKey("targetField")
+                ? _function.getArguments().getString("targetField")
                 : null;
-        String matchIdsField = event.getArguments().containsKey("matchIdsField")
-                ? event.getArguments().getString("matchIdsField")
+        String matchIdsField = _function.getArguments().containsKey("matchIdsField")
+                ? _function.getArguments().getString("matchIdsField")
                 : null;
 
-        ImixsAIContextHandler contextHandler = event.getContextHandler();
+        ImixsAIContextHandler contextHandler = _function.getContextHandler();
         ItemCollection workitem = contextHandler.getWorkItem();
 
         logger.info("├── ToolCallHandlerAggregateWorkitems: function='" + function
@@ -180,11 +189,11 @@ public class ToolCallHandlerAggregateWorkitems implements ToolCallHandler, Seria
 
             logger.info("└── ✅ aggregate_workitems completed in " + (System.currentTimeMillis() - l) + "ms");
 
-            event.setToolMessage(resultJson);
+            _function.setToolMessage(resultJson);
 
         } catch (QueryException e) {
             logger.log(Level.WARNING, "│   └── ⚠️ aggregate_workitems failed: " + e.getMessage());
-            event.setError(e.getMessage());
+            _function.setError(e.getMessage());
         }
     }
 }

@@ -15,7 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.QueryException;
@@ -41,9 +41,8 @@ import jakarta.json.JsonObjectBuilder;
  * transcription errors when passing a uniqueid from a prior find_workitem
  * result into a separate tool call. Additionally, a criteria VALUE can itself
  * reference a field of the CURRENT workitem via {@code <item>itemname</item>}
- * instead
- * of being retyped by the LLM - see {@link WorkitemSearchService} for the
- * resolution mechanism. Between the two, no uniqueid - neither the current
+ * instead of being retyped by the LLM - see {@link WorkitemSearchService} for
+ * the resolution mechanism. Between the two, no uniqueid - neither the current
  * workitem's nor a matched one's - ever has to pass through the LLM as
  * free-form text.
  * <p>
@@ -123,19 +122,19 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
     }
 
     @Override
-    public void handle(ImixsAIToolCallEvent event) {
+    public void handle(ToolCallFunction _function) {
 
-        JsonObject criteria = event.getArguments().getJsonObject("criteria");
+        JsonObject criteria = _function.getArguments().getJsonObject("criteria");
         if (criteria == null || criteria.isEmpty()) {
-            event.setError("Missing or empty 'criteria' argument!");
+            _function.setError("Missing or empty 'criteria' argument!");
             return;
         }
 
-        String filter = event.getArguments().containsKey("filter")
-                ? event.getArguments().getString("filter")
+        String filter = _function.getArguments().containsKey("filter")
+                ? _function.getArguments().getString("filter")
                 : null;
-        String refField = event.getArguments().containsKey("refField")
-                ? event.getArguments().getString("refField")
+        String refField = _function.getArguments().containsKey("refField")
+                ? _function.getArguments().getString("refField")
                 : null;
 
         logger.info("├── ToolCallHandlerLinkWorkitem: link_workitem refField='"
@@ -143,9 +142,9 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
 
         try {
             List<ItemCollection> matches = workitemSearchService.findWorkitems(criteria,
-                    event.getContextHandler().getWorkItem(), MAX_LINK_COUNT, 0);
+                    _function.getContextHandler().getWorkItem(), MAX_LINK_COUNT, 0);
 
-            ImixsAIContextHandler contextHandler = event.getContextHandler();
+            ImixsAIContextHandler contextHandler = _function.getContextHandler();
             ItemCollection workitem = contextHandler.getWorkItem();
 
             JsonArrayBuilder matchesArrayBuilder = Json.createArrayBuilder();
@@ -182,11 +181,11 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                     + (refField != null && !DEFAULT_REF_FIELD.equals(refField) ? " and '" + refField + "'" : "")
                     + (linkedCount != matches.size() ? " (" + matches.size() + " before filter)" : ""));
 
-            event.setToolMessage(resultJson);
+            _function.setToolMessage(resultJson);
 
         } catch (QueryException e) {
             logger.log(Level.WARNING, "│   └── ⚠️ link_workitem failed: " + e.getMessage());
-            event.setError(e.getMessage());
+            _function.setError(e.getMessage());
         }
     }
 }

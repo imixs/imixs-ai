@@ -32,7 +32,8 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.ai.workflow.ImixsAIResultEvent;
@@ -113,6 +114,9 @@ public class OpenAIAPIService implements Serializable {
     @Inject
     @Any
     private Instance<ToolCallHandler> toolCallHandlers;
+
+    @Inject
+    private Event<ToolCallEvent> toolCallEventObservers = null;
 
     /**
      * This method returns a string with all the text content of all documents
@@ -276,7 +280,7 @@ public class OpenAIAPIService implements Serializable {
             logger.info("├── Tool Call: " + toolName + " / arguments: " + arguments);
 
             // Fire CDI event - observers handle the actual execution
-            ImixsAIToolCallEvent toolCallEvent = new ImixsAIToolCallEvent(
+            ToolCallFunction toolCallFunction = new ToolCallFunction(
                     toolName, arguments, toolCallId, contextHandler);
 
             // Central dispatch: find exactly the one handler responsible for this
@@ -288,48 +292,53 @@ public class OpenAIAPIService implements Serializable {
                         "No handler registered for tool: " + toolName);
             }
 
+            // Fire ToolCallEvent..
+            ToolCallEvent toolCallEvent = new ToolCallEvent(toolCallFunction, ToolCallEvent.BEFORE_TOOLCALL);
+            toolCallEventObservers.fire(toolCallEvent);
             try {
-                matchingHandler.handle(toolCallEvent);
+                matchingHandler.handle(toolCallFunction);
             } catch (RuntimeException e) {
                 // Defensive: a handler must not be able to break the agent loop
                 // with an unchecked exception.
                 logger.log(Level.WARNING, "├── Tool handler '" + toolName + "' failed unexpectedly", e);
-                toolCallEvent.setError("Tool '" + toolName + "' failed: " + e.getMessage());
+                toolCallFunction.setError("Tool '" + toolName + "' failed: " + e.getMessage());
             }
 
-            // toolCallEventObservers.fire(toolCallEvent);
+            // Fire ToolCallEvent..
+            toolCallEvent = new ToolCallEvent(toolCallFunction, ToolCallEvent.AFTER_TOOLCALL);
+            toolCallEventObservers.fire(toolCallEvent);
 
-            if (toolCallEvent.hasError()) {
+            if (toolCallFunction.hasError()) {
                 throw new PluginException(OpenAIAPIService.class.getSimpleName(),
-                        "TOOL_CALL_ERROR", toolCallEvent.getError());
+                        "TOOL_CALL_ERROR", toolCallFunction.getError());
             }
 
             // Add tool result to context for next LLM request
-            contextHandler.addToolResult(toolCallId, toolCallEvent.getToolMessage());
+            contextHandler.addToolResult(toolCallId, toolCallFunction.getToolMessage());
 
-            logger.info("└── Tool Call handled: " + toolName
-                    + " result length=" + toolCallEvent.getToolMessage().length());
+            logger.fine("└── Tool Call handled: " + toolName
+                    + " result length=" + toolCallFunction.getToolMessage().length());
 
             // Dispatch the business result for this tool call, if any was set
-            if (toolCallEvent.getResultValue() != null) {
+            if (toolCallFunction.getResultValue() != null) {
 
                 // Always carry the raw value on the returned ToolCallResult, independent
                 // of resultType - the caller decides what to do with it (e.g. a
                 // task_complete summary written into a comment field), without
                 // requiring a result adapter to be configured for this agent.
-                resultValue = toolCallEvent.getResultValue();
+                resultValue = toolCallFunction.getResultValue();
 
                 // Additionally dispatch it as structured business data, but only when
                 // resultType is configured and a matching result adapter is listening
                 // (e.g. the XML/JSON result handlers that map it into workitem fields).
                 if (resultType != null && !resultType.isEmpty()) {
                     ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(
-                            toolCallEvent.getResultValue(), resultType, contextHandler.getWorkItem());
+                            toolCallFunction.getResultValue(), resultType, contextHandler.getWorkItem());
                     llmResultEventObservers.fire(llmResultEvent);
                 }
 
                 // is task completed?
-                if (toolCallEvent.isTaskCompleted()) {
+                if (toolCallFunction.isTaskCompleted()) {
                     taskComplete = true;
                     // no break — remaining tool calls must still receive their addToolResult
                 }

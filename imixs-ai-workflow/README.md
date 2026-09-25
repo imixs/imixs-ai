@@ -391,11 +391,11 @@ The Adapter defines a Default Expression template for LLMs. The BPMN configurati
 
 ## Tool Calling
 
-The `ImixsAIContextHandler` supports the OpenAI API tool calling feature. This allows an LLM to request the execution of predefined functions during a conversation. The result is added back into the conversation context so the LLM can continue with the information provided.
+The `OpenAIAPIService` supports the OpenAI API tool calling feature. This allows an LLM to request the execution of predefined functions during a conversation. The result is added back into the conversation context so the LLM can continue with the information provided.
 
 ### Defining Functions
 
-Functions are defined per request and are **not persisted** as part of the conversation context. They are typically set by the agent before each request based on the current BPMN process context:
+Tool Call Functions are defined per request and are **not persisted** as part of the conversation context. They are typically set by the agent before each request based on the current BPMN process context:
 
 ```java
 contextHandler.addFunction(
@@ -437,11 +437,11 @@ public class MyToolCallHandler implements ToolCallHandler {
         return "load_skill";
     }
 
-    public void handle(ImixsAIToolCallEvent event) {
-        String processId = event.getArguments().getString("process_id");
+    public void handle(ToolCallFunction _function) {
+        String processId = _function.getArguments().getString("process_id");
         // Load process details from workflow engine
         String skillContent = workflowService.loadSkill(processId);
-        event.setResult(skillContent);
+        _function.setResult(skillContent);
 
     }
 }
@@ -457,6 +457,10 @@ Assistant: tool_call → load_skill("urlaubsantrag")
 Observer:  loads process details from workflow engine
 Assistant: "I found the vacation request process. Please provide start and end date..."
 ```
+
+### ToolCallEvents
+
+The The `OpenAIAPIService` sends the CDI Event `ToolCallEvent` which can be observed by CDI bean to intercept the tool call.
 
 ### Security Considerations
 

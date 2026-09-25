@@ -136,15 +136,22 @@ The plugin automatically connects the compliance workflow with the AI Agent work
 Tool definitions are a way to provide the **Imixs AI Agent** with additional context by calling defined functions.
 Tool definitions are not hardcoded in the `AIAgentOperator`. Before every LLM call, the operator fires a CDI `ImixsAIToolRegistrationEvent`. Each tool handler observes this event and registers its own function definition. This happens on every loop iteration, since function definitions are not persisted in the agent context. New tools are added by deploying a new CDI observer class, without touching the agent loop itself.
 
-An LLM response can contain **multiple tool calls in a single completion**. `OpenAIAPIService.processToolCallResult(...)` iterates over all tool call results and fires the CDI event `ImixsAIToolCallEvent`. Every tool call in the array is fully processed - each one receives its own `role: "tool"` result message added to the conversation context, regardless of whether an earlier tool call in the same response already signalled completion via `task_complete`. Whether the agent loop actually exits after that response depends only on whether `task_complete` was among the tool calls, not on where it appears in the array. This matters for OpenAI-compatible APIs: every `tool_call_id` the LLM produced must have a matching tool result in the next request, or the following completion request is rejected.
+An LLM response can contain **multiple tool calls in a single completion**. `OpenAIAPIService.processToolCallResult(...)` iterates over all tool call results and calls the matching `ToolCallHandler` with a `TollCallFunction` object describing the tool call. Every tool call in the array is fully processed - each one receives its own `role: "tool"` result message added to the conversation context, regardless of whether an earlier tool call in the same response already signalled completion via `task_complete`. Whether the agent loop actually exits after that response depends only on whether `task_complete` was among the tool calls, not on where it appears in the array. This matters for OpenAI-compatible APIs: every `tool_call_id` the LLM produced must have a matching tool result in the next request, or the following completion request is rejected.
 
-A tool handler communicates back through three separate channels on the `ImixsAIToolCallEvent`:
+A tool handler communicates back through three separate channels on the `ToolCallFunction`:
 
 - **`event.setToolMessage(...)`** — the tool result message sent back to the LLM. This is the primary steering channel for the next reasoning step; a descriptive message actively guides what the LLM does next, while a minimal one gives it nothing to work with.
 - **`event.setResultValue(...)`** — an optional business result, independent of the tool message. If a handler sets this, and `agent.result.type` is configured on the agent, `OpenAIAPIService` fires a `ImixsAIResultEvent` with that value and type. In this way a registered `XML` result handler can parse structured data into the workitem. This dispatch happens per tool call, inside `processToolCallResult(...)`, not once per LLM response in the `AIAgentOperator` — a single completion can therefore trigger a distinct `ImixsAIResultEvent` for each tool call that sets a result value.
 - **`event.setError(...)`** — aborts the current tool call with a descriptive error. A meaningful error message lets the LLM formulate a sensible response to the user instead of a generic failure notice.
 
 The `task_complete` tool call is the mechanism that ends the agent loop successfully. A plain-text response without any tool call is treated as an intermediate answer awaiting further user input, not as completion — see `agent.event.next` above.
+
+### ToolCallEvents
+
+The The `OpenAIAPIService` sends the CDI Event `ToolCallEvent` which can be observed by CDI bean to intercept the tool call. The Event provides the following event types:
+
+- **BEFORE_TOOLCALL** - send immediately before a the tool call will be processed
+- **AFTER_TOOLCALL** - send immediately after a tool call was processed
 
 ### Restricting Tool Calls
 
@@ -161,4 +168,4 @@ To control which tools are available to a specific AI agent, the optional tag `t
 </PromptDefinition>
 ```
 
-As a result, the LLM can only invoke the configured tools, and only those tool calls are dispatched through the `ImixsAIToolCallEvent`. This allows different AI agents to expose different capabilities without changing the deployed application.
+As a result, the LLM can only invoke the configured tools, and only those tool calls are dispatched to the matching `ToolCallHandler`. This allows different AI agents to expose different capabilities without changing the deployed application.

@@ -16,7 +16,7 @@ import java.util.Date;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 import org.imixs.workflow.ItemCollection;
 
@@ -103,18 +103,18 @@ public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializa
      * remaining entries are still applied.
      */
     @Override
-    public void handle(ImixsAIToolCallEvent event) {
-        if (!TOOL_UPDATE_WORKITEM.equals(event.getToolName())) {
+    public void handle(ToolCallFunction _function) {
+        if (!TOOL_UPDATE_WORKITEM.equals(_function.getToolName())) {
             return;
         }
 
-        JsonObject values = event.getArguments().getJsonObject("values");
+        JsonObject values = _function.getArguments().getJsonObject("values");
         if (values == null || values.isEmpty()) {
-            event.setError("Missing or empty 'values' argument!");
+            _function.setError("Missing or empty 'values' argument!");
             return;
         }
 
-        ImixsAIContextHandler contextHandler = event.getContextHandler();
+        ImixsAIContextHandler contextHandler = _function.getContextHandler();
         ItemCollection workitem = contextHandler.getWorkItem();
 
         int updatedCount = 0;
@@ -166,6 +166,6 @@ public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializa
         logger.info("│   └── ✅ update_workitem: " + updatedCount + " field(s) updated, "
                 + skippedCount + " field(s) skipped");
 
-        event.setToolMessage("{\"updated\": " + updatedCount + ", \"skipped\": " + skippedCount + "}");
+        _function.setToolMessage("{\"updated\": " + updatedCount + ", \"skipped\": " + skippedCount + "}");
     }
 }

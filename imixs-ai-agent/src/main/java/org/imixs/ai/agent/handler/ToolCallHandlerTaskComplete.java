@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.logging.Logger;
 
 import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ImixsAIToolCallEvent;
+import org.imixs.ai.tools.ToolCallFunction;
 import org.imixs.ai.tools.ToolCallHandler;
 
 import jakarta.inject.Named;
@@ -58,22 +58,22 @@ public class ToolCallHandlerTaskComplete implements ToolCallHandler, Serializabl
      * successEvent instead of nextEvent.
      */
     @Override
-    public void handle(ImixsAIToolCallEvent event) {
+    public void handle(ToolCallFunction _function) {
 
-        if (!TOOL_TASK_COMPLETE.equals(event.getToolName())) {
+        if (!TOOL_TASK_COMPLETE.equals(_function.getToolName())) {
             return;
         }
 
-        String result = event.getArguments().getString("result");
+        String result = _function.getArguments().getString("result");
         logger.info("├── ToolCallHandlerTaskComplete: task_complete - result=" + result);
 
         // Set the completion flag
         logger.info("│   └── ✅ task_complete flag set for agent: "
-                + event.getContextHandler().getWorkItem().getUniqueID());
+                + _function.getContextHandler().getWorkItem().getUniqueID());
 
-        event.setTaskCompleted(true);
-        event.setResultValue(result);
-        event.setToolMessage("Task completed");
+        _function.setTaskCompleted(true);
+        _function.setResultValue(result);
+        _function.setToolMessage("Task completed");
 
     }
 }

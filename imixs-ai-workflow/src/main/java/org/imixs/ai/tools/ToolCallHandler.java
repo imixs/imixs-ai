@@ -38,5 +38,5 @@ public interface ToolCallHandler {
      * Executes the tool call. The handler is expected to set the result or error on
      * the given event.
      */
-    void handle(ImixsAIToolCallEvent event);
+    void handle(ToolCallFunction _function);
 }

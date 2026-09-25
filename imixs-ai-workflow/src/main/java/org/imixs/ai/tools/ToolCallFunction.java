@@ -5,14 +5,14 @@ import org.imixs.ai.ImixsAIContextHandler;
 import jakarta.json.JsonObject;
 
 /**
- * ImixsAIToolCallEvent is fired when the LLM responds with a tool call.
- * Observers can handle the tool call and set the result.
+ * The ToolCallFunction describes a LLM tool call. A `ToolCallHandler` can
+ * process the function in the method handle().
  *
- * The result will be sent back to the LLM as a tool message. The contextHandler
- * provides access to the current conversation context and the associated
- * workitem.
+ * The ToolCallFunction holds the function data and function result. The
+ * contextHandler provides access to the current conversation context and the
+ * associated workitem.
  */
-public class ImixsAIToolCallEvent {
+public class ToolCallFunction {
 
     private final String toolName;
     private final JsonObject arguments;
@@ -29,7 +29,7 @@ public class ImixsAIToolCallEvent {
      * Constructor with contextHandler. Provides observers with access to the
      * current conversation context and the associated workitem.
      */
-    public ImixsAIToolCallEvent(String toolName, JsonObject arguments, String toolCallId,
+    public ToolCallFunction(String toolName, JsonObject arguments, String toolCallId,
             ImixsAIContextHandler contextHandler) {
         this.toolName = toolName;
         this.arguments = arguments;
