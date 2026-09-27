@@ -175,13 +175,15 @@ public class ToolCallHandlerLinkWorkitem implements ToolCallHandler, Serializabl
                     .add("linkedCount", linkedCount)
                     .add("matches", matchesArrayBuilder)
                     .build().toString();
+            _function.setResultValue(resultJson);
 
-            logger.info("│   └── ✅ link_workitem: linked " + linkedCount + " workitem(s) to '"
+            // Set tool call message
+            String message = "link_workitem: linked " + linkedCount + " workitem(s) to '"
                     + DEFAULT_REF_FIELD + "'"
                     + (refField != null && !DEFAULT_REF_FIELD.equals(refField) ? " and '" + refField + "'" : "")
-                    + (linkedCount != matches.size() ? " (" + matches.size() + " before filter)" : ""));
-
-            _function.setToolMessage(resultJson);
+                    + (linkedCount != matches.size() ? " (" + matches.size() + " before filter)" : "");
+            _function.setToolMessage(message);
+            logger.info("│   └── ✅ " + message);
 
         } catch (QueryException e) {
             logger.log(Level.WARNING, "│   └── ⚠️ link_workitem failed: " + e.getMessage());

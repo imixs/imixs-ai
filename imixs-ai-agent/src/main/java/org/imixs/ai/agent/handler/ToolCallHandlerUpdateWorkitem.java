@@ -166,6 +166,6 @@ public class ToolCallHandlerUpdateWorkitem implements ToolCallHandler, Serializa
         logger.info("│   └── ✅ update_workitem: " + updatedCount + " field(s) updated, "
                 + skippedCount + " field(s) skipped");
 
-        _function.setToolMessage("{\"updated\": " + updatedCount + ", \"skipped\": " + skippedCount + "}");
+        _function.setToolMessage(updatedCount + " data fields updated, " + skippedCount + " skipped.");
     }
 }
