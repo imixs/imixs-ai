@@ -1,0 +1,4 @@
+"{\"WFLYCTL0080: Failed services\" => {\"jboss.deployment.unit.\\\"imixs-ai-rag-index.war\\\".POST_MODULE\" => \"WFLYSRV0153: Failed to process phase POST_MODULE of deployment \\\"imixs-ai-rag-index.war\\\"
+    Caused by: java.lang.RuntimeException: WFLYSRV0177: Error getting reflective information for class org.imixs.ai.api.OpenAIAPIService with ClassLoader ModuleClassLoader for Module \\\"deployment.imixs-ai-rag-index.war\\\" from Service Module Loader
+    Caused by: java.lang.NoClassDefFoundError: org/imixs/workflow/engine/ModelService
+    Caused by: java.lang.ClassNotFoundException: org.imixs.workflow.engine.ModelService from [Module \\\"deployment.imixs-ai-rag-index.war\\\" from Service Module Loader]\"}}"

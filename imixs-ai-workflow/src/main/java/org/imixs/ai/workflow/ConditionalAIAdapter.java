@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.ImixsAIContextHandler;
 import org.imixs.ai.api.LLMConfigService;
 import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.api.OpenAIAPIService;

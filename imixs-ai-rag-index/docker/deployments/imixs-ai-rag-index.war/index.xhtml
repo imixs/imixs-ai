@@ -1,0 +1,143 @@
+<ui:composition template="/WEB-INF/templates/layout.xhtml" xmlns:faces="jakarta.faces" xmlns:f="jakarta.faces.core"
+  xmlns:h="jakarta.faces.html" xmlns:ui="jakarta.faces.facelets">
+  <ui:define name="content">
+    <f:view>
+      <h:form id="connect_form_id">
+        <section>
+          <div class="card" style="grid-column-start: span 12; min-height: 0px">
+            <h1 style="line-height: 0">
+              <span class="typcn typcn-th-small"></span>
+              Imixs-AI RAG Service
+            </h1>
+          </div>
+        </section>
+
+        <section>
+          <div class="card" style="grid-column-start: span 12">
+            <p class="help">
+              <span class="typcn typcn-lightbulb"></span>
+              Imixs-Workflow API Endpoint Configuration.
+            </p>
+            <div class="imixs-form-section" style="grid-column-start: span 12">
+              <table class="imixsdatatable" style="grid-column-start: span 12; margin: 10px 0">
+                <tr>
+                  <td style="width: 25%">Imixs-Workflow Instance:</td>
+                  <td>#{dashboardController.getInstanceEndpoint()}</td>
+                </tr>
+
+                <tr>
+                  <td>Index Interval:</td>
+                  <td>#{dashboardController.getInterval()} ms</td>
+                </tr>
+
+                <tr>
+                  <td style="width: 25%;">Cluster Contact Points:</td>
+                  <td>#{dashboardController.contactPoints}</td>
+                </tr>
+                <tr>
+                  <td>KeySpace:</td>
+                  <td>#{dashboardController.keySpace}</td>
+                </tr>
+                <tr>
+                  <td>Replication Factor:</td>
+                  <td>#{dashboardController.replicationFactor}</td>
+                </tr>
+                <tr>
+                  <td>Replication Strategy:</td>
+                  <td>#{dashboardController.replicationClass}</td>
+                </tr>
+                <tr>
+                  <td>Cassandra Status:</td>
+                  <td>
+                    <ui:fragment rendered="#{dashboardController.connected}">
+                      OK <span class="typcn typcn-media-record" style="font-size: 1.3em; color: #5c9e5c;"></span>
+                    </ui:fragment>
+                    <ui:fragment rendered="#{!dashboardController.connected}">
+                      Failed <span class="typcn typcn-media-record" style="font-size: 1.3em; color: #e84848;"></span>
+                      <br />
+                      <pre>#{dashboardController.error}</pre>
+                    </ui:fragment>
+                  </td>
+                </tr>
+
+              </table>
+            </div>
+
+            <div class="imixs-form-section">
+              <span style="grid-column-start: span 8">
+                <h:commandButton value="Refresh" action="/" id="refreshButton">
+                  <f:ajax execute="@form" render="@form" />
+                </h:commandButton>
+
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Metrics -->
+        <section class="">
+          <!-- open events -->
+          <div class="card" style="grid-column-start: span 4">
+            <ui:param name="countunprocessed"
+              value="#{dashboardController.getGaugeByName('backup_events_unprocessed')}" />
+            <h1 class="lead">
+              <ui:fragment rendered="#{countunprocessed eq 0}">
+                <span style="color: #5c9e5c">#{countunprocessed} Open</span>
+              </ui:fragment>
+              <ui:fragment rendered="#{countunprocessed lt 0}">
+                <span style="color: #555">Initalizing...</span>
+              </ui:fragment>
+              <ui:fragment rendered="#{countunprocessed gt 0}">
+                <span style="color: #FCB802">#{countunprocessed} Open</span>
+              </ui:fragment>
+            </h1>
+            <p class="lead">Total Number of unprocessed index events.</p>
+          </div>
+
+          <!-- processed events -->
+          <div class="card" style="grid-column-start: span 4">
+            <h1 class="lead">#{dashboardController.getCounterByName('index_events_processed')} Processed</h1>
+            <p class="lead">Total Number of processed index events since last start.</p>
+          </div>
+
+          <!-- errors -->
+          <div class="card" style="grid-column-start: span 4">
+            <h1 class="lead">
+              <span
+                style="#{(dashboardController.getCounterByName('index_events_errors')>0)?'color: #e84848;': &quot;&quot;}">
+                #{dashboardController.getCounterByName('index_events_errors')} Errors
+              </span>
+            </h1>
+            <p class="lead">Total backup errros since last start.</p>
+          </div>
+        </section>
+
+        <!-- Message Log -->
+        <div class="card">
+          <h3>
+            <span class="typcn typcn-input-checked"></span>
+            Log
+          </h3>
+          <pre>
+			<ui:repeat var="log" value="#{logController.getLogEntries('BACKUP')}">
+				<h:outputText value="#{log}" /><br />
+			</ui:repeat>		
+			</pre>
+        </div>
+      </h:form>
+
+      <script type="text/javascript">
+        /*<![CDATA[*/
+        // auto refresh after 2 seconds
+        setInterval(function () {
+          var refreshBtn = document.querySelector('[id$="refreshButton"]');
+          if (refreshBtn) {
+            refreshBtn.click();
+          }
+        }, 2000);
+
+        /*]]>*/
+      </script>
+    </f:view>
+  </ui:define>
+</ui:composition>

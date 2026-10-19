@@ -1,0 +1,94 @@
+#!/bin/bash
+
+############################################################
+# The Dynamixs.AI Developer Script
+# start, build, hot, setup, deploy
+# 
+############################################################
+
+strip_dash() {
+    echo "$1" | sed 's/^-//'
+}
+
+    echo "     _            _   _          _  "     
+    echo "  __| | _____   _(_) | |__   ___| |_ __"  
+    echo " / _\` |/ _ \\ \\ / / | | '_ \\ / _ \\ | \'_ \\" 
+    echo "| (_| |  __/\ V /| | | | | |  __/ | |_) |"
+    echo " \__,_|\___| \_/ |_| |_| |_|\___|_| .__/ "
+    echo "                                  |_|  "
+    echo "    Imixs-Workflow Developer Script..."
+    echo "_________________________________________"
+
+
+# ---- shared function ----
+build_docker_image() {
+    VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+    mvn clean install -DskipTests >&2
+    docker build -f ./docker/Dockerfile -t ghcr.io/dynamixs-ai/ai-platform:$VERSION . >&2
+    docker tag ghcr.io/dynamixs-ai/ai-platform:$VERSION ghcr.io/dynamixs-ai/ai-platform:latest >&2
+    echo "$VERSION"   # only this gets captured by $()
+}
+
+# Verify params
+if [[ "$(strip_dash $1)" == "setup" ]]; then
+    echo " Dev Setup..."
+    sudo chmod -R 777 docker/deployments/
+    echo " starting dev environment..."
+    mvn clean install -Pdebug
+    cp ./*-app/target/*.war ./docker/deployments/
+    docker compose -f ./docker/docker-compose-dev.yaml up
+fi
+
+
+if [[ "$(strip_dash $1)" == "start" ]]; then
+    echo " Start Dev Environment..."
+    docker compose -f ./docker/docker-compose-dev.yaml up
+fi
+
+
+if [[ "$(strip_dash $1)" == "build" ]]; then
+    echo " Build and Autodeploy..."
+    mvn clean install -DskipTests
+fi
+
+
+if [[ "$(strip_dash $1)" == "hot" ]]; then
+    echo "* Hotdeploy..."
+    mvn manik-hotdeploy:hotdeploy
+fi
+
+if [[ "$(strip_dash $1)" == "docker-debug" ]]; then
+    echo " Build Docker Debug Image..."
+    VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+    mvn clean install -DskipTests
+    docker build -f ./docker/Dockerfile-debug -t imixs/imixs-ai-rag-index .
+    docker tag imixs/imixs-ai-rag-index imixs/imixs-ai-rag-index
+fi
+
+if [[ "$(strip_dash $1)" == "docker" ]]; then
+    echo " Build Docker Image..."
+    mvn clean install
+    VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+    docker build -f ./docker/Dockerfile -t imixs/imixs-ai-rag-index .
+    docker tag imixs/imixs-ai-rag-index imixs/imixs-ai-rag-index
+fi
+
+
+
+# Überprüfen, ob keine Parameter übergeben wurden - standard build
+if [[ $# -eq 0 ]]; then
+
+    echo " Run with ./dev.sh -XXX"
+    echo " "
+    echo "   -start         : start Docker Containers"
+    echo "   -test          : run tests"
+    echo "   -build         : build application and redeploy"
+    echo "   -hot           : Manik Hotdeploy"
+    echo "   -docker        : build the Docker image locally "    
+    echo "   -docker-debug  : build the Docker image for debug"
+    echo "   -deploy        : build and push Docker image to GHCR (ghcr.io/dynamixs-ai/ai-platform)"    
+    echo "   -setup         : setup dev environment - rebuild docker containers "
+    echo "_________________________________________"
+    echo " "
+
+fi

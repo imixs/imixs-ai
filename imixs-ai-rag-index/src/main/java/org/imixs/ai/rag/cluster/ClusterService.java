@@ -1,0 +1,818 @@
+/****************************************************************************
+ * Copyright (c) 2022-2025 Imixs Software Solutions GmbH and others.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v. 2.0 which is available at
+ * https://www.eclipse.org/legal/epl-2.0
+ *
+ * This Source Code may also be made available under the terms of the
+ * GNU General Public License, version 2 or later (GPL-2.0-or-later),
+ * which is available at https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+ ****************************************************************************/
+
+package org.imixs.ai.rag.cluster;
+
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.workflow.ItemCollection;
+
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.InvalidKeyspaceException;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.CqlVector;
+import com.datastax.oss.driver.api.core.servererrors.InvalidQueryException;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Singleton;
+import jakarta.ejb.Startup;
+import jakarta.ejb.Timeout;
+import jakarta.ejb.Timer;
+import jakarta.ejb.TimerConfig;
+import jakarta.ejb.TimerService;
+import jakarta.inject.Inject;
+
+/**
+ * The ClusterService provides methods to persist the content of a Imixs
+ * Document into a Cassandra keystore.
+ * <p>
+ * The service saves the content in XML format. The size of an XML
+ * representation of a Imixs document is only slightly different in size from
+ * the serialized map object. This is the reason why we do not store the
+ * document map in a serialized object format.
+ * <p>
+ * The ClusterService creates a Core-KeySpace automatically which is used for
+ * the internal management.
+ * 
+ * @author rsoika
+ * 
+ */
+@Singleton
+@Startup
+public class ClusterService {
+
+    public static final String KEYSPACE_REGEX = "^[a-z_]*[^-]$";
+    public static final int SEARCH_LIMIT_MAX = 100;
+
+    // mandatory environment settings
+    public static final String ENV_EMBEDDINGS_CLUSTER_CONTACTPOINTS = "EMBEDDINGS_CLUSTER_CONTACTPOINTS";
+    public static final String ENV_EMBEDDINGS_CLUSTER_KEYSPACE = "EMBEDDINGS_CLUSTER_KEYSPACE";
+
+    public static final int DIMENSIONS = 768;
+
+    // optional environment settings
+    public static final String ENV_EMBEDDINGS_CLUSTER_AUTH_USER = "EMBEDDINGS_CLUSTER_AUTH_USER";
+    public static final String ENV_EMBEDDINGS_CLUSTER_AUTH_PASSWORD = "EMBEDDINGS_CLUSTER_AUTH_PASSWORD";
+    public static final String ENV_EMBEDDINGS_CLUSTER_SSL = "EMBEDDINGS_CLUSTER_SSL";
+    public static final String ENV_EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPATH = "EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPATH";
+    public static final String ENV_EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPASSWORD = "EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPASSWORD";
+    public static final String ENV_EMBEDDINGS_CLUSTER_SSL_KEYSTOREPATH = "EMBEDDINGS_CLUSTER_SSL_KEYSTOREPATH";
+    public static final String ENV_EMBEDDINGS_CLUSTER_SSL_KEYSTOREPASSWORD = "EMBEDDINGS_CLUSTER_SSL_KEYSTOREPASSWORD";
+
+    public static final String ENV_EMBEDDINGS_CLUSTER_REPLICATION_FACTOR = "EMBEDDINGS_CLUSTER_REPLICATION_FACTOR";
+    public static final String ENV_EMBEDDINGS_CLUSTER_REPLICATION_CLASS = "EMBEDDINGS_CLUSTER_REPLICATION_CLASS";
+
+    private static Logger logger = Logger.getLogger(ClusterService.class.getName());
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_REPLICATION_FACTOR, defaultValue = "1")
+    String repFactor;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_REPLICATION_CLASS, defaultValue = "SimpleStrategy")
+    String repClass;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_CONTACTPOINTS)
+    Optional<String> contactPoint;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_KEYSPACE)
+    Optional<String> keySpace;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_AUTH_USER)
+    Optional<String> userid;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_AUTH_PASSWORD)
+    Optional<String> password;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_SSL, defaultValue = "false")
+    boolean bUseSSL;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPATH)
+    Optional<String> truststorePath;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_SSL_TRUSTSTOREPASSWORD)
+    Optional<String> truststorePwd;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_SSL_KEYSTOREPATH)
+    Optional<String> keystorePath;
+
+    @Inject
+    @ConfigProperty(name = ENV_EMBEDDINGS_CLUSTER_SSL_KEYSTOREPASSWORD)
+    Optional<String> keystorePwd;
+
+    private CqlSession session;
+
+    private PreparedStatement insertVectorStmt;
+    private final Map<String, PreparedStatement> searchVectorStatements = new HashMap<>();
+    private PreparedStatement selectVectorAllCategoriesStmt = null;
+    private PreparedStatement selectVectorByCategoryStmt = null;
+    private PreparedStatement removeVectorStmt;
+    private PreparedStatement selectChunksStmt = null;
+    private PreparedStatement updateChunkStmt = null;
+
+    private String error = null;
+
+    @Resource
+    private TimerService timerService;
+
+    @PostConstruct
+    public void init() {
+        scheduleClusterCheck();
+    }
+
+    /**
+     * Versucht, die Session herzustellen. Bei Fehler wird ein neuer Timer geplant.
+     */
+    private void scheduleClusterCheck() {
+        try {
+            logger.log(Level.INFO, "├── connecting Cassandra cluster...");
+            getSession();
+            logger.log(Level.INFO, "├── ✅ successfully connected to cassandra!");
+        } catch (ClusterException e) {
+            error = e.getMessage();
+            logger.log(Level.WARNING, "├── " + e.getMessage());
+            logger.log(Level.WARNING, "├── ⚠️ cluster not ready yet. retrying in 10 seconds...");
+            // retry in 10 sec
+            timerService.createSingleActionTimer(10000, new TimerConfig());
+        }
+    }
+
+    /**
+     * called by timer. Tries to connect cassandra clauster
+     */
+    @Timeout
+    public void retryClusterCheck(Timer timer) {
+        scheduleClusterCheck(); // retry Check
+    }
+
+    @PreDestroy
+    private void tearDown() {
+        // close session and cluster object
+        if (session != null) {
+            session.close();
+        }
+    }
+
+    /**
+     * Returns the Cassandra Session object. If the session is not yet created, the
+     * method tries to init the session the first time. If initialization failed the
+     * method throws a ClusterException
+     * <p>
+     * Note: the initialization is only successful if the cassandra cluster is fully
+     * started.
+     * <p>
+     * The method also verifies the keyspace and creates a table schema if not yet
+     * available.
+     * 
+     * @return
+     */
+    public CqlSession getSession() throws ClusterException {
+        if (session == null) {
+            try {
+                logger.info("├── initializing cluster and keyspace...");
+                session = initSessionWithKeyspace();
+                logger.info("│   ├── ✅ schema status = OK");
+
+                createSchema();
+
+            } catch (Exception e) {
+                try {
+                    // Reset session so the next retry will try again completely
+                    if (session != null) {
+                        session.close();
+                    }
+                } finally {
+                    // Ensure session is always reset to null on any failure
+                    session = null;
+                }
+                throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                        "Failed to init cassandra session: " + e.getMessage(), e);
+            }
+        }
+        return session;
+    }
+
+    public boolean isConnected() {
+        return session != null;
+    }
+
+    public String getError() {
+        return error;
+    }
+
+    /**
+     * This method opens the configured keyspace. If the keyspace does no yet exist
+     * it creates a new keyspace with the table schema
+     * 
+     * @return
+     * @throws ClusterException
+     */
+    private CqlSession initSessionWithKeyspace() throws ClusterException {
+        // validate keyspace name
+        String keySpacename = keySpace.orElseThrow(
+                () -> new ClusterException(ClusterException.INVALID_KEYSPACE, "EMBEDDINGS_CLUSTER_KEYSPACE not set!"));
+
+        if (!isValidKeyspaceName(keySpacename)) {
+            throw new ClusterException(ClusterException.INVALID_KEYSPACE,
+                    "keyspace '" + keySpacename + "' name invalid.");
+        }
+
+        try {
+            // try to connect keyspace ...
+            session = createSession(keySpacename);
+            logger.info("│   ├── ✅ keyspace '" + keySpacename + "' status = OK");
+            return session;
+        } catch (InvalidQueryException | InvalidKeyspaceException e) {
+            error = e.getMessage();
+            logger.warning("│   ├── ⚠️ Keyspace does not yet exist, creating new keyspace...");
+            createKeySpace(keySpacename); // Fully self-contained, uses own temp session
+            session = createSession(keySpacename);
+            return session;
+        }
+    }
+
+    /**
+     * This method creates a Cassandra Cluster object. The cluster is defined by
+     * ContactPoints provided in the environmetn variable
+     * 'EMBEDDINGS__CLUSTER_CONTACTPOINTS' or in the imixs.property
+     * 'archive.cluster.contactpoints'
+     * 
+     * @return Cassandra Cluster instacne
+     */
+    private CqlSession createSession(String keyspace) throws ClusterException {
+        CqlSessionBuilder builder = CqlSession.builder();
+        // Boolean used to check if at least one host could be resolved
+        boolean found = false;
+
+        if (!contactPoint.isPresent() || contactPoint.get().isEmpty()) {
+            throw new ClusterException(ClusterException.MISSING_CONTACTPOINT,
+                    "missing cluster contact points - verify configuration!");
+        }
+
+        logger.info("│   ├── cluster connecting: " + contactPoint.get());
+        String[] hosts = contactPoint.get().split(",");
+        for (String host : hosts) {
+            try {
+                logger.info("│   ├── adding host: " + host + ":9042");
+                builder.addContactPoint(new InetSocketAddress(host, 9042));
+                // One host could be resolved
+                found = true;
+            } catch (IllegalArgumentException e) {
+                // This host could not be resolved so we log a message and keep going
+                logger.warning("...the host '" + host + "' is unknown so it will be ignored");
+            }
+        }
+        if (!found) {
+            // No host could be resolved so we throw an exception
+            throw new IllegalStateException("All provided hosts are unknown - check cluster status and configuration!");
+        }
+        // set optional credentials...
+        if (userid.isPresent() && !userid.get().isEmpty()) {
+            builder = builder.withAuthCredentials(userid.get(), password.get());
+        }
+
+        if (keyspace != null) {
+            builder.withKeyspace(keyspace);
+        }
+        builder.withLocalDatacenter("datacenter1");
+        return builder.build();
+    }
+
+    /**
+     * Test if the keyspace name is valid.
+     * 
+     * @param keySpace
+     * @return
+     */
+    public boolean isValidKeyspaceName(String keySpace) {
+        if (keySpace == null || keySpace.isEmpty()) {
+            return false;
+        }
+        return keySpace.matches(KEYSPACE_REGEX);
+    }
+
+    /**
+     * Creates a new Cassandra keyspace using a temporary session without a keyspace
+     * context.
+     * <p>
+     * A temporary session is required here because creating a keyspace cannot be
+     * performed on a session that is already bound to a specific keyspace. The
+     * temporary session is created without a keyspace, used solely to execute the
+     * CREATE KEYSPACE statement, and then immediately closed via try-with-resources
+     * to ensure proper resource cleanup even in case of an error.
+     * <p>
+     * This approach keeps the method fully self-contained and avoids exposing the
+     * temporary session to the caller, preventing any risk of the main session
+     * field being set to an unbound session on failure.
+     *
+     * @param keySpace the name of the keyspace to create
+     * @throws ClusterException if the keyspace creation fails
+     */
+    private void createKeySpace(String keySpace) throws ClusterException {
+        logger.info("│   ├── creating new keyspace '" + keySpace + "'...");
+        String statement = "CREATE KEYSPACE IF NOT EXISTS " + keySpace + " WITH replication = {'class': '" + repClass
+                + "', 'replication_factor': " + repFactor + "};";
+
+        // Use a temporary session without keyspace to create the keyspace
+        try (CqlSession tempSession = createSession(null)) {
+            tempSession.execute(statement);
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to create keyspace '" + keySpace + "': " + e.getMessage(), e);
+        }
+        logger.info("│   ├── ✅ keyspace '" + keySpace + "' created.");
+    }
+
+    /**
+     * This method creates the keySpace schema.
+     * 
+     * CREATE TABLE embeddings.document_vectors ( business_document_id text,
+     * chunk_id text, chunk_text text, content_vector VECTOR <FLOAT, 768>, PRIMARY
+     * KEY (business_document_id, chunk_id) ); );
+     * 
+     * @param cluster
+     */
+    private void createSchema() throws ClusterException {
+
+        logger.info("│   ├── verify schema...");
+        // now create table schemas
+        String query = "CREATE TABLE IF NOT EXISTS document_vectors (\n" + //
+                "  id text,\n" + //
+                "  chunk_id text,\n" + //
+                "  category text,\n" + //
+                "  model_group text,\n" + //
+                "  task_id int,\n" + //
+                "  content_chunk text,\n" + //
+                "  content_vector VECTOR <FLOAT, " + DIMENSIONS + ">,\n" + //
+                "  PRIMARY KEY (id, chunk_id)\n" + //
+                ");";
+        getSession().execute(query);
+
+        logger.info("│   ├── verify index...");
+        query = "CREATE INDEX IF NOT EXISTS edv_ann_index\n" + //
+                " ON document_vectors(content_vector) USING 'sai';";
+        getSession().execute(query);
+
+        // Additional indexes for metadata filtering
+        query = "CREATE INDEX IF NOT EXISTS idx_category " + //
+                " ON document_vectors(category) USING 'sai';";
+        getSession().execute(query);
+        query = "CREATE INDEX IF NOT EXISTS idx_model_group " + //
+                " ON document_vectors(model_group) USING 'sai';";
+        getSession().execute(query);
+        query = "CREATE INDEX IF NOT EXISTS idx_task_id  " + //
+                " ON document_vectors(task_id) USING 'sai';";
+        getSession().execute(query);
+
+        logger.info("│   ├── ✅ database schema OK.");
+    }
+
+    /**
+     * Inserts an embedding together with a content chunk into the database. The
+     * uniqueID is the reference to the corresponding workitem holding the full
+     * metadata.
+     * 
+     * @param uniqueID   the document ID
+     * @param category   the content category (null or empty string for primary
+     *                   data)
+     * @param modelGroup the workflow model group
+     * @param taskId     the workflow task ID
+     * @param content    the text chunk
+     * @param vector     the embedding vector
+     * @throws ClusterException
+     */
+    public void insertEmbeddings(String uniqueID, String chunkID, String category, String modelGroup,
+            int taskId, String content, List<Float> vector)
+            throws ClusterException {
+
+        // Default category to empty string
+        if (category == null) {
+            category = "";
+        }
+
+        // Prepare statement if not already done
+        if (insertVectorStmt == null) {
+            String insertQuery = "INSERT INTO document_vectors "
+                    + "(id, chunk_id, category, model_group, task_id, content_chunk, content_vector) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+            insertVectorStmt = getSession().prepare(insertQuery);
+        }
+
+        try {
+            // Generate UUID for this chunk
+            // UUID chunk_id = UUID.randomUUID();
+
+            // Create CqlVector
+            CqlVector<Float> cqlVector = CqlVector.newInstance(vector);
+
+            // Bind parameters: id, chunk_id, category, model_group, task_id, content_chunk,
+            // content_vector
+            BoundStatement boundStmt = insertVectorStmt.bind(
+                    uniqueID,
+                    chunkID,
+                    category,
+                    modelGroup,
+                    taskId,
+                    content,
+                    cqlVector);
+
+            getSession().execute(boundStmt);
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to insert embeddings into keyspace: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Performs a semantic search on the document vector database using cosine
+     * similarity.
+     * <p>
+     * This method searches for the most relevant document chunks based on the
+     * provided query embedding. If multiple chunks exist for the same document ID,
+     * only the chunk with the highest similarity score is returned. The results are
+     * sorted by relevance score in descending order.
+     * <p>
+     * The params 'category', 'modelGroups', and 'tasks' are optional and can be
+     * used to refine the search result to specific process instances only.
+     * 
+     * @param embedding   The embedding vector of the search query as a list of
+     *                    float values
+     * @param maxResults  Maximum number of results to return
+     * @param category    Optional category filter (null = search all categories, ""
+     *                    = primary data only)
+     * @param modelGroups Comma-separated model patterns, supports wildcards (e.g.,
+     *                    "customer*, invoice-1.0")
+     * @param tasks       Comma-separated task IDs and/or ranges (e.g., "1400, 1410,
+     *                    1000:1300")
+     * @return A list of {@link RetrievalResult} objects containing the most
+     *         relevant documents
+     * @throws ClusterException if the database query fails
+     * 
+     * @see RetrievalResult
+     * @since 1.1.4
+     */
+    public List<ItemCollection> searchEmbeddings(List<Float> embedding,
+            int maxResults,
+            String category,
+            String modelGroups,
+            String tasks) throws ClusterException {
+
+        if (maxResults <= 0) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "maxResults must be greater than 0, but was: " + maxResults);
+        }
+
+        // DEBUG
+        logger.info("│   ├── searchEmbeddings called with category: "
+                + (category == null ? "NULL" : "'" + category + "'"));
+
+        // Build query with optional category filter
+        QueryBuilder queryBuilder = new QueryBuilder(maxResults, category, modelGroups, tasks);
+        String query = queryBuilder.buildQuery();
+        logger.info("│   ├── query = " + query);
+        try {
+            // Get or create prepared statement (cached by query string)
+            PreparedStatement stmt = searchVectorStatements.get(query);
+            if (stmt == null) {
+                stmt = getSession().prepare(query);
+                searchVectorStatements.put(query, stmt);
+            }
+
+            // Create CqlVector
+            CqlVector<Float> cqlVector = CqlVector.newInstance(embedding);
+
+            // Bind parameters (QueryBuilder handles category conditionally)
+            ResultSet rows = getSession().execute(stmt.bind(queryBuilder.buildParams(cqlVector)));
+
+            // Track best similarity per uniqueID (deduplication)
+            Map<String, ItemCollection> bestMatches = new HashMap<>();
+
+            for (Row row : rows) {
+                String id = row.getString(0);
+                String contentChunk = row.getString(3);
+                Float similarity = row.getFloat(4);
+
+                // Test if we already have a match
+                ItemCollection existingMatch = bestMatches.get(id);
+
+                if (existingMatch == null || similarity > existingMatch.getItemValueFloat("similarity")) {
+                    // Better match found!
+
+                    ItemCollection retrievalResult = new ItemCollection();
+                    retrievalResult.setItemValue("id", id).setItemValue("similarity", similarity)
+                            .setItemValue("contentChunk", contentChunk);
+
+                    bestMatches.put(id, retrievalResult); // new RetrievalResult(id, contentChunk, similarity));
+                    logger.info("│   ├── Found document: " + id + " (score=" + similarity + ")");
+                }
+            }
+
+            // Sort by similarity descending, limit results
+            List<ItemCollection> result = bestMatches.values().stream()
+                    .sorted((a, b) -> Float.compare(
+                            b.getItemValueFloat("similarity"),
+                            a.getItemValueFloat("similarity")))
+                    .limit(maxResults)
+                    .collect(Collectors.toList());
+
+            logger.info("│   ├── ✅ Retrieved " + result.size() + " relevant documents");
+            return result;
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to select embeddings from keyspace: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Update the workflow meta data. The method returns true if a index with the
+     * given uniqueId was found
+     * 
+     * @param uniqueId
+     * @param modelGroup
+     * @param taskId
+     * @return true if an update was performed
+     * @throws ClusterException
+     */
+    public boolean updateMetaData(String uniqueId, String modelGroup, int taskId)
+            throws ClusterException {
+
+        // Prepare statements if not already done
+        if (selectChunksStmt == null) {
+            String selectQuery = "SELECT chunk_id FROM document_vectors WHERE id = ?";
+            selectChunksStmt = getSession().prepare(selectQuery);
+        }
+
+        if (updateChunkStmt == null) {
+            String updateQuery = "UPDATE document_vectors SET model_group = ?, task_id = ? WHERE id = ? AND chunk_id = ?";
+            updateChunkStmt = getSession().prepare(updateQuery);
+        }
+        try {
+            // 1. Alle chunk_ids für die uniqueId ermitteln
+            BoundStatement selectBoundStmt = selectChunksStmt.bind(uniqueId);
+            ResultSet resultSet = getSession().execute(selectBoundStmt);
+
+            List<String> chunkIds = new ArrayList<>();
+            for (Row row : resultSet) {
+                chunkIds.add(row.getString("chunk_id"));
+            }
+
+            if (chunkIds.isEmpty()) {
+                logger.info("│   ├── ℹ️ No entries found for uniqueID: " + uniqueId);
+                return false;
+            }
+
+            // 2. Jede gefundene chunk_id einzeln updaten
+            int updateCount = 0;
+            for (String chunkId : chunkIds) {
+                BoundStatement updateBoundStmt = updateChunkStmt.bind(modelGroup, taskId, uniqueId, chunkId);
+                getSession().execute(updateBoundStmt);
+                updateCount++;
+            }
+
+            logger.info("│   ├── Updated metadata for " + updateCount + " entries with uniqueID: " +
+                    uniqueId + " (model: " + modelGroup + ", task: " + taskId + ")");
+            return true;
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to update metadata for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
+        }
+
+    }
+
+    /**
+     * Returns the full content text for a given uniqueId and category.
+     * <p>
+     * Internally the content is stored as chunks. This method returns the content
+     * as a single concatenated text to the caller.
+     * 
+     * @param uniqueId the document ID
+     * @param category the content category (null or "" for primary data)
+     * @return the full content text, or null if no content was found
+     * @throws ClusterException
+     */
+    public String readContent(String uniqueId, String category)
+            throws ClusterException {
+
+        // Default category
+        if (category == null) {
+            category = "";
+        }
+
+        try {
+            String selectQuery = "SELECT content_chunk FROM document_vectors " +
+                    "WHERE id = ? AND category = ?";
+            PreparedStatement selectStmt = getSession().prepare(selectQuery);
+
+            BoundStatement boundStmt = selectStmt.bind(uniqueId, category);
+            ResultSet resultSet = getSession().execute(boundStmt);
+
+            StringBuilder fullText = new StringBuilder();
+            for (Row row : resultSet) {
+                String chunk = row.getString("content_chunk");
+                if (chunk != null && !chunk.isBlank()) {
+                    if (fullText.length() > 0) {
+                        fullText.append("\n\n");
+                    }
+                    fullText.append(chunk);
+                }
+            }
+
+            if (fullText.length() == 0) {
+                logger.info("│   ├── ℹ️ No content found for uniqueID: " + uniqueId
+                        + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+                return null;
+            }
+
+            logger.info("│   ├── ✅ Retrieved content for uniqueID: " + uniqueId
+                    + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+            return fullText.toString();
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to retrieve content for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Removes all embeddings for a given uniqueID. The method returns true if
+     * entries have existed.
+     * 
+     * @param uniqueID
+     * @param content
+     * @param vector
+     * @throws ClusterException
+     */
+    public boolean removeAllEmbeddings(String uniqueID) throws ClusterException {
+        // Prepare statement if not already done
+        if (removeVectorStmt == null) {
+            String deleteQuery = "DELETE FROM document_vectors WHERE id = ?";
+            removeVectorStmt = getSession().prepare(deleteQuery);
+        }
+
+        try {
+            // test if entries exist
+            long count = countIndexEntries(uniqueID, null);
+            if (count > 0) {
+                // remove all
+                BoundStatement deleteBoundStmt = removeVectorStmt.bind(uniqueID);
+                getSession().execute(deleteBoundStmt);
+                logger.info("│   ├── ✅ Removed " + count + " entries for uniqueID: " + uniqueID);
+                return true;
+            } else {
+                // logger.info("│ ├── ℹ️ No entries found for uniqueID: " + uniqueID);
+            }
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to remove entries for uniqueID '" + uniqueID + "': " + e.getMessage(), e);
+        }
+        return false;
+    }
+
+    /**
+     * Removes all embeddings for a given uniqueID and category. Returns true if
+     * entries existed.
+     * 
+     * @param uniqueID the document ID
+     * @param category the content category (empty string for primary data)
+     * @return true if entries were deleted
+     * @throws ClusterException
+     */
+    public boolean removeEmbeddingsByCategory(String uniqueID, String category)
+            throws ClusterException {
+
+        // Default category
+        if (category == null) {
+            category = "";
+        }
+
+        try {
+            // Step 1: Find all chunk_ids for this uniqueID and category
+            String selectQuery = "SELECT chunk_id FROM document_vectors WHERE id = ? AND category = ?";
+            PreparedStatement selectStmt = getSession().prepare(selectQuery);
+            BoundStatement selectBoundStmt = selectStmt.bind(uniqueID, category);
+            ResultSet resultSet = getSession().execute(selectBoundStmt);
+
+            List<String> chunkIds = new ArrayList<>();
+            for (Row row : resultSet) {
+                chunkIds.add(row.getString("chunk_id"));
+            }
+
+            if (chunkIds.isEmpty()) {
+                logger.info("│   ├── ℹ️ No entries found for uniqueID: " + uniqueID
+                        + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+                return false;
+            }
+
+            // Step 2: Delete each chunk individually (using PRIMARY KEY)
+            String deleteQuery = "DELETE FROM document_vectors WHERE id = ? AND chunk_id = ?";
+            PreparedStatement deleteStmt = getSession().prepare(deleteQuery);
+
+            int deleteCount = 0;
+            for (String chunkId : chunkIds) {
+                BoundStatement deleteBoundStmt = deleteStmt.bind(uniqueID, chunkId);
+                getSession().execute(deleteBoundStmt);
+                deleteCount++;
+            }
+
+            logger.info("│   ├── ✅ Removed " + deleteCount + " entries for uniqueID: "
+                    + uniqueID + " (category: " + (category.isEmpty() ? "primary" : category) + ")");
+            return true;
+
+        } catch (Exception e) {
+            throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                    "Failed to remove entries: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * This method returns the number of index entries with the given uniqueId. The
+     * method can be used to test if index data is available.
+     * 
+     * @param uniqueId the document ID
+     * @param category optional category filter (null = count ALL categories, "" =
+     *                 primary data only)
+     * @return count of entries, or 0 if no entries exist
+     * @throws ClusterException
+     */
+    public long countIndexEntries(String uniqueId, String category) throws ClusterException {
+
+        if (category == null) {
+            // Count ALL categories
+            if (selectVectorAllCategoriesStmt == null) {
+                String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ?";
+                selectVectorAllCategoriesStmt = getSession().prepare(selectQuery);
+            }
+            try {
+                BoundStatement selectBoundStmt = selectVectorAllCategoriesStmt.bind(uniqueId);
+                ResultSet resultSet = getSession().execute(selectBoundStmt);
+                Row row = resultSet.one();
+
+                if (row != null) {
+                    return row.getLong(0);
+                }
+            } catch (Exception e) {
+                throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                        "Failed to lookup entries for uniqueID '" + uniqueId + "': " + e.getMessage(), e);
+            }
+        } else {
+            // Count specific category
+            if (selectVectorByCategoryStmt == null) {
+                String selectQuery = "SELECT COUNT(*) FROM document_vectors WHERE id = ? AND category = ?";
+                selectVectorByCategoryStmt = getSession().prepare(selectQuery);
+            }
+            try {
+                BoundStatement selectBoundStmt = selectVectorByCategoryStmt.bind(uniqueId, category);
+                ResultSet resultSet = getSession().execute(selectBoundStmt);
+                Row row = resultSet.one();
+
+                if (row != null) {
+                    return row.getLong(0);
+                }
+            } catch (Exception e) {
+                throw new ClusterException(ClusterException.CLUSTER_ERROR,
+                        "Failed to lookup entries for uniqueID '" + uniqueId + "' and category '" + category + "': "
+                                + e.getMessage(),
+                        e);
+            }
+        }
+        return 0;
+    }
+}

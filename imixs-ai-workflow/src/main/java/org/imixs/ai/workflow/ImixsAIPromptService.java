@@ -8,7 +8,7 @@ import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.ImixsAIContextHandler;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.WorkflowService;

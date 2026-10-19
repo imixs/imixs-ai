@@ -10,9 +10,13 @@ The project provides services and adapters to facilitate the interaction of AI i
 
 <img width="800" src="./doc/images/architecture.png" />
 
+## Imixs-AI-API
+
+The module [imixs-ai-api](./imixs-ai-api) provides core classes to access a LLM Server based on the [Open-AI API](https://github.com/openai/openai-openapi) specification.
+
 ## Imixs-AI-Workflow
 
-The module [imixs-ai-workflow](./imixs-ai-workflow) provides Jakarta EE services and adapter classes to access a LLM Server based on the [Open-AI API](https://github.com/openai/openai-openapi) specification.
+The module [imixs-ai-workflow](./imixs-ai-workflow) provides Jakarta EE services and adapter classes to access a LLM Server based on the imixs-ai-api module .
 A prompt can be defined directly in a Imixs BPMN 2.0 model. Prompt-Templates used by the LLMAdapter Class can be defined in a BPMN Data item:
 
 <img src="./doc/images/imixs-llm-adapter-config.png" />
@@ -21,9 +25,17 @@ A prompt can be defined directly in a Imixs BPMN 2.0 model. Prompt-Templates use
 
 The module [imixs-ai-bpmn](./imixs-ai-bpmn) provides an api to transform BPMN 2.0 Models into a text representation understandable by any LLM.
 
-## Imixs-AI-RAG
+## Imixs-AI-RAG-Index
 
-The module [imixs-ai-rag](./imixs-ai-rag) provides services to integrate a RAG system based on Cassandra 4.0
+The module [imixs-ai-rag-index](./imixs-ai-rag-index) provides a microservice to integrate a RAG index system based on Cassandra 4.0
+
+## Imixs-AI-RAG-Workflow
+
+The module [imixs-ai-rag-workflow](./imixs-ai-rag-workflow) provides services to integrate a RAG system into BPMN
+
+## Imixs-AI-Agent
+
+The module [imixs-ai-agent](./imixs-ai-agent) provides classes for agentic workflow systems.
 
 ## Imixs-AI-LLaMAcpp
 

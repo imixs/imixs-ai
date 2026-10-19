@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.imixs.ai.workflow.ImixsAIPromptEvent;
+import org.imixs.ai.api.ImixsAIPromptEvent;
 import org.imixs.workflow.FileData;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;

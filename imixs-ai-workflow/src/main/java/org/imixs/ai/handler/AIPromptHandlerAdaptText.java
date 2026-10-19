@@ -16,7 +16,7 @@ package org.imixs.ai.handler;
 
 import java.util.logging.Logger;
 
-import org.imixs.ai.workflow.ImixsAIPromptEvent;
+import org.imixs.ai.api.ImixsAIPromptEvent;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.PluginException;
 

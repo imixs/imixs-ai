@@ -1,0 +1,57 @@
+services:
+  #######################
+  # Cassandra
+  #######################
+  cassandra:
+    # 5.0.4
+    image: cassandra:5.0.8
+    #container_name: cassandra
+    mem_limit: 2G # Mindestens 2 GB RAM für Cassandra 5.x
+    mem_reservation: 1G # Reserviert 1 GB
+    environment:
+      - TZ="Europe/Berlin"
+      - JVM_OPTS=-Xms1G -Xmx1G # Heap auf 1 GB begrenzen
+      - CASSANDRA_CLUSTER_NAME=dynamixsAiCluster
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_RACK=rack1
+    ports:
+      - "9042:9042" # CQL-Port
+      - "7000:7000" # Inter-Node-Kommunikation
+      - "7001:7001" # TLS-fähige Inter-Node-Kommunikation
+      - "7199:7199" # JMX-Port
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  #######################
+  # Imixs AI - RAG Service
+  #######################
+  app:
+    image: imixs/imixs-ai-rag-index:latest
+    depends_on:
+      - cassandra
+    environment:
+      # JAVA_OPTS: "-Dnashorn.args=--no-deprecation-warning"
+      DEBUG: "true"
+      TZ: "Europe/Berlin"
+      LANG: "en_US.UTF-8"
+
+      # LLM Integration
+      LLM_CONFIG_FILE: /opt/jboss/imixs-llm.xml
+
+      # Cassandra Embeddings
+      EMBEDDINGS_CLUSTER_CONTACTPOINTS: "cassandra"
+      EMBEDDINGS_CLUSTER_KEYSPACE: "embeddings"
+      # Workflow Instance
+      WORKFLOW_SERVICE_ENDPOINT: "http://app:8080/api"
+
+    ports:
+      - "8080:8080"
+      - "9990:9990"
+      - "8787:8787"
+    volumes:
+      - ./deployments:/opt/jboss/wildfly/standalone/deployments/
+      - ./keys/imixs-llm.xml:/opt/jboss/imixs-llm.xml
+
+volumes:
+  cassandra_data:

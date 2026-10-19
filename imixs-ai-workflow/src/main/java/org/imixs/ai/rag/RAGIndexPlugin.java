@@ -1,0 +1,166 @@
+/****************************************************************************
+ * Copyright (c) 2022-2025 Imixs Software Solutions GmbH and others.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v. 2.0 which is available at
+ * https://www.eclipse.org/legal/epl-2.0
+ *
+ * This Source Code may also be made available under the terms of the
+ * GNU General Public License, version 2 or later (GPL-2.0-or-later),
+ * which is available at https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+ ****************************************************************************/
+
+package org.imixs.ai.rag;
+
+import java.util.List;
+import java.util.logging.Logger;
+
+import org.imixs.ai.api.APIUtil;
+import org.imixs.ai.workflow.ImixsAIPromptService;
+import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.engine.EventLogService;
+import org.imixs.workflow.engine.WorkflowService;
+import org.imixs.workflow.engine.plugins.AbstractPlugin;
+import org.imixs.workflow.exceptions.AdapterException;
+import org.imixs.workflow.exceptions.PluginException;
+
+import jakarta.inject.Inject;
+
+/**
+ * The RAGIndexPlugin automatically index, updates or remove the workflow meta
+ * data as embeddings. Embeddings are stored in a remote Imixs-AI RAG Service.
+ * <p>
+ * The plugin can be controlled by an `<imixs-ai>` definition in the following
+ * modes.
+ * <ul>
+ * <li>INDEX - index a workitem</li>
+ * <li>UPDATE - default: update the workflow metadata only for a indexed
+ * workitem</li>
+ * <li>PROMPT - send an LLM completion request and index the result</li>
+ * <li>DELETE - remove the workitem from the index</li>
+ * <li>DISABLED - no action</li>
+ * </ul>
+ * Note, the UPDATE mode is the default mode. It can be deactivated with the
+ * option 'DISABLED'.
+ * <p>
+ * The plugin is mainly responsible to load the prompt definition optional from
+ * the
+ * event. In case the prompt definition is defined only by a BPMN Data object,
+ * the plugin stores the prompt template into definition.
+ * After resolving the prompt definition the plugin generates a event log entry
+ * which is processed assynchounsly by the remote RAG Service.
+ * 
+ * <pre>
+  {@code
+   <imixs-ai name="INDEX">
+      <debug>false</debug>  
+   </imixs-ai>
+    }
+ * </pre>
+ * <p>
+ * The tag 'debug' is optional
+ * 
+ * 
+ * @author rsoika
+ * 
+ */
+public class RAGIndexPlugin extends AbstractPlugin {
+
+	private static final Logger logger = Logger.getLogger(RAGIndexPlugin.class.getName());
+
+	@Inject
+	private WorkflowService workflowService;
+
+	@Inject
+	private EventLogService eventLogService;
+
+	@Inject
+	protected ImixsAIPromptService imixsAIPromptService;
+
+	@Inject
+	EmbeddingService embeddingService;
+
+	@Override
+	public ItemCollection run(ItemCollection workitem, ItemCollection event) throws PluginException {
+
+		// do not run on Snapshots!
+		if (workitem.getType().startsWith("snapshot-")) {
+			// no op!
+			return workitem;
+		}
+
+		logger.finest("running RAGPlugin");
+
+		// read optional configuration form the model or imixs.properties....
+		List<ItemCollection> ragIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+				RAGUtil.RAG_INDEX, workitem, false);
+		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+				RAGUtil.RAG_DISABLED, workitem, false);
+		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+				RAGUtil.RAG_DELETE, workitem, false);
+		List<ItemCollection> ragPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+				RAGUtil.RAG_PROMPT, workitem, false);
+
+		// disabled?
+		if (ragDisabledDefinitions != null && ragDisabledDefinitions.size() > 0) {
+			// Plugin is disabled
+			return workitem;
+		}
+
+		// INDEX Mode?
+		if (ragIndexDefinitions != null) {
+			for (ItemCollection ragIndexDefinition : ragIndexDefinitions) {
+				loadPromptDefinition(ragIndexDefinition, event);
+				try {
+					embeddingService.indexWorkitem(ragIndexDefinition, workitem);
+				} catch (AdapterException e) {
+					throw new PluginException(e);
+				}
+
+			}
+		}
+
+		// PROMPT mode?
+		if (ragPromptDefinitions != null) {
+			for (ItemCollection ragPromptDefinition : ragPromptDefinitions) {
+				loadPromptDefinition(ragPromptDefinition, event);
+				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_PROMPT, workitem.getUniqueID(),
+						ragPromptDefinition);
+			}
+		}
+
+		// DELETE mode?
+		if (ragDeleteDefinitions != null) {
+			for (ItemCollection radDeleteDefinition : ragDeleteDefinitions) {
+				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE, workitem.getUniqueID(),
+						radDeleteDefinition);
+			}
+		}
+
+		// Default: UPDATE meta information
+		embeddingService.updateMetadata(workitem);
+
+		return workitem;
+
+	}
+
+	/**
+	 * This helper method verifies if the indexDefinition contains a prompt
+	 * definition. If not the method loads the prompt definition from the dataObject
+	 * associated with the event.
+	 * 
+	 * @param indexDefinition
+	 * @return
+	 * @throws PluginException
+	 */
+	public void loadPromptDefinition(ItemCollection indexDefinition, ItemCollection event) throws PluginException {
+		// load the prompt template from the index definition!
+		String promptDefinition = imixsAIPromptService.loadPromptTemplate(indexDefinition, event);
+		// update the prompt-template in the definition object!
+		indexDefinition.setItemValue(APIUtil.ITEM_PROMPT_TEMPLATE, promptDefinition);
+
+	}
+
+}

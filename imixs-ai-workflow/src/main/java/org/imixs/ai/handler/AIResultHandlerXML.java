@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.imixs.ai.workflow.ImixsAIResultEvent;
+import org.imixs.ai.api.ImixsAIResultEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.util.XMLParser;
 import org.w3c.dom.Document;
