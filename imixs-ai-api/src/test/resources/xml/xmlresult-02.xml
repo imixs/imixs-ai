@@ -1,0 +1,31 @@
+<invoice>
+    <cdtr.name>XXX Logistics GmbH & Co. KG</cdtr.name>
+    <invoice.number>AB -> 1234</invoice.number>
+    <invoice.date>2024-02-21</invoice.date>
+    <payment.date>2024-02-28</payment.date>
+    <invoice.total type="double">1053.03</invoice.total>
+    <cdtr.iban>DE44 0000 0050 4657 XXXX 00</cdtr.iban>
+    <cdtr.bic>XXXODEH2XXX</cdtr.bic>
+    <invoice.position>
+        <order>THC / Cont.</order>
+        <description>...</description>
+        <costtype>...</costtype>
+        <total type="double">596.00</total>
+        <tax type="double">0.00</tax>
+    </invoice.position>
+    <invoice.position>
+        <order>ISPS / Cont.</order>
+        <description>...</description>
+        <costtype>...</costtype>
+        <total type="double">24.00</total>
+        <tax type="double">0.00</tax>
+    </invoice.position>
+    <invoice.position>
+        <order>ATS Gebühr</order>
+        <description>...</description>
+        <costtype>...</costtype>
+        <total type="double">4.90</total>
+        <tax type="double">0.00</tax>
+    </invoice.position>
+    <!-- Weitere Positionen hier hinzufügen, jeweils mit den entsprechenden Daten -->
+</invoice>

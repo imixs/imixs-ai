@@ -1,0 +1,23 @@
+<invoice>
+    <cdtr.name>Kraxi GmbH</cdtr.name>
+    <invoice.number>R1234</invoice.number>
+    <invoice.date>2024-12-31</invoice.date>
+    <payment.date>2024-12-31</payment.date>
+    <invoice.total>1234.00</invoice.total>
+    <cdtr.iban>1234</cdtr.iban>
+    <cdtr.bic>ABC</cdtr.bic>
+    <invoice.position>
+        <order>A123</order>
+        <description>Test</description>
+        <costtype>A</costtype>
+        <total>0.00</total>
+        <tax>0.00</tax>
+    </invoice.position>
+    <invoice.position>
+        <order></order>
+        <description></description>
+        <costtype>B</costtype>
+        <total>0.00</total>
+        <tax>0.00</tax>
+    </invoice.position>
+</invoice>   

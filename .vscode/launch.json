@@ -1,0 +1,14 @@
+{
+  // Wildfly Debug Configuration
+  "configurations": [
+  
+    {
+      "type": "java",
+      "name": "Debug Imixs AI RAG Service",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": "8787",
+      "projectName": "imixs-ai-rag-index"
+    }
+  ]
+}

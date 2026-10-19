@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.imixs.ai.ImixsAIContextHandler;
+import org.imixs.ai.api.ImixsAIContextHandler;
 import org.imixs.ai.api.LLMConfigService;
 import org.imixs.ai.api.OpenAIAPIService;
-import org.imixs.ai.api.ToolCallResult;
+import org.imixs.ai.toolcall.ToolCallResult;
 import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.ModelManager;

@@ -18,8 +18,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.imixs.ai.api.ImixsAIPromptEvent;
 import org.imixs.ai.bpmn.util.BPMNSkillTreeCache;
-import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.exceptions.AdapterException;
 
 import jakarta.enterprise.event.Observes;
@@ -30,19 +30,18 @@ import jakarta.inject.Inject;
  * the prompt template. The template must provide a <BPMNSKILLs/> place holder.
  * <p>
  * The method uses the BPMNSkillTreeCache to build/load a bpmn skill tree form
- * the
- * current workitem
+ * the current workitem
  * <p>
  * Filtering rules applied while building the skill tree:
  * <ul>
  * <li><b>Model level</b> - excluded (cascading) if its documentation is blank
  * or contains the ignore tag.</li>
- * <li><b>Process/Group level</b> - excluded (cascading) if its documentation
- * is blank or contains the ignore tag.</li>
+ * <li><b>Process/Group level</b> - excluded (cascading) if its documentation is
+ * blank or contains the ignore tag.</li>
  * <li><b>Task level</b> - blank documentation is allowed; only excluded if it
  * contains the ignore tag.</li>
- * <li><b>Event level</b> - blank documentation is allowed; only excluded if
- * it contains the ignore tag.</li>
+ * <li><b>Event level</b> - blank documentation is allowed; only excluded if it
+ * contains the ignore tag.</li>
  * </ul>
  * A cascading exclusion on Model or Group level always removes the entire
  * branch beneath it, ensuring the resulting tree is always complete and

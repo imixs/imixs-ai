@@ -1,0 +1,743 @@
+/****************************************************************************
+ * Copyright (c) 2022-2025 Imixs Software Solutions GmbH and others.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v. 2.0 which is available at
+ * https://www.eclipse.org/legal/epl-2.0
+ *
+ * This Source Code may also be made available under the terms of the
+ * GNU General Public License, version 2 or later (GPL-2.0-or-later),
+ * which is available at https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+ ****************************************************************************/
+
+package org.imixs.ai.api;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.io.StringReader;
+import java.net.HttpURLConnection;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.imixs.ai.toolcall.ToolCallEvent;
+import org.imixs.ai.toolcall.ToolCallFunction;
+import org.imixs.ai.toolcall.ToolCallHandler;
+import org.imixs.ai.toolcall.ToolCallResult;
+import org.imixs.workflow.FileData;
+import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.exceptions.AdapterException;
+import org.imixs.workflow.exceptions.PluginException;
+import org.imixs.workflow.util.XMLParser;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+import jakarta.ejb.LocalBean;
+import jakarta.ejb.Stateless;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.ObserverException;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.json.JsonReader;
+import jakarta.json.JsonValue;
+import jakarta.ws.rs.core.MediaType;
+
+/**
+ * The OpenAIAPIService provides methods to post prompt templates to the OpenAI
+ * API supported by Llama-cpp http server.
+ * 
+ * The service supports various processing events to update a prompt template
+ * and to evaluate a completion result
+ * 
+ * 
+ * @author rsoika
+ *
+ */
+@Stateless
+@LocalBean
+public class OpenAIAPIService implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+    private static Logger logger = Logger.getLogger(OpenAIAPIService.class.getName());
+
+    public static final String ERROR_API = "ERROR_LLM_API";
+    public static final String ERROR_PROMPT_TEMPLATE = "ERROR_LLM_PROMPT_TEMPLATE";
+    public static final String ERROR_PROMPT_INFERENCE = "ERROR_LLM_PROMPT_INFERENCE";
+    public static final String ITEM_AI_RESULT = "ai.result";
+    public static final String ITEM_AI_RESULT_ITEM = "ai.result.item";
+    public static final String ITEM_SUGGEST_ITEMS = "ai.suggest.items";
+    public static final String ITEM_SUGGEST_MODE = "ai.suggest.mode";
+    public static final String ITEM_SUGGEST_SOURCE = "ai.suggest.source";
+
+    public static final String LLM_MODEL = "llm.model";
+
+    public static final String ENV_LLM_SERVICE_ENDPOINT_TIMEOUT = "llm.service.timeout";
+
+    @Inject
+    protected OpenAIAPIConnector openAIAPIConnector;
+
+    @Inject
+    private Event<ImixsAIPromptEvent> llmPromptEventObservers = null;
+
+    @Inject
+    private Event<ImixsAIResultEvent> llmResultEventObservers = null;
+
+    @Inject
+    @Any
+    private Instance<ToolCallHandler> toolCallHandlers;
+
+    @Inject
+    private Event<ToolCallEvent> toolCallEventObservers = null;
+
+    /**
+     * This method returns a string with all the text content of all documents
+     * attached to a workitem.
+     * 
+     * @return
+     */
+    @SuppressWarnings("rawtypes")
+    public String getAllDocumentText(ItemCollection workitem) {
+        if (workitem == null) {
+            return null;
+        }
+
+        String result = "";
+        List<FileData> fileDataList = workitem.getFileData();
+
+        for (FileData fileData : fileDataList) {
+            List fileText = (List) fileData.getAttribute("text");
+            if (fileText != null && fileText.size() > 0) {
+                result = result + fileText.get(0) + " ";
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * This method returns the result message of an OpenAI API completions JSON
+     * result string. The String is expected in the OpenAI API completion result
+     * format. For backward compatibility the method also supports the old Llama.cpp
+     * format
+     * 
+     * @param jsonCompletionResult - a JSON String holding the completion result
+     * @param resultEventType      - optional event type send to all CDI Event
+     *                             observers for the LLMResultEvent
+     * @param workitem             - workitem instance for an ImixsAIResultEvent
+     * @throws PluginException
+     */
+    public String processPromptResult(String jsonCompletionResult, String resultEventType, ItemCollection workitem)
+            throws PluginException {
+
+        // Parse the JSON result
+        JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
+        JsonObject parsedJsonObject = jsonReader.readObject();
+        jsonReader.close();
+
+        String promptResult = null;
+
+        // Case 1: OpenAI chat format -> {"choices":[{"message":{"content":"..."}}]}
+        if (parsedJsonObject.containsKey("choices")) {
+            JsonArray choices = parsedJsonObject.getJsonArray("choices");
+            if (choices != null && !choices.isEmpty()) {
+                JsonObject firstChoice = choices.getJsonObject(0);
+                if (firstChoice.containsKey("message")) {
+                    JsonObject message = firstChoice.getJsonObject("message");
+                    promptResult = message.getString("content", null);
+                }
+            }
+        }
+
+        // Case 2: old Llama.cpp format -> {"content": "..."}
+        if (promptResult == null && parsedJsonObject.containsKey("content")) {
+            promptResult = parsedJsonObject.getString("content", null);
+        }
+
+        // Error handling
+        if (promptResult == null) {
+            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_INFERENCE, "Error during POST prompt - no result returned!");
+        }
+
+        // Clean result
+        promptResult = promptResult.trim();
+
+        // Fire CDI event (Adapters can resolve the result)
+        if (resultEventType != null && !resultEventType.isEmpty()) {
+            ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(promptResult, resultEventType, workitem);
+            llmResultEventObservers.fire(llmResultEvent);
+        }
+
+        return promptResult;
+    }
+
+    /**
+     * This method processes a tool call response from the LLM.
+     * <p>
+     * If the finish_reason is "tool_calls", the method resolves the responsible
+     * {@link ToolCallHandler} for each requested tool call by matching its
+     * {@link ToolCallHandler#getToolName()} against the tool name returned by the
+     * LLM, and invokes that single handler directly - instead of firing a CDI event
+     * to broadcast it to all observers. This dispatch acts as a safeguard: exactly
+     * one handler is called per tool call, so a handler implementation does not
+     * need to filter by tool name itself.
+     * <p>
+     * If no handler is registered for a requested tool name, a PluginException is
+     * thrown. If a handler throws an unchecked exception, it is caught and
+     * converted into a tool call error instead of aborting the agent loop.
+     * <p>
+     * The result of each tool call is added to the context as a tool message so it
+     * can be sent back to the LLM on the next iteration.
+     *
+     * @param jsonCompletionResult - raw JSON response from the LLM
+     * @param contextHandler       - the current conversation context
+     * @param resultType           - optional event type used to dispatch the
+     *                             business result of a tool call via
+     *                             ImixsAIResultEvent
+     * @return a ToolCallResult if tool calls were found and handled, or null if the
+     *         response did not contain any tool calls
+     * @throws PluginException if a requested tool has no registered handler, or if
+     *                         a handler reports an error
+     */
+    public ToolCallResult processToolCallResult(String jsonCompletionResult,
+            ImixsAIContextHandler contextHandler, String resultType) throws PluginException {
+        boolean taskComplete = false;
+        String resultValue = null;
+
+        // Parse the JSON result
+        JsonReader jsonReader = Json.createReader(new StringReader(jsonCompletionResult));
+        JsonObject parsedJsonObject = jsonReader.readObject();
+        jsonReader.close();
+
+        // Check finish_reason
+        if (!parsedJsonObject.containsKey("choices")) {
+            return null;
+        }
+        JsonArray choices = parsedJsonObject.getJsonArray("choices");
+        if (choices == null || choices.isEmpty()) {
+            return null;
+        }
+        JsonObject firstChoice = choices.getJsonObject(0);
+        String finishReason = firstChoice.getString("finish_reason", "");
+        if (!"tool_calls".equals(finishReason)) {
+            return null;
+        }
+
+        // Extract tool_calls from the assistant message
+        JsonObject message = firstChoice.getJsonObject("message");
+        JsonArray toolCalls = message.getJsonArray("tool_calls");
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return null;
+        }
+
+        // Add the assistant message with tool_calls to the context
+        // so the LLM knows what it requested
+        contextHandler.addToolCallAssistantMessage(message.toString());
+
+        // Process each tool call
+        for (JsonValue toolCallValue : toolCalls) {
+            JsonObject toolCall = toolCallValue.asJsonObject();
+            String toolCallId = toolCall.getString("id");
+            JsonObject function = toolCall.getJsonObject("function");
+            String toolName = function.getString("name");
+
+            // Parse arguments - this is JSON in JSON!
+            String argumentsString = function.getString("arguments");
+            JsonObject arguments;
+            try (JsonReader argReader = Json.createReader(new StringReader(argumentsString))) {
+                arguments = argReader.readObject();
+            }
+
+            logger.info("├── Tool Call: " + toolName + " / arguments: " + arguments);
+
+            // Fire CDI event - observers handle the actual execution
+            ToolCallFunction toolCallFunction = new ToolCallFunction(
+                    toolName, arguments, toolCallId, contextHandler);
+
+            // Central dispatch: find exactly the one handler responsible for this
+            // tool name and verify if the handler is allowed.
+            ToolCallHandler matchingHandler = resolveHandler(toolName);
+            if (matchingHandler == null) {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_INFERENCE,
+                        "No handler registered for tool: " + toolName);
+            }
+
+            // Fire ToolCallEvent..
+            ToolCallEvent toolCallEvent = new ToolCallEvent(toolCallFunction, ToolCallEvent.BEFORE_TOOLCALL);
+            toolCallEventObservers.fire(toolCallEvent);
+            try {
+                matchingHandler.handle(toolCallFunction);
+            } catch (RuntimeException e) {
+                // Defensive: a handler must not be able to break the agent loop
+                // with an unchecked exception.
+                logger.log(Level.WARNING, "├── Tool handler '" + toolName + "' failed unexpectedly", e);
+                toolCallFunction.setError("Tool '" + toolName + "' failed: " + e.getMessage());
+            }
+
+            // Fire ToolCallEvent..
+            toolCallEvent = new ToolCallEvent(toolCallFunction, ToolCallEvent.AFTER_TOOLCALL);
+            toolCallEventObservers.fire(toolCallEvent);
+
+            if (toolCallFunction.hasError()) {
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        "TOOL_CALL_ERROR", toolCallFunction.getError());
+            }
+
+            // Add tool result to context for next LLM request
+            contextHandler.addToolResult(toolCallId, toolCallFunction.getToolMessage());
+
+            logger.fine("└── Tool Call handled: " + toolName
+                    + " result length=" + toolCallFunction.getToolMessage().length());
+
+            // Dispatch the business result for this tool call, if any was set
+            if (toolCallFunction.getResultValue() != null) {
+
+                // Always carry the raw value on the returned ToolCallResult, independent
+                // of resultType - the caller decides what to do with it (e.g. a
+                // task_complete summary written into a comment field), without
+                // requiring a result adapter to be configured for this agent.
+                resultValue = toolCallFunction.getResultValue();
+
+                // Additionally dispatch it as structured business data, but only when
+                // resultType is configured and a matching result adapter is listening
+                // (e.g. the XML/JSON result handlers that map it into workitem fields).
+                if (resultType != null && !resultType.isEmpty()) {
+                    ImixsAIResultEvent llmResultEvent = new ImixsAIResultEvent(
+                            toolCallFunction.getResultValue(), resultType, contextHandler.getWorkItem());
+                    llmResultEventObservers.fire(llmResultEvent);
+                }
+
+                // is task completed?
+                if (toolCallFunction.isTaskCompleted()) {
+                    taskComplete = true;
+                    // no break — remaining tool calls must still receive their addToolResult
+                }
+            }
+        }
+
+        // return the toolCallResult object
+        return new ToolCallResult(true, taskComplete, resultValue);
+    }
+
+    /**
+     * Resolves the single ToolCallHandler responsible for the given tool name.
+     * Returns null if no handler is registered for this name. Logs a warning if
+     * more than one handler claims the same name, since this indicates a
+     * configuration error (duplicate tool registration).
+     */
+    public ToolCallHandler resolveHandler(String toolName) {
+        ToolCallHandler found = null;
+        for (ToolCallHandler handler : toolCallHandlers) {
+            if (toolName.equals(handler.getToolName())) {
+                if (found != null) {
+                    logger.warning("├── ⚠️ Multiple ToolCallHandler implementations registered for tool call '"
+                            + toolName + "' - using the first one found: "
+                            + found.getClass().getSimpleName());
+                    continue;
+                }
+                found = handler;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * This method POSTs a LLM Prompt to the service endpoint '/completion' and
+     * returns the predicted completion. The method returns the response body.
+     * <p>
+     * The endpoint is optional and can be null. In the endpoint is not provided the
+     * method resolves the endpoint from the environment variable
+     * <code>llm.service.endpoint</code>.
+     * <p>
+     * The method optional test if the environment variables
+     * LLM_SERVICE_ENDPOINT_USER and LLM_SERVICE_ENDPOINT_PASSWORD are set. In this
+     * case a BASIC Authentication is used for the connection to the LLMService.
+     * 
+     * See details:
+     * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md#api-endpoints
+     * 
+     * 
+     * curl example:
+     * 
+     * curl --request POST \ --url http://localhost:8080/completion \ --header
+     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
+     * be done in 10 simple steps:","n_predict": 128}'
+     * 
+     * @param jsonPromptObject - an LLM json prompt object
+     * @param apiEndpoint      - optional service endpoint
+     * @throws PluginException
+     */
+    public String postPromptCompletion(ImixsAIContextHandler imixsAIContextHandler, String apiEndpoint, boolean debug)
+            throws PluginException {
+        String response = null;
+        long processingTime = System.currentTimeMillis();
+        int responseCode = 0;
+        HttpURLConnection conn = null;
+        try {
+            conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
+                    OpenAIAPIConnector.ENDPOINT_URI_COMPLETIONS);
+
+            if (debug) {
+                logger.info("├── POST Completion: " + conn.getURL().toString());
+            }
+
+            // Set the appropriate HTTP method
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON);
+            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
+            conn.setDoOutput(true);
+
+            // Write the JSON object to the output stream
+            String jsonString = imixsAIContextHandler.getOpenAIMessageObject().toString();
+
+            if (debug) {
+                logger.info("│   ├── 📥 Completion Request: ");
+                logger.info(jsonString);
+            }
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            // Reading the response
+            responseCode = conn.getResponseCode();
+            logger.fine("POST Response Code :: " + responseCode);
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder responseBody = new StringBuilder();
+                    String responseLine = null;
+                    while ((responseLine = br.readLine()) != null) {
+                        responseBody.append(responseLine.trim() + "\n");
+                    }
+                    response = responseBody.toString();
+                    if (debug) {
+                        logger.info("│   ├── 📤 Completion Result: ");
+                        logger.info(response);
+                    }
+                }
+            } else {
+                logger.severe("└──  ⚠️ postCompletion failed -  LLM HTTP Result=" + responseCode);
+                // Read error response body for diagnostics
+                String errorBody = "";
+                InputStream errorStream = conn.getErrorStream();
+                if (errorStream != null) {
+                    try (BufferedReader br = new BufferedReader(
+                            new InputStreamReader(errorStream, StandardCharsets.UTF_8))) {
+                        StringBuilder errorResponse = new StringBuilder();
+                        String line;
+                        while ((line = br.readLine()) != null) {
+                            errorResponse.append(line.trim()).append("\n");
+                        }
+                        errorBody = errorResponse.toString();
+                    } catch (IOException ignored) {
+                        // Error stream might be unreadable
+                    }
+                }
+                logger.severe("└──  LLM Error Response:\n" + errorBody);
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                        "LLM Error - HTTP Result " + responseCode);
+            }
+
+            if (debug) {
+                logger.info(
+                        "└── POST Completion completed in " + (System.currentTimeMillis() - processingTime) + "ms");
+
+            }
+            return response;
+
+        } catch (IOException e) {
+            logger.severe("└──  ⚠️ postCompletion failed - IO Error: " + e.getMessage());
+            throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                    OpenAIAPIService.ERROR_PROMPT_INFERENCE, "IO Error: " + e.getMessage(), e);
+
+        } finally {
+            // Close the connection
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+
+    }
+
+    /**
+     * RAG Support - compute vector by text
+     *
+     * See details:
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
+     *
+     * curl example:
+     *
+     * curl --request POST \ --url http://localhost:8080/completion \ --header
+     * "Content-Type: application/json" \ --data '{"prompt": "Building a website can
+     * be done in 10 simple steps:","n_predict": 128}'
+     *
+     * @param prompt      - the prompt to be indexed
+     * @param apiEndpoint - llm api endpoint
+     * @param debug       - debug mode
+     * @throws PluginException
+     */
+    public List<Float> postEmbedding(String prompt, String apiEndpoint, LLMOptions options, boolean debug)
+            throws PluginException {
+
+        List<Float> result = new ArrayList<>();
+
+        if (debug) {
+            logger.info("├── postEmbeddings...");
+            logger.info("├── text size=" + prompt.length());
+        }
+
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+        jsonObjectBuilder.add("content", prompt);
+
+        // Merge resolved options (model, dimensions, etc.) into the request body
+        if (options != null && !options.isEmpty()) {
+            JsonObject opts = options.toJson();
+            for (String key : opts.keySet()) {
+                jsonObjectBuilder.add(key, opts.get(key));
+            }
+        }
+
+        JsonObject jsonObject = jsonObjectBuilder.build();
+        String jsonPrompt = jsonObject.toString();
+
+        try {
+            HttpURLConnection conn = openAIAPIConnector.createHttpConnection(apiEndpoint,
+                    OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS);
+
+            // Set the appropriate HTTP method
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON + "; utf-8");
+            conn.setRequestProperty("Accept", MediaType.APPLICATION_JSON);
+            conn.setDoOutput(true);
+
+            // Write the text to the output stream
+            if (debug) {
+                logger.info("│   ├── POST Text:");
+                logger.info(jsonPrompt);
+            }
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonPrompt.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            // Reading the response
+            int responseCode = conn.getResponseCode();
+            if (debug) {
+                logger.info("│   ├── POST Response Code: " + responseCode);
+            }
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder responseBody = new StringBuilder();
+                    String responseLine = null;
+                    while ((responseLine = br.readLine()) != null) {
+                        responseBody.append(responseLine.trim() + "\n");
+                        // logger.info("read line: " + responseLine);
+                    }
+                    String jsonResponse = responseBody.toString();
+                    // logger.info(jsonResponse);
+                    // Extract the vector field from the json string
+                    try (JsonReader jsonReader = Json.createReader(new StringReader(jsonResponse))) {
+                        // Lies das JSON-Array
+                        JsonArray rootArray = jsonReader.readArray();
+                        if (!rootArray.isEmpty()) {
+                            JsonObject firstObject = rootArray.getJsonObject(0);
+                            if (firstObject.containsKey("embedding")) {
+                                JsonArray embeddingArray = firstObject.getJsonArray("embedding");
+                                if (!embeddingArray.isEmpty()) {
+                                    JsonArray firstEmbedding = embeddingArray.getJsonArray(0);
+                                    // Extrahiere die Werte als List<Float>
+                                    // result = new float[firstEmbedding.size()];
+                                    for (int i = 0; i < firstEmbedding.size(); i++) {
+                                        result.add((float) firstEmbedding.getJsonNumber(i).doubleValue());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+
+                // logger.severe("│ ├── ⚠️ postEmbeddings failed - '" + apiEndpoint
+                // + OpenAIAPIConnector.ENDPOINT_URI_EMBEDDINGS + "' ");
+
+                // FEHLERFALL: Response Body aus dem ErrorStream lesen
+                String errorResponse = readStream(conn.getErrorStream());
+
+                logger.severe("│   ├── ⚠️ postEmbeddings failed!");
+                logger.severe("│   ├── Status: " + responseCode);
+                logger.severe("│   ├── Response: " + errorResponse); // Hier ist der Content!
+
+                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                        OpenAIAPIService.ERROR_PROMPT_INFERENCE,
+                        "HTTP Result " + responseCode);
+            }
+            // Close the connection
+            conn.disconnect();
+            if (debug) {
+                logger.info("│   ├── index size= " + result.size() + " floats");
+                logger.info("├── ✅ postEmbeddings completed");
+            }
+            return result;
+
+        } catch (IOException e) {
+
+            logger.severe(e.getMessage());
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "⚠️ postEmbeddings failed - '" + apiEndpoint + "' : " + e.getMessage(), e);
+
+        }
+
+    }
+
+    /**
+     * This helper method builds a json prompt object for OpenAI API including
+     * optional params.
+     *
+     * See details:
+     * https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md
+     *
+     * @param imixsAIContextHandler - provides the current prompt context
+     * @return
+     */
+    public JsonObject buildJsonPromptObjectV1(ImixsAIContextHandler imixsAIContextHandler) {
+        JsonObject messageObject = imixsAIContextHandler.getOpenAIMessageObject();
+        JsonObjectBuilder jsonObjectBuilder = Json.createObjectBuilder();
+
+        // Create the messages array with one user message
+        JsonArrayBuilder messagesArrayBuilder = Json.createArrayBuilder();
+        JsonObjectBuilder userMessageBuilder = Json.createObjectBuilder();
+        userMessageBuilder.add("role", "user");
+        userMessageBuilder.add("content", imixsAIContextHandler.toString());
+        messagesArrayBuilder.add(userMessageBuilder);
+        jsonObjectBuilder.add("messages", messagesArrayBuilder);
+
+        JsonObject jsonObject = jsonObjectBuilder.build();
+
+        logger.fine("buildJsonPromptObjectV1 completed:");
+        logger.fine(jsonObject.toString());
+        return jsonObject;
+    }
+
+    /**
+     * RAG Support - builds a prompt for embeddings from a Imixs prompt template
+     * <p>
+     * This method builds a prompt for embeddings based on a prompt template. The
+     * method first extracts the prompt from the prompt template. Next the method
+     * fires a prompt event to all registered PromptEvent Observer classes. This
+     * allows adaptors to customize the prompt.
+     * 
+     * Finally the method stores the prompt options in the item 'ai.prompt.options'
+     * 
+     * 
+     * @param promptTemplate - a imixs-ai prompt XML-Template
+     * @param workitem       - the workitem to be processed
+     * @return the plain prompt to be send to the llm endpoint
+     * @throws PluginException
+     * @throws AdapterException
+     */
+    public String buildEmbeddingsPrompt(String promptTemplate, ItemCollection workitem)
+            throws PluginException, AdapterException {
+
+        if (promptTemplate == null || promptTemplate.isBlank()) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Prompt template is empty, verify model configuration");
+        }
+        String prompt = null;
+        // Extract Meta Information from XML....
+        try {
+            DocumentBuilder builder = XMLParser.getSecureDocumentBuilder();
+            Document doc = builder.parse(new java.io.ByteArrayInputStream(promptTemplate.getBytes()));
+
+            // extract prompt
+            NodeList modelNodes = doc.getElementsByTagName("prompt");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                prompt = modelNode.getTextContent();
+            }
+
+            if (prompt == null || prompt.isEmpty()) {
+                throw new PluginException(
+                        OpenAIAPIService.class.getSimpleName(),
+                        ERROR_PROMPT_TEMPLATE,
+                        "Missing prompt tag in embedding prompt template!");
+            }
+
+            // prompt options
+            modelNodes = doc.getElementsByTagName("options");
+            if (modelNodes.getLength() > 0) {
+                Node modelNode = modelNodes.item(0);
+                workitem.setItemValue("ai.prompt.options", modelNode.getTextContent());
+            }
+
+        } catch (IOException | ParserConfigurationException | SAXException e) {
+            throw new PluginException(
+                    OpenAIAPIService.class.getSimpleName(),
+                    ERROR_PROMPT_TEMPLATE,
+                    "Unable to extract meta data from embedding prompt template: " + e.getMessage(), e);
+        }
+
+        // Fire Prompt Event...
+        ImixsAIPromptEvent llmPromptEvent = new ImixsAIPromptEvent(prompt, workitem);
+        try {
+            llmPromptEventObservers.fire(llmPromptEvent);
+        } catch (ObserverException e) {
+            // catch Adapter Exceptions
+            if (e.getCause() instanceof AdapterException) {
+                throw (AdapterException) e.getCause();
+            }
+
+        }
+        logger.finest(llmPromptEvent.getPromptTemplate());
+
+        return llmPromptEvent.getPromptTemplate();
+    }
+
+    /**
+     * Helper method to read an error message content
+     * 
+     * @param is
+     * @return
+     */
+    private String readStream(InputStream is) {
+        if (is == null)
+            return "No error body";
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                response.append(line.trim());
+            }
+            return response.toString();
+        } catch (IOException e) {
+            return "Could not read error stream: " + e.getMessage();
+        }
+    }
+}

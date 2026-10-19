@@ -10,5 +10,6 @@
   },
   // Format
   "java.format.settings.url": "https://raw.githubusercontent.com/imixs/imixs-workflow/refs/heads/master/imixs-code-style.xml",
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "cSpell.words": ["assynchounsly"]
 }

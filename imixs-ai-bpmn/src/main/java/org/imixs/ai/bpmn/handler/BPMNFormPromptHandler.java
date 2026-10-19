@@ -19,8 +19,8 @@ import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 
+import org.imixs.ai.api.ImixsAIPromptEvent;
 import org.imixs.ai.bpmn.util.AIModelManager;
-import org.imixs.ai.workflow.ImixsAIPromptEvent;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.ModelException;
@@ -40,27 +40,24 @@ import jakarta.inject.Inject;
  *
  * Supported tag variants:
  *
- * <bpmn.form />
- * Resolves all form items into a combined block containing the target XML
- * skeleton (root element "data") plus a field mapping description.
+ * <bpmn.form /> Resolves all form items into a combined block containing the
+ * target XML skeleton (root element "data") plus a field mapping description.
  *
- * <bpmn.form root="invoice" />
- * Same as above, but uses "invoice" as the root element name of the
- * generated XML skeleton instead of the default "data".
+ * <bpmn.form root="invoice" /> Same as above, but uses "invoice" as the root
+ * element name of the generated XML skeleton instead of the default "data".
  *
- * <bpmn.form items="invoice.number, invoice.date" />
- * Resolves only the named items.
+ * <bpmn.form items="invoice.number, invoice.date" /> Resolves only the named
+ * items.
  *
- * <bpmn.form readonly="ignore" />
- * Excludes readonly fields entirely instead of including them as
- * [readonly] context information.
+ * <bpmn.form readonly="ignore" /> Excludes readonly fields entirely instead of
+ * including them as [readonly] context information.
  *
- * The generated block is intended to replace both the hand-written XML
- * target structure and the hand-written field mapping suggestions that a
- * BPMN modeller would otherwise maintain manually in the prompt template.
- * The resulting XML skeleton is compatible with AIResultHandlerXML, which
- * only evaluates the child elements of the XML root - the root element name
- * itself is never interpreted by that adapter.
+ * The generated block is intended to replace both the hand-written XML target
+ * structure and the hand-written field mapping suggestions that a BPMN modeller
+ * would otherwise maintain manually in the prompt template. The resulting XML
+ * skeleton is compatible with AIResultHandlerXML, which only evaluates the
+ * child elements of the XML root - the root element name itself is never
+ * interpreted by that adapter.
  *
  * @author rsoika
  */
@@ -83,17 +80,16 @@ public class BPMNFormPromptHandler {
             "selectManyCheckbox", "selectManyCheckboxPageDirection");
 
     /**
-     * Fixed instruction header prepended before the generated XML skeleton.
-     * This is deliberately generic and independent of the concrete form
-     * content.
+     * Fixed instruction header prepended before the generated XML skeleton. This is
+     * deliberately generic and independent of the concrete form content.
      */
     private static final String INTRO_INSTRUCTIONS = "Transfer the data into an XML object with the following structure:";
 
     /**
-     * Fixed instruction footer appended after the generated XML skeleton and
-     * field mapping. This is deliberately generic and independent of the
-     * concrete form content - it describes how the LLM should behave when
-     * producing output for AIResultHandlerXML, not what data to extract.
+     * Fixed instruction footer appended after the generated XML skeleton and field
+     * mapping. This is deliberately generic and independent of the concrete form
+     * content - it describes how the LLM should behave when producing output for
+     * AIResultHandlerXML, not what data to extract.
      */
     private static final String OUTPUT_INSTRUCTIONS = """
             Output only the XML object above! Do not add explanations or comments, \
@@ -107,8 +103,8 @@ public class BPMNFormPromptHandler {
 
     /**
      * Test-only setter allowing to inject a SharedModelManager instance from
-     * outside this package, bypassing CDI. Intended to be used together with
-     * a MockWorkflowEnvironment in unit/integration tests.
+     * outside this package, bypassing CDI. Intended to be used together with a
+     * MockWorkflowEnvironment in unit/integration tests.
      *
      * @param sharedModelManager a pre-configured SharedModelManager instance
      */
@@ -171,19 +167,19 @@ public class BPMNFormPromptHandler {
 
     /**
      * Parses an <imixs-form> definition and builds a combined prompt block
-     * consisting of an XML target skeleton followed by a field mapping
-     * description. This block is intended to fully replace the manually
-     * written XML structure and mapping suggestions in a system prompt.
+     * consisting of an XML target skeleton followed by a field mapping description.
+     * This block is intended to fully replace the manually written XML structure
+     * and mapping suggestions in a system prompt.
      *
      * @param formDefinition  the raw <imixs-form> XML
      * @param itemsFilter     optional comma separated list of item names to
      *                        restrict the output to (may be null or blank)
-     * @param excludeReadonly if true, fields resolved as readonly (item or
-     *                        cascaded from the enclosing section) are excluded
-     *                        entirely; if false, readonly fields are included
-     *                        in the mapping and flagged as [readonly]
-     * @param rootName        the root element name to use for the generated
-     *                        XML skeleton (e.g. "invoice")
+     * @param excludeReadonly if true, fields resolved as readonly (item or cascaded
+     *                        from the enclosing section) are excluded entirely; if
+     *                        false, readonly fields are included in the mapping and
+     *                        flagged as [readonly]
+     * @param rootName        the root element name to use for the generated XML
+     *                        skeleton (e.g. "invoice")
      * @return the generated prompt block (never null, may be an empty string)
      */
     protected String buildFormPromptBlock(String formDefinition, String itemsFilter, boolean excludeReadonly,
@@ -224,12 +220,12 @@ public class BPMNFormPromptHandler {
     }
 
     /**
-     * Collects all <item> elements from a parsed form definition that match
-     * the given items filter and readonly exclusion rule.
+     * Collects all <item> elements from a parsed form definition that match the
+     * given items filter and readonly exclusion rule.
      *
      * @param doc             the parsed <imixs-form> document
-     * @param filterSet       optional set of item names to restrict the
-     *                        result to (null means no filtering)
+     * @param filterSet       optional set of item names to restrict the result to
+     *                        (null means no filtering)
      * @param excludeReadonly if true, items resolved as readonly are skipped
      * @return the list of matching <item> elements, in document order
      */
@@ -264,10 +260,10 @@ public class BPMNFormPromptHandler {
      * &lt;/invoice&gt;
      * </pre>
      *
-     * The type="date"/type="double" attributes are set exactly for the cases
-     * that AIResultHandlerXML relies on to correctly convert the value back
-     * into the workitem (isDouble()/isISODateValue()). The root element name
-     * itself is not interpreted by that adapter and can be chosen freely.
+     * The type="date"/type="double" attributes are set exactly for the cases that
+     * AIResultHandlerXML relies on to correctly convert the value back into the
+     * workitem (isDouble()/isISODateValue()). The root element name itself is not
+     * interpreted by that adapter and can be chosen freely.
      *
      * @param items    the form items to render, in document order
      * @param rootName the root element name to use
@@ -320,26 +316,26 @@ public class BPMNFormPromptHandler {
     }
 
     /**
-     * Provides a representative example value for a given LLM data type, used
-     * as placeholder content in the generated XML skeleton.
+     * Provides a representative example value for a given LLM data type, used as
+     * placeholder content in the generated XML skeleton.
      */
     private String buildExampleValue(String llmType) {
         switch (llmType) {
-            case "date":
-                return "2024-12-31";
-            case "double":
-                return "1234.00";
-            case "boolean":
-                return "true";
-            default:
-                return "...";
+        case "date":
+            return "2024-12-31";
+        case "double":
+            return "1234.00";
+        case "boolean":
+            return "true";
+        default:
+            return "...";
         }
     }
 
     /**
-     * Resolves the effective 'readonly' state of an item, applying the
-     * cascading rule from the Imixs Form Specification: an item-level
-     * 'readonly' attribute overrides the enclosing section's default.
+     * Resolves the effective 'readonly' state of an item, applying the cascading
+     * rule from the Imixs Form Specification: an item-level 'readonly' attribute
+     * overrides the enclosing section's default.
      */
     private boolean isReadonly(Element itemElement) {
         String itemValue = itemElement.getAttribute("readonly");
@@ -357,10 +353,10 @@ public class BPMNFormPromptHandler {
     /**
      * Builds a single mapping line for one form item, e.g.:
      *
-     * - invoice.currency (text, one of: EUR, CHF, GBP, USD): Currency
-     * - invoice.total (double, ISO 4217, decimal point, no thousand separator): The
-     * total invoice amount. [required]
-     * - document.company (text): Company: [readonly]
+     * - invoice.currency (text, one of: EUR, CHF, GBP, USD): Currency -
+     * invoice.total (double, ISO 4217, decimal point, no thousand separator): The
+     * total invoice amount. [required] - document.company (text): Company:
+     * [readonly]
      *
      * Falls back to the UI 'label' if no 'description' attribute is present.
      *
@@ -410,9 +406,8 @@ public class BPMNFormPromptHandler {
     /**
      * Builds an enum-style hint for select-type items, e.g.:
      *
-     * "one of: EUR, CHF, GBP, USD"
-     * "one or more of: red, green, blue"
-     * "true or false"
+     * "one of: EUR, CHF, GBP, USD" "one or more of: red, green, blue" "true or
+     * false"
      *
      * Returns null for non-select types or if no options are defined.
      */
@@ -457,54 +452,54 @@ public class BPMNFormPromptHandler {
     }
 
     /**
-     * Maps an Imixs form input type to the corresponding data type used in the
-     * LLM output XML (text, date, double, boolean).
+     * Maps an Imixs form input type to the corresponding data type used in the LLM
+     * output XML (text, date, double, boolean).
      */
     private String mapFormTypeToLLMType(String formType) {
         if (formType == null) {
             return "text";
         }
         switch (formType) {
-            case "date":
-                return "date";
-            case "currency":
-                return "double";
-            case "double":
-                return "double";
-            case "selectBooleanCheckbox":
-                return "boolean";
-            case "custom":
-                // Custom components (e.g. markdown editor) are treated as
-                // plain text for LLM purposes - the 'path' attribute is a UI
-                // rendering detail and not relevant for extraction/output.
-                return "text";
-            default:
-                return "text";
+        case "date":
+            return "date";
+        case "currency":
+            return "double";
+        case "double":
+            return "double";
+        case "selectBooleanCheckbox":
+            return "boolean";
+        case "custom":
+            // Custom components (e.g. markdown editor) are treated as
+            // plain text for LLM purposes - the 'path' attribute is a UI
+            // rendering detail and not relevant for extraction/output.
+            return "text";
+        default:
+            return "text";
         }
     }
 
     /**
-     * Provides an additional format hint for the LLM depending on the form
-     * input type. Returns null if no hint is required.
+     * Provides an additional format hint for the LLM depending on the form input
+     * type. Returns null if no hint is required.
      */
     private String mapFormTypeToFormatHint(String formType) {
         if (formType == null) {
             return null;
         }
         switch (formType) {
-            case "date":
-                return "format YYYY-MM-DD";
-            case "currency":
-                return "ISO 4217, decimal point, no thousand separator";
-            default:
-                return null;
+        case "date":
+            return "format YYYY-MM-DD";
+        case "currency":
+            return "ISO 4217, decimal point, no thousand separator";
+        default:
+            return null;
         }
     }
 
     /**
-     * Parses a raw XML string into a DOM Document. External entities are
-     * disabled to prevent XXE attacks, since the form definition may
-     * originate from a shared/imported BPMN model.
+     * Parses a raw XML string into a DOM Document. External entities are disabled
+     * to prevent XXE attacks, since the form definition may originate from a
+     * shared/imported BPMN model.
      */
     private Document parseXML(String xml) {
         try {

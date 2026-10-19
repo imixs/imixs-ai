@@ -3,9 +3,9 @@ package org.imixs.ai.agent.handler;
 import java.io.Serializable;
 import java.util.logging.Logger;
 
-import org.imixs.ai.ImixsAIContextHandler;
-import org.imixs.ai.tools.ToolCallFunction;
-import org.imixs.ai.tools.ToolCallHandler;
+import org.imixs.ai.api.ImixsAIContextHandler;
+import org.imixs.ai.toolcall.ToolCallFunction;
+import org.imixs.ai.toolcall.ToolCallHandler;
 
 import jakarta.inject.Named;
 

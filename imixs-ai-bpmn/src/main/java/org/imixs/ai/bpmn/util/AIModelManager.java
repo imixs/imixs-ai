@@ -40,7 +40,6 @@ import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.InvalidAccessException;
 import org.imixs.workflow.exceptions.ModelException;
 import org.imixs.workflow.exceptions.PluginException;
-import org.imixs.workflow.faces.data.WorkflowController;
 import org.openbpmn.bpmn.BPMNModel;
 
 import jakarta.annotation.PostConstruct;
@@ -51,19 +50,19 @@ import jakarta.inject.Inject;
 import jakarta.interceptor.Interceptor;
 
 /**
- * The AIModelManager is an application-scoped singleton EJB that holds a
- * shared instance of the {@link ModelManager} POJO for read-only access to
- * BPMN model meta data (e.g. by AI BPMN Skill layer or Prompt Handlers).
+ * The AIModelManager is an application-scoped singleton EJB that holds a shared
+ * instance of the {@link ModelManager} POJO for read-only access to BPMN model
+ * meta data (e.g. by AI BPMN Skill layer or Prompt Handlers).
  * <p>
  * In contrast to the ModelManager instances used by the WorkflowKernel during
- * processing - which are always session or request-local - this shared
- * instance is intentionally global and serves as a cache for model meta data
- * in the frontend.
+ * processing - which are always session or request-local - this shared instance
+ * is intentionally global and serves as a cache for model meta data in the
+ * frontend.
  * <p>
- * The internal ModelManager can be reset at any time (e.g. after a model
- * upload or deletion) without affecting any ongoing workflow processing,
- * since the WorkflowKernel always holds its own local ModelManager instance
- * during a transaction.
+ * The internal ModelManager can be reset at any time (e.g. after a model upload
+ * or deletion) without affecting any ongoing workflow processing, since the
+ * WorkflowKernel always holds its own local ModelManager instance during a
+ * transaction.
  * <p>
  * This class is intentionally kept free of any consumer-specific logic (e.g.
  * skill tree building). Consumers that need to derive richer structures from
@@ -81,6 +80,8 @@ public class AIModelManager {
     @Inject
     WorkflowService workflowService;
 
+    public static final String WORKITEM_TYPE = "workitem";
+
     // The shared ModelManager instance - volatile to ensure visibility across
     // threads
     private volatile ModelManager modelManager;
@@ -89,9 +90,9 @@ public class AIModelManager {
     private final Set<String> modelWarnings = Collections.synchronizedSet(new LinkedHashSet<>());
 
     /**
-     * Test-only constructor allowing to inject a pre-built ModelManager
-     * directly, bypassing CDI and the @PostConstruct lifecycle. Intended to be
-     * used together with a MockWorkflowEnvironment in unit/integration tests.
+     * Test-only constructor allowing to inject a pre-built ModelManager directly,
+     * bypassing CDI and the @PostConstruct lifecycle. Intended to be used together
+     * with a MockWorkflowEnvironment in unit/integration tests.
      *
      * @param modelManager a pre-configured ModelManager instance (e.g. from
      *                     MockWorkflowEnvironment.getModelManager())
@@ -116,8 +117,7 @@ public class AIModelManager {
     }
 
     /**
-     * In case no WorkflowController was used we observe also the before Save
-     * event
+     * In case no WorkflowController was used we observe also the before Save event
      *
      * @param documentEvent
      * @throws PluginException
@@ -138,10 +138,10 @@ public class AIModelManager {
     /**
      * Returns the shared ModelManager instance.
      * <p>
-     * Note: this instance is shared across all active user sessions. It is
-     * suitable for read-only UI operations (e.g. resolving model groups, start
-     * tasks, process descriptions). It must not be used inside workflow
-     * processing transactions.
+     * Note: this instance is shared across all active user sessions. It is suitable
+     * for read-only UI operations (e.g. resolving model groups, start tasks,
+     * process descriptions). It must not be used inside workflow processing
+     * transactions.
      *
      * @return the shared {@link ModelManager} instance
      */
@@ -153,14 +153,14 @@ public class AIModelManager {
      * Resets the shared ModelManager by creating a new instance.
      * <p>
      * This clears all internal caches (modelStore, bpmnEntityCache,
-     * bpmnElementCache, groupCache) and forces a fresh reload of model data on
-     * the next access.
+     * bpmnElementCache, groupCache) and forces a fresh reload of model data on the
+     * next access.
      * <p>
-     * This method should be called after a model upload or deletion to ensure
-     * all active user sessions see the updated model data immediately.
+     * This method should be called after a model upload or deletion to ensure all
+     * active user sessions see the updated model data immediately.
      * <p>
-     * Ongoing workflow processing is not affected since the WorkflowKernel
-     * holds its own local ModelManager instance.
+     * Ongoing workflow processing is not affected since the WorkflowKernel holds
+     * its own local ModelManager instance.
      */
     public synchronized void reset() {
         modelManager = new ModelManager(workflowService);
@@ -226,10 +226,10 @@ public class AIModelManager {
             // Validate each start task - type is a mandatory field
             for (ItemCollection task : _result) {
                 String type = task.getItemValueString("txttype");
-                if (!type.isEmpty() && !WorkflowController.DEFAULT_TYPE.equals(type)) {
+                if (!type.isEmpty() && !WORKITEM_TYPE.equals(type)) {
                     String msg = "Invalid initial task in model='" + version + "' workflowGroup='"
                             + group + "' task=" + task.getItemValueString("numProcessID")
-                            + " wrong type='" + type + "' -> expected: '" + WorkflowController.DEFAULT_TYPE + "'";
+                            + " wrong type='" + type + "' -> expected: '" + WORKITEM_TYPE + "'";
                     logger.warning(msg);
                     addModelWarning(msg);
                     continue;
@@ -247,10 +247,9 @@ public class AIModelManager {
      * Returns a BPMN form definition associated with a given task ItemCollection.
      * <p>
      * The form definition is read from an optional <code>bpmn:DataObject</code>
-     * associated with the current task element. A <code>bpmn:DataObject</code>
-     * must contain a `form-tag` containing the form definition. If no matching
-     * <code>bpmn:DataObject</code> is defined the method returns an empty
-     * string.
+     * associated with the current task element. A <code>bpmn:DataObject</code> must
+     * contain a `form-tag` containing the form definition. If no matching
+     * <code>bpmn:DataObject</code> is defined the method returns an empty string.
      *
      * @param task
      * @return
