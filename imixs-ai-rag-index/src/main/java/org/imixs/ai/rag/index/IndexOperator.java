@@ -119,6 +119,7 @@ public class IndexOperator {
                     List<?> dataList = eventLogEntry.getItemValue("data");
                     if (dataList != null && dataList.size() > 0) {
                         workitem = new ItemCollection((Map<String, List<Object>>) dataList.get(0));
+                        // workitem.setItemValue(WorkflowKernel.UNIQUEID, eventRef);
                     }
                 }
 
@@ -150,10 +151,10 @@ public class IndexOperator {
                     switch (eventTopic) {
                     case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE:
                         // update workflow status
-                        ragService.updateMetadata(workitem);
+                        ragService.updateMetadata(eventRef, workitem);
                         break;
                     case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
-                        ragService.indexWorkitem(workitem);
+                        ragService.indexWorkitem(eventRef, workitem);
                         break;
 
                     default:

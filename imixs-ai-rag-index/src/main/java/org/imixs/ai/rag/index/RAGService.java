@@ -27,8 +27,6 @@ import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
 
-import jakarta.annotation.security.DeclareRoles;
-import jakarta.annotation.security.RunAs;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
@@ -42,8 +40,6 @@ import jakarta.inject.Inject;
  * @author rsoika
  *
  */
-@DeclareRoles({ "org.imixs.ACCESSLEVEL.MANAGERACCESS" })
-@RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Stateless
 public class RAGService {
 
@@ -63,10 +59,10 @@ public class RAGService {
      * @throws PluginException
      * @throws AdapterException
      */
-    public void updateMetadata(ItemCollection workitem)
+    public void updateMetadata(String refID, ItemCollection workitem)
             throws PluginException {
         try {
-            clusterService.updateMetaData(workitem.getUniqueID(), workitem.getWorkflowGroup(),
+            clusterService.updateMetaData(refID, workitem.getWorkflowGroup(),
                     workitem.getTaskID());
         } catch (ClusterException e) {
             throw new PluginException(RAGService.class.getSimpleName(), APIUtil.ERROR_API, e.getMessage(), e);
@@ -84,21 +80,23 @@ public class RAGService {
      * @throws AdapterException
      * @throws ClusterException
      */
-    public void indexWorkitem(ItemCollection workitem)
+    public void indexWorkitem(String refID, ItemCollection workitem)
             throws PluginException, ClusterException {
 
-        logger.info(" Bin in indexWorkitem");
         long processingTime = System.currentTimeMillis();
         String embeddingsEndpoint = null;
 
         boolean debug = workitem.getItemValueBoolean(RAGUtil.ITEM_DEBUG);
         String category = workitem.getItemValueString(RAGUtil.ITEM_RAG_CATEGORY);
         String llmPrompt = workitem.getItemValueString(RAGUtil.ITEM_RAG_TEXT);
+        embeddingsEndpoint = workitem.getItemValueString(RAGUtil.ITEM_RAG_ENDPOINT);
 
         String sEmbeddingOptions = workitem.getItemValueString(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS);
         LLMOptions embeddingOptions = new LLMOptions(sEmbeddingOptions);
 
         if (debug) {
+            logger.info("├── 🔃 index workitem");
+            logger.info("│   ├── Endpoint: " + embeddingsEndpoint);
             logger.info("│   ├── Category: " + (category.isEmpty() ? "primary data" : category));
             logger.info("│   ├── Total Prompt Length = " + llmPrompt.length());
             logger.info("│   ├── Prompt: ");
@@ -106,7 +104,7 @@ public class RAGService {
         }
 
         // Remove old embeddings for THIS category only (not all categories!)
-        clusterService.removeEmbeddingsByCategory(workitem.getUniqueID(), category);
+        clusterService.removeEmbeddingsByCategory(refID, category);
 
         // Chunk text and insert with category
         List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt, 512);
@@ -122,7 +120,7 @@ public class RAGService {
 
             // Write to cassandra WITH category
             clusterService.insertEmbeddings(
-                    workitem.getUniqueID(),
+                    refID,
                     chunk_id,
                     category, // Category parameter!
                     workitem.getWorkflowGroup(),

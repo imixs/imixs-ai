@@ -186,7 +186,7 @@ public class IndexScheduler {
         long duration = System.currentTimeMillis();
         try {
             indexStatusHandler.setTimer(_timer);
-            logger.info("├── Processing RAG index events...");
+            logger.fine("├── Processing RAG index events...");
             // init rest clients....
             DocumentClient documentClient = restClientHelper.createDocumentClient();
 

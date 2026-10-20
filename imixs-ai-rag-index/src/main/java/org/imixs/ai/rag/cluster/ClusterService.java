@@ -718,6 +718,9 @@ public class ClusterService {
     public boolean removeEmbeddingsByCategory(String uniqueID, String category)
             throws ClusterException {
 
+        if (uniqueID == null || uniqueID.isBlank()) {
+            logger.warning("├── ⚠️ uniqueID may not be empty!");
+        }
         // Default category
         if (category == null) {
             category = "";

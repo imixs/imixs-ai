@@ -333,9 +333,10 @@ public class EmbeddingService {
             }
 
             ItemCollection embeddingData = new ItemCollection();
+            embeddingData.setItemValue(RAGUtil.ITEM_RAG_ENDPOINT, embeddingsEndpoint);
+            embeddingData.setItemValue(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS, embeddingOptions.toString());
             embeddingData.appendItemValue(RAGUtil.ITEM_RAG_CATEGORY, category);
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_TEXT, llmPrompt);
-            embeddingData.setItemValue(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS, embeddingOptions.toString());
             embeddingData.setItemValue(RAGUtil.ITEM_DEBUG, debug);
             // create eventLog entry
             eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX, workitem.getUniqueID(), embeddingData);

@@ -42,10 +42,11 @@ public class RAGUtil {
     public static final String EVENTLOG_TOPIC_RAG_EVENT_PROMPT = "rag.event.prompt";
     public static final String EVENTLOG_TOPIC_RAG_EVENT_DELETE = "rag.event.delete";
 
-    public static final String ITEM_RAG_CATEGORY = "rag.category";
-    public static final String ITEM_RAG_TEXT = "rag.text";
+    public static final String ITEM_RAG_ENDPOINT = "rag.endpoint";
     public static final String ITEM_RAG_EMBEDDINGS = "rag.embeddings";
     public static final String ITEM_RAG_EMBEDDINGS_OPTIONS = "rag.embeddings.options";
+    public static final String ITEM_RAG_CATEGORY = "rag.category";
+    public static final String ITEM_RAG_TEXT = "rag.text";
     public static final String ITEM_DEBUG = "debug";
 
     private static Logger logger = Logger.getLogger(RAGUtil.class.getName());
