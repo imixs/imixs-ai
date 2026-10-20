@@ -336,7 +336,7 @@ public class EmbeddingService {
             embeddingData.appendItemValue(RAGUtil.ITEM_RAG_CATEGORY, category);
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_TEXT, llmPrompt);
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS, embeddingOptions.toString());
-            embeddingData.setItemValue(RAGUtil.ITEM_RAG_DEBUG, debug);
+            embeddingData.setItemValue(RAGUtil.ITEM_DEBUG, debug);
             // create eventLog entry
             eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX, workitem.getUniqueID(), embeddingData);
 

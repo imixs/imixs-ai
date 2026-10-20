@@ -50,10 +50,9 @@ import jakarta.persistence.OptimisticLockException;
  * <p>
  * To prevent concurrent processes to handle the same workitems the batch
  * process uses a Optimistic lock strategy. After fetching new event log entries
- * the processor updates the eventLog entry in a new transaction and set the
- * topic to 'batch.process.lock'. After that update we can be sure that no other
- * process is dealing with these entries. After completing the processing step
- * the eventlog entry will be removed.
+ * the operator locks the eventLog entry. After that update we can be sure that
+ * no other process is dealing with these entries. After completing the
+ * processing step the eventlog entry will be removed.
  * <p>
  * To avoid a deadlock the processor set an expiration time on the lock, so the
  * lock will be auto-released after 1 minute (batch.processor.deadlock).
@@ -132,8 +131,7 @@ public class IndexOperator {
                     eventLogClient.lockEventLogEntry(eventId);
 
                     // Delete Event?
-                    if (eventTopic.equals(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE
-                            + ".lock")) {
+                    if (eventTopic.equals(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE)) {
                         // remove embeddings
                         clusterService.removeAllEmbeddings(eventRef);
                         // remove the event log entry...
@@ -149,18 +147,17 @@ public class IndexOperator {
                     }
 
                     // handle event types
-                    ItemCollection indexDefinition = new ItemCollection(workitem);
                     switch (eventTopic) {
-                        case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE + ".lock":
-                            // update workflow status
-                            ragService.updateMetadata(indexDefinition, workitem);
-                            break;
-                        case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX + ".lock":
-                            ragService.indexWorkitem(indexDefinition, workitem);
-                            break;
+                    case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE:
+                        // update workflow status
+                        ragService.updateMetadata(workitem);
+                        break;
+                    case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
+                        ragService.indexWorkitem(workitem);
+                        break;
 
-                        default:
-                            // no op
+                    default:
+                        // no op
                     }
 
                     // finally remove the event log entry...

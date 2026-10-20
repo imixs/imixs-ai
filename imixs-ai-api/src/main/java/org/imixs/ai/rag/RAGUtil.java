@@ -46,7 +46,7 @@ public class RAGUtil {
     public static final String ITEM_RAG_TEXT = "rag.text";
     public static final String ITEM_RAG_EMBEDDINGS = "rag.embeddings";
     public static final String ITEM_RAG_EMBEDDINGS_OPTIONS = "rag.embeddings.options";
-    public static final String ITEM_RAG_DEBUG = "rag.debug";
+    public static final String ITEM_DEBUG = "debug";
 
     private static Logger logger = Logger.getLogger(RAGUtil.class.getName());
 

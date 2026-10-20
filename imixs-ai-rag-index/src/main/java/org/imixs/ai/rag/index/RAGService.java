@@ -59,12 +59,11 @@ public class RAGService {
      * Updates the meta data of a workitem. The method calls
      * clusterService.updateMetaData()
      * 
-     * @param indexDefinition
      * @param workitem
      * @throws PluginException
      * @throws AdapterException
      */
-    public void updateMetadata(ItemCollection indexDefinition, ItemCollection workitem)
+    public void updateMetadata(ItemCollection workitem)
             throws PluginException {
         try {
             clusterService.updateMetaData(workitem.getUniqueID(), workitem.getWorkflowGroup(),
@@ -85,12 +84,14 @@ public class RAGService {
      * @throws AdapterException
      * @throws ClusterException
      */
-    public void indexWorkitem(ItemCollection indexDefinition, ItemCollection workitem)
+    public void indexWorkitem(ItemCollection workitem)
             throws PluginException, ClusterException {
+
+        logger.info(" Bin in indexWorkitem");
         long processingTime = System.currentTimeMillis();
         String embeddingsEndpoint = null;
 
-        boolean debug = workitem.getItemValueBoolean(RAGUtil.ITEM_RAG_DEBUG);
+        boolean debug = workitem.getItemValueBoolean(RAGUtil.ITEM_DEBUG);
         String category = workitem.getItemValueString(RAGUtil.ITEM_RAG_CATEGORY);
         String llmPrompt = workitem.getItemValueString(RAGUtil.ITEM_RAG_TEXT);
 
