@@ -15,7 +15,11 @@ target/
 .classpath
 .project
 
-# ignore all model files
+# ignore all LLM model files
 models/
 
-
+# ignore docker deployments
+docker/.env
+docker/deployments/
+docker/keys
+docker/docker-compose-imixs.yaml
