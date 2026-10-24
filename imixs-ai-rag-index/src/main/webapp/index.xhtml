@@ -82,7 +82,7 @@
               value="#{dashboardController.getGaugeByName('backup_events_unprocessed')}" />
             <h1 class="lead">
               <ui:fragment rendered="#{countunprocessed eq 0}">
-                <span style="color: #5c9e5c">#{countunprocessed} Open</span>
+                <span style="color: #428bca">#{countunprocessed} Open</span>
               </ui:fragment>
               <ui:fragment rendered="#{countunprocessed lt 0}">
                 <span style="color: #555">Initalizing...</span>
@@ -96,7 +96,8 @@
 
           <!-- processed events -->
           <div class="card" style="grid-column-start: span 4">
-            <h1 class="lead">#{dashboardController.getCounterByName('index_events_processed')} Processed</h1>
+            <h1 class="lead" style="color: #5c9e5c">#{dashboardController.getCounterByName('index_events_processed')}
+              Processed</h1>
             <p class="lead">Total Number of processed index events since last start.</p>
           </div>
 
@@ -108,7 +109,7 @@
                 #{dashboardController.getCounterByName('index_events_errors')} Errors
               </span>
             </h1>
-            <p class="lead">Total backup errros since last start.</p>
+            <p class="lead">Total index erros since last start.</p>
           </div>
         </section>
 

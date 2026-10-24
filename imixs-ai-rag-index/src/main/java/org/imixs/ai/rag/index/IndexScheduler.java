@@ -94,9 +94,6 @@ public class IndexScheduler {
     @Inject
     LogController logController;
 
-    public static final String METRIC_EVENTS_PROCESSED = "index_events_processed";
-    public static final String METRIC_EVENTS_ERRORS = "index_events_errors";
-
     // timeout interval in ms
     @Inject
     @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SYNC_INTERVAL, defaultValue = "10000")
@@ -219,6 +216,9 @@ public class IndexScheduler {
 
             indexStatusHandler.setStatus(IndexStatusHandler.STATUS_SCHEDULED);
 
+            // Update metrics
+            totalUnprocessed = eventLogClient.countEventLogEntries(getEventLogTopic());
+            metricService.setUnprocessedEventLogEntries(totalUnprocessed);
         } catch (InvalidAccessException | EJBException | RestAPIException e) {
             // In case of a exception during processing the event log
             // the timer service will automatically restarted. This is important

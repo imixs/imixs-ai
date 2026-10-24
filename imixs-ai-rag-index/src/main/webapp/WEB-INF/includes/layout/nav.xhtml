@@ -8,19 +8,16 @@
             <a href="#{facesContext.externalContext.requestContextPath}/">
               <label>#{message['application_title']}</label>
             </a>
-            <span
-              class="pull-right typcn typcn-th-menu-outline"
-              title="#{message['application_title']}"
-              style="margin-right: 12px; cursor: pointer;"
-              onclick="togglemenu();"
-            ></span>
+            <span class="pull-right typcn typcn-th-menu-outline" title="#{message['application_title']}"
+              style="margin-right: 12px; cursor: pointer;" onclick="togglemenu();"></span>
           </h4>
         </div>
 
         <ul>
           <li class="nav-item">
             <small><label>v#{message['application_build']}</label></small>
-            <span class="typcn typcn-media-record-outline" style="#{backupController.connected?'color:#4dc24f':'color:#dc2929'}"></span>
+            <span class="typcn typcn-media-record-outline"
+              style="#{backupController.connected?'color:#4dc24f':'color:#dc2929'}"></span>
           </li>
         </ul>
         <hr />
@@ -32,16 +29,16 @@
             </h:link>
           </li>
           <li class="nav-item">
-            <h:link outcome="/restore.xhtml">
+            <h:link outcome="/retrieval.xhtml">
               <span class="typcn typcn-download-outline"></span>
-              <label>Restore</label>
+              <label>Retrieval</label>
             </h:link>
           </li>
 
           <li class="nav-item">
-            <h:link outcome="/fullbackup.xhtml">
+            <h:link outcome="/reindex.xhtml">
               <span class="typcn typcn-arrow-sync-outline"></span>
-              <label>Full Backup</label>
+              <label>Reindex</label>
             </h:link>
           </li>
         </ul>

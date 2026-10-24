@@ -3,6 +3,7 @@ package org.imixs.ai.rag.index;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.rag.cluster.ClusterService;
@@ -23,6 +24,8 @@ import jakarta.inject.Named;
 public class DashboardController {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    private static final Logger logger = Logger.getLogger(DashboardController.class.getName());
 
     @Inject
     @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_ENDPOINT)
@@ -69,6 +72,8 @@ public class DashboardController {
     @Inject
     LogController logController;
 
+    private String prompt;
+
     /**
      * @return the name of the service
      */
@@ -114,6 +119,18 @@ public class DashboardController {
 
     public String getError() {
         return clusterService.getError();
+    }
+
+    public String getPrompt() {
+        return prompt;
+    }
+
+    public void setPrompt(String prompt) {
+        this.prompt = prompt;
+    }
+
+    public void prompt() {
+        logger.info("Prompt : " + getPrompt());
     }
 
     /**

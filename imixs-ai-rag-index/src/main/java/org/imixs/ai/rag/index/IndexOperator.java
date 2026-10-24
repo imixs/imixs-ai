@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
+import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.melman.EventLogClient;
 import org.imixs.melman.RestAPIException;
 import org.imixs.workflow.ItemCollection;
@@ -75,6 +76,9 @@ public class IndexOperator {
 
     @Inject
     private RAGService ragService;
+
+    @Inject
+    private MetricService metricService;
 
     /**
      * The method lookups for RAG event log entries and updates the RAG index
@@ -164,6 +168,8 @@ public class IndexOperator {
                     // finally remove the event log entry...
                     eventLogClient.deleteEventLogEntry(eventId);
 
+                    metricService.countMetric(MetricService.METRIC_EVENTS_PROCESSED);
+
                 } catch (OptimisticLockException e) {
                     // lock was not possible - continue....
                     logger.log(Level.INFO, "│   ├── ⚠️ unable to lock AsyncEvent: {0}", e.getMessage());
@@ -171,10 +177,12 @@ public class IndexOperator {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
                     eventLogClient.deleteEventLogEntry(eventId);
+                    metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
                 } catch (PluginException e) {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
                     eventLogClient.deleteEventLogEntry(eventId);
+                    metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
                 }
 
             }
