@@ -15,8 +15,10 @@
 package org.imixs.ai.rag.index;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.api.APIUtil;
 import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.api.OpenAIAPIService;
@@ -50,6 +52,16 @@ public class RAGService {
 
     @Inject
     OpenAIAPIService openAIAPIService;
+
+    @Inject
+    @ConfigProperty(name = RAGUtil.ENV_EMBEDDINGS_PREFIX_DOCUMENT)
+    Optional<String> prefixDocument;
+
+    @Inject
+    @ConfigProperty(name = RAGUtil.ENV_EMBEDDINGS_PREFIX_QUERY)
+    Optional<String> prefixQuery;
+
+    private static final int MAX_CHUNG_SIZE = 1200;
 
     /**
      * Updates the meta data of a workitem. The method calls
@@ -107,7 +119,7 @@ public class RAGService {
         clusterService.removeEmbeddingsByCategory(refID, category);
 
         // Chunk text and insert with category
-        List<String> chunk_list = RAGUtil.chunkMarkupDocument(llmPrompt, 512);
+        List<String> chunk_list = RAGUtil.chunkMarkdownDocument(llmPrompt, MAX_CHUNG_SIZE);
         int chunkIndex = 1;
         for (String chunk : chunk_list) {
             String chunk_id = String.format("%016d", chunkIndex);
@@ -115,8 +127,10 @@ public class RAGService {
                 logger.info("│   ├── 🔸 chunk " + chunk_id + ": ");
                 logger.info(chunk);
             }
+            // The prefix is only used for the embedding, the stored chunk stays unchanged
+            String embeddingInput = RAGUtil.applyPrefix(prefixDocument.orElse(""), chunk);
             List<Float> indexResult = openAIAPIService.postEmbedding(
-                    chunk, embeddingsEndpoint, embeddingOptions, debug);
+                    embeddingInput, embeddingsEndpoint, embeddingOptions, debug);
 
             // Write to cassandra WITH category
             clusterService.insertEmbeddings(
