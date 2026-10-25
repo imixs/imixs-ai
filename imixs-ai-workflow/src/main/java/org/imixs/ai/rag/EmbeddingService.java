@@ -15,9 +15,11 @@
 package org.imixs.ai.rag;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.api.APIUtil;
 import org.imixs.ai.api.ImixsAIContextHandler;
 import org.imixs.ai.api.LLMConfigService;
@@ -68,6 +70,15 @@ public class EmbeddingService {
 
     @Inject
     EventLogService eventLogService;
+
+    // Optional task prefix for the query embedding (e.g. 'search_query:')
+    @Inject
+    @ConfigProperty(name = RAGUtil.ENV_EMBEDDINGS_PREFIX_QUERY)
+    Optional<String> prefixQuery;
+
+    @Inject
+    @ConfigProperty(name = RAGUtil.ITEM_RAG_ENDPOINT_TOKEN)
+    Optional<String> embeddingToken;
 
     /**
      * This method calls the OpenAPIService with a given prompt and creates an index
@@ -214,8 +225,10 @@ public class EmbeddingService {
                 }
 
                 // retrieve prompt....
+                // The prefix is only used for the query embedding
+                String embeddingInput = RAGUtil.applyPrefix(prefixQuery.orElse(""), llmPrompt);
                 List<Float> embeddings = openAIAPIService.postEmbedding(
-                        llmPrompt, embeddingsEndpoint, embeddingOptions, llmAPIDebug);
+                        embeddingInput, embeddingsEndpoint, embeddingOptions, llmAPIDebug);
                 if (llmAPIDebug) {
                     logger.info("├── ⇨ " + embeddings.size() + " floats stored in RAG db.");
                 }
@@ -227,10 +240,8 @@ public class EmbeddingService {
                 embeddingData.setItemValue("tasks", tasks);
 
                 // search index
-                String endpoint = "...";
-                String token = "...";
                 try {
-                    IndexClient indexClient = new IndexClient(endpoint, token);
+                    IndexClient indexClient = new IndexClient(embeddingsEndpoint, embeddingToken.orElse(null));
                     List<ItemCollection> matches = indexClient.search(embeddings, maxResults, categories, modelGroups,
                             tasks);
                     List<String> listOfIds = matches.stream().map(m -> m.getItemValueString("id"))
