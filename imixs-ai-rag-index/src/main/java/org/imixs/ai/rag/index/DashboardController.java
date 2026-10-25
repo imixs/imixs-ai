@@ -2,13 +2,18 @@ package org.imixs.ai.rag.index;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.api.LLMConfigService;
+import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.ai.rag.util.LogController;
+import org.imixs.workflow.ItemCollection;
 
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -72,7 +77,22 @@ public class DashboardController {
     @Inject
     LogController logController;
 
+    @Inject
+    private RAGService ragService;
+
+    @Inject
+    private LLMConfigService llmConfigService;
+
+    // Result of the last retrieval (items: id, similarity, contentChunk)
+    private List<ItemCollection> results = new ArrayList<>();
+
+    // Retrieval
+    private String embeddingsEndpoint;
     private String prompt;
+    private String workflowGroups;
+    private String tasks;
+    private String category;
+    private int maxResults = 10;
 
     /**
      * @return the name of the service
@@ -121,6 +141,46 @@ public class DashboardController {
         return clusterService.getError();
     }
 
+    public String getEmbeddingsEndpoint() {
+        return embeddingsEndpoint;
+    }
+
+    public void setEmbeddingsEndpoint(String embeddingEdpoint) {
+        this.embeddingsEndpoint = embeddingEdpoint;
+    }
+
+    public String getWorkflowGroups() {
+        return workflowGroups;
+    }
+
+    public void setWorkflowGroups(String modelGroups) {
+        this.workflowGroups = modelGroups;
+    }
+
+    public String getTasks() {
+        return tasks;
+    }
+
+    public void setTasks(String tasks) {
+        this.tasks = tasks;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public int getMaxResults() {
+        return maxResults;
+    }
+
+    public void setMaxResults(int maxResults) {
+        this.maxResults = maxResults;
+    }
+
     public String getPrompt() {
         return prompt;
     }
@@ -134,12 +194,42 @@ public class DashboardController {
     }
 
     /**
+     * This is a debug method to test prompts directly against the RAG Index. Used
+     * by `retrieval.xhtml`
+     */
+    public void retrieval() {
+        results = new ArrayList<>();
+        logger.info("├── 🔃 starting retrieval...");
+        logger.info("│   ├── Endpoint: " + getEmbeddingsEndpoint());
+        logger.info("│   ├── Prompt: " + getPrompt());
+        try {
+            String endpoint = getEmbeddingsEndpoint();
+            LLMOptions options = llmConfigService.getOptions(endpoint);
+            // blank filter fields in the form mean 'no filter' (null)
+            results = ragService.retrieval(getPrompt(), endpoint, options, getMaxResults(),
+                    blankToNull(getCategory()), blankToNull(getWorkflowGroups()), blankToNull(getTasks()),
+                    false);
+        } catch (Exception e) {
+            logController.warning(IndexScheduler.TOPIC_RETRIEVAL, "retrieval failed: " + e.getMessage());
+        }
+    }
+
+    public List<ItemCollection> getResults() {
+        return results;
+    }
+
+    private String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
+    }
+
+    /**
      * Starts the timer service
      */
     public void start() {
         try {
             indexService.startScheduler(true);
         } catch (IndexException e) {
+
             logController.warning(IndexScheduler.TOPIC_INDEX, e.getMessage());
         }
     }

@@ -88,6 +88,7 @@ public class IndexScheduler {
     public static final String INDEX_INDEX_DEADLOCK = "imixs.ai.rag.index.deadlock";
 
     public static final String TOPIC_INDEX = "INDEX";
+    public static final String TOPIC_RETRIEVAL = "RETRIEVAL";
 
     public final static String SNAPSHOT_RESOURCE = "snapshot/";
 

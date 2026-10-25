@@ -318,6 +318,74 @@ input[type="text"]:focus, input[type="password"]:focus, textarea:focus,
 	border-radius: 3px;
 }
 
+/* Grid-Container: 12 Spalten */
+.imixs-form-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 0.75rem 1rem;
+    margin-top: 0.5rem;
+}
+
+/* Grid-Items */
+.grid-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.grid-item.span-6  { grid-column: span 6; }
+.grid-item.span-12 { grid-column: span 12; }
+
+/* Labels */
+.grid-item label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #444;
+}
+
+/* Inputs */
+.form-input,
+.form-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.form-textarea {
+    min-height: 8em;
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Button-Zeile */
+.button-row {
+    flex-direction: row;
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+}
+
+.btn-start {
+    background: #4dc24f;
+    color: #fff;
+    border: none;
+    padding: 0.55rem 1.25rem;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-start:hover {
+    background: #43ad45;
+}
+
+/* Kleine Bildschirme: halbe Spalten werden voll */
+@media (max-width: 640px) {
+    .grid-item.span-6 { grid-column: span 12; }
+}
+
 .content table {
 	font-size: 14px;
 }

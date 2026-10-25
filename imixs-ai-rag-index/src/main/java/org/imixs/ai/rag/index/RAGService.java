@@ -14,6 +14,7 @@
 
 package org.imixs.ai.rag.index;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -155,6 +156,48 @@ public class RAGService {
                     "├── ✅ Total processing time: " + (System.currentTimeMillis() - processingTime) + "ms");
         }
 
+    }
+
+    /**
+     * Computes the embedding for the given prompt and searches the RAG database
+     * for the best matching documents. Each document is returned only once, sorted
+     * by similarity (descending).
+     * <p>
+     * The filters are passed through unchanged. A null value means 'no filter'. For
+     * the category an empty string means 'primary data only'.
+     *
+     * @param prompt             the text to search for
+     * @param embeddingsEndpoint the embeddings endpoint
+     * @param embeddingOptions   the embedding options
+     * @param maxResults         the maximum number of documents
+     * @param category           optional category filter
+     * @param modelGroups        optional model group filter
+     * @param tasks              optional task filter
+     * @param debug              prints debug information
+     * @return list of matches with the items 'id', 'similarity' and 'contentChunk'
+     */
+    public List<ItemCollection> retrieval(String prompt, String embeddingsEndpoint,
+            LLMOptions embeddingOptions, int maxResults, String category, String modelGroups,
+            String tasks, boolean debug) throws PluginException, ClusterException {
+
+        long processingTime = System.currentTimeMillis();
+        if (prompt == null || prompt.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        // The prefix is only used for the embedding, not for the search itself
+        String embeddingInput = RAGUtil.applyPrefix(prefixQuery.orElse(""), prompt);
+        List<Float> embeddings = openAIAPIService.postEmbedding(
+                embeddingInput, embeddingsEndpoint, embeddingOptions, debug);
+
+        List<ItemCollection> result = clusterService.searchEmbeddings(
+                embeddings, maxResults, category, modelGroups, tasks);
+
+        if (debug) {
+            logger.info("├── 🔎 retrieval: " + result.size() + " matches in "
+                    + (System.currentTimeMillis() - processingTime) + "ms");
+        }
+        return result;
     }
 
 }

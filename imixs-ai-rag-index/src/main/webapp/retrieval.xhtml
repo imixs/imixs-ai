@@ -1,5 +1,6 @@
 <ui:composition template="/WEB-INF/templates/layout.xhtml" xmlns:faces="jakarta.faces" xmlns:f="jakarta.faces.core"
-	xmlns:h="jakarta.faces.html" xmlns:ui="jakarta.faces.facelets" xmlns:a="http://xmlns.jcp.org/jsf/passthrough">
+	xmlns:h="jakarta.faces.html" xmlns:c="http://xmlns.jcp.org/jsp/jstl/core" xmlns:ui="jakarta.faces.facelets"
+	xmlns:a="http://xmlns.jcp.org/jsf/passthrough">
 
 	<ui:define name="content">
 		<f:view>
@@ -12,30 +13,92 @@
 			<h:form id="connect_form_id">
 
 				<div class="card">
-
 					<p class="help">
-						<span class="typcn typcn-lightbulb"></span> Prompt:
+						<span class="typcn typcn-lightbulb"></span> Embedding Endpoint:
 					</p>
 
-					<div class="imixs-form-section" style="grid-column-start: span 12;">
+					<!-- Grid-Container für die Felder -->
+					<div class="imixs-form-grid">
 
-						<h:inputTextarea required="false" style="height: 8em;width: 100%;" styleClass="imixs-properties"
-							a:spellCheck="false" a:autoComplete="off" a:autoCorrect="off" a:autoCapitalize="off"
-							a:data-gramm="false" value="#{dashboardController.prompt}">
-						</h:inputTextarea>
+						<!-- Endpoint: volle Breite -->
+						<div class="grid-item span-12">
+							<h:outputLabel for="endpoint" value="Endpoint" />
+							<h:inputText id="endpoint" value="#{dashboardController.embeddingsEndpoint}"
+								styleClass="form-input" />
+						</div>
+
+						<!-- Max Result: halbe Breite -->
+						<div class="grid-item span-6">
+							<h:outputLabel for="maxResults" value="Max results" />
+							<h:inputText id="maxResults" value="#{dashboardController.maxResults}"
+								styleClass="form-input" />
+						</div>
+
+						<!-- Workflow Groups: halbe Breite -->
+						<div class="grid-item span-6">
+							<h:outputLabel for="workflowGroups" value="Workflow Groups" />
+							<h:inputText id="workflowGroups" value="#{dashboardController.workflowGroups}"
+								styleClass="form-input" />
+						</div>
+
+						<!-- Tasks: halbe Breite -->
+						<div class="grid-item span-6">
+							<h:outputLabel for="tasks" value="Tasks" />
+							<h:inputText id="tasks" value="#{dashboardController.tasks}" styleClass="form-input" />
+						</div>
+
+						<!-- Category: halbe Breite -->
+						<div class="grid-item span-6">
+							<h:outputLabel for="category" value="Category" />
+							<h:inputText id="category" value="#{dashboardController.category}"
+								styleClass="form-input" />
+						</div>
+
+						<!-- Prompt: volle Breite -->
+						<div class="grid-item span-12">
+							<p class="help">
+								<span class="typcn typcn-lightbulb"></span> Prompt:
+							</p>
+							<h:inputTextarea id="prompt" required="false" styleClass="form-textarea"
+								a:spellCheck="false" a:autoComplete="off" a:autoCorrect="off" a:autoCapitalize="off"
+								a:data-gramm="false" value="#{dashboardController.prompt}" />
+						</div>
+
+						<!-- Button -->
+						<div class="grid-item span-12 button-row">
+							<h:commandButton value="Start" styleClass="btn-start"
+								actionListener="#{dashboardController.retrieval()}"
+								disabled="#{!dashboardController.connected}" />
+						</div>
 
 					</div>
 
-					<div class="imixs-form-section">
+				</div>
 
-						<span style="grid-column-start: span 8;">
 
-							<h:commandButton value="Start" style="background:#4dc24f;"
-								actionListener="#{dashboardController.prompt()}"
-								rendered="#{dashboardController.connected}" />
+				<!-- resultset -->
+				<div class="card">
+					<h3>
+						<span class="typcn typcn-input-checked"></span> Result
+					</h3>
 
-						</span>
-					</div>
+
+					<table style="width: 100%;">
+						<tr>
+							<th style="width: 290px;">ID</th>
+							<th style="width: 110px;">similarity</th>
+							<th>contentChunk</th>
+						</tr>
+						<c:forEach items="#{dashboardController.results}" var="result">
+							<tr>
+								<td>#{result.item['id']}</td>
+								<td>#{result.item['similarity']}</td>
+								<td>#{result.item['contentChunk']}</td>
+
+
+							</tr>
+						</c:forEach>
+					</table>
 				</div>
 
 				<!-- Message Log -->
@@ -43,12 +106,9 @@
 					<h3>
 						<span class="typcn typcn-input-checked"></span> Log
 					</h3>
-					<pre>
-						<ui:repeat var="log" value="#{logController.getLogEntries('RESTORE')}">
-							<h:outputText value="#{log}" /><br />
-						</ui:repeat>
-					</pre>
+					<pre><ui:repeat var="log" value="#{logController.getLogEntries('RETRIEVAL')}"><h:outputText value="#{log}" /><br /></ui:repeat></pre>
 				</div>
+
 			</h:form>
 		</f:view>
 	</ui:define>
