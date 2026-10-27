@@ -91,7 +91,8 @@
 						</tr>
 						<c:forEach items="#{dashboardController.results}" var="result">
 							<tr>
-								<td>#{result.item['id']}</td>
+								<td><a href="#{dashboardController.getWorkitemLink(result.item['id'])}"
+										target="_blank">#{result.item['id']}</a></td>
 								<td>#{result.item['similarity']}</td>
 								<td>#{result.item['contentChunk']}</td>
 

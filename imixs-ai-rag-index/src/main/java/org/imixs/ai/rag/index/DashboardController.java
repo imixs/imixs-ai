@@ -66,6 +66,10 @@ public class DashboardController {
     String repClass;
 
     @Inject
+    @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_ENDPOINT)
+    Optional<String> workflowServiceEndpoint;
+
+    @Inject
     ClusterService clusterService;
 
     @Inject
@@ -216,6 +220,19 @@ public class DashboardController {
 
     public List<ItemCollection> getResults() {
         return results;
+    }
+
+    /**
+     * Returns the REST API endpoint for a given uniqueID pointing to the remote
+     * workflow instance.
+     * 
+     * @param uniqueid
+     * @return
+     */
+    public String getWorkitemLink(String uniqueid) {
+        String apiEndpoint = workflowServiceEndpoint.orElse("");
+        return apiEndpoint + "/documents/" + uniqueid;
+
     }
 
     private String blankToNull(String value) {
