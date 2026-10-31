@@ -80,6 +80,8 @@ public class ImixsAIContextHandler implements Serializable {
     private boolean toolCallsEnabled = false;
     private boolean debug;
 
+    private String ragEndpoint = null;
+
     @Inject
     private Event<ImixsAIPromptEvent> llmPromptEventObservers = null;
 
@@ -169,6 +171,14 @@ public class ImixsAIContextHandler implements Serializable {
 
     public void setStream(boolean stream) {
         this.stream = stream;
+    }
+
+    public String getRagEndpoint() {
+        return ragEndpoint;
+    }
+
+    public void setRagEndpoint(String ragEndpoint) {
+        this.ragEndpoint = ragEndpoint;
     }
 
     /**

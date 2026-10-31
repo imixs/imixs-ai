@@ -104,6 +104,7 @@ public class AIAgentOperator {
     public static final String AGENT_CONFIG_ENDPOINT = "agent.endpoint";
     public static final String AGENT_CONFIG_TIMEOUT = "agent.timeout";
     public static final String AGENT_CONFIG_MAX_ITERATIONS = "agent.max-iterations";
+    public static final String AGENT_CONFIG_RAG_ENDPOINT = "agent.rag.endpoint";
     public static final String AGENT_CONFIG_DEBUG = "agent.debug";
 
     // Agent Loop Events
@@ -287,6 +288,7 @@ public class AIAgentOperator {
         int eventCallback = workitem.getItemValueInteger(AGENT_CONFIG_EVENT_CALLBACK);
         String resultType = workitem.getItemValueString(AGENT_CONFIG_RESULT_TYPE);
         boolean debug = workitem.getItemValueBoolean(AGENT_CONFIG_DEBUG);
+        String ragEndpoint = workitem.getItemValueString(AGENT_CONFIG_RAG_ENDPOINT);
 
         // set defaults if param not defined
         if (eventCallback == 0) {
@@ -311,10 +313,12 @@ public class AIAgentOperator {
         }
 
         contextHandler.setDebug(debug);
+        contextHandler.setRagEndpoint(ragEndpoint);
 
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_ENDPOINT + "={0}", endpoint);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_CONTEXT_ITEM + "={0}", contextItemName);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_USER_ITEM + "={0}", userInputInput);
+        logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_RAG_ENDPOINT + "={0}", ragEndpoint);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_TIMEOUT + "={0}", timeout);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_MAX_ITERATIONS + "={0}", maxIterations);
         logger.log(Level.INFO, "│   ├── " + AGENT_CONFIG_EVENT_CALLBACK + "={0}", eventCallback);

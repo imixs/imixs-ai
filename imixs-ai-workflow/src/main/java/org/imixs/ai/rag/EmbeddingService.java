@@ -42,6 +42,10 @@ import jakarta.inject.Inject;
  * The EmbeddingService is responsible to create embeddings of a BPMN prompt
  * template and send the result via EventLog Entries to the RAG Service. RAG
  * Events are handled by the IndexOperator remotely.
+ * <p>
+ * The service also provides the search method for the RAG index. The query
+ * embedding is computed here and the search itself is sent to the REST API of
+ * the RAG service.
  * 
  * @see IndexOperator
  * @see DocumentEvent
@@ -53,6 +57,11 @@ import jakarta.inject.Inject;
 @RunAs("org.imixs.ACCESSLEVEL.MANAGERACCESS")
 @Stateless
 public class EmbeddingService {
+
+    // REST API of the RAG service, e.g. http://rag:8080/api/
+    public static final String ENV_RAG_SERVICE_ENDPOINT = "RAG_SERVICE_ENDPOINT";
+    // Optional bearer token to access the RAG service
+    public static final String ENV_RAG_SERVICE_TOKEN = "RAG_SERVICE_TOKEN";
 
     private static Logger logger = Logger.getLogger(EmbeddingService.class.getName());
 
@@ -77,8 +86,12 @@ public class EmbeddingService {
     Optional<String> prefixQuery;
 
     @Inject
-    @ConfigProperty(name = RAGUtil.ITEM_RAG_ENDPOINT_TOKEN)
-    Optional<String> embeddingToken;
+    @ConfigProperty(name = ENV_RAG_SERVICE_ENDPOINT)
+    Optional<String> ragServiceEndpoint;
+
+    @Inject
+    @ConfigProperty(name = ENV_RAG_SERVICE_TOKEN)
+    Optional<String> ragServiceToken;
 
     /**
      * This method calls the OpenAPIService with a given prompt and creates an index
@@ -171,7 +184,6 @@ public class EmbeddingService {
             ItemCollection event) throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
         String embeddingsEndpoint = null;
-        boolean llmAPIDebug = false;
         try {
             for (ItemCollection indexDefinition : llmRetrievalDefinitions) {
 
@@ -199,9 +211,8 @@ public class EmbeddingService {
                     throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
                             "imixs-ai configuration error: no reference-item defined!");
                 }
-                if ("true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"))) {
-                    llmAPIDebug = true;
-                }
+                // the debug flag is evaluated per definition
+                boolean llmAPIDebug = "true".equalsIgnoreCase(indexDefinition.getItemValueString("debug"));
 
                 logger.info("│   ├── reference-item: " + itemRef);
                 logger.info("│   ├── max-results: " + maxResults);
@@ -224,44 +235,78 @@ public class EmbeddingService {
                     logger.info(llmPrompt);
                 }
 
-                // retrieve prompt....
-                // The prefix is only used for the query embedding
-                String embeddingInput = RAGUtil.applyPrefix(prefixQuery.orElse(""), llmPrompt);
-                List<Float> embeddings = openAIAPIService.postEmbedding(
-                        embeddingInput, embeddingsEndpoint, embeddingOptions, llmAPIDebug);
+                // Note: an empty 'categories' string means 'primary data only'
+                SearchFilter filter = SearchFilter.create()
+                        .category(categories)
+                        .modelGroups(modelGroups)
+                        .tasks(tasks);
+
+                List<ItemCollection> matches = search(llmPrompt, embeddingsEndpoint, embeddingOptions, maxResults,
+                        filter, llmAPIDebug);
+                List<String> listOfIds = matches.stream().map(m -> m.getItemValueString("id"))
+                        .collect(Collectors.toList());
+                workitem.setItemValue(itemRef, listOfIds);
                 if (llmAPIDebug) {
-                    logger.info("├── ⇨ " + embeddings.size() + " floats stored in RAG db.");
+                    logger.info("├── found " + listOfIds.size() + " matches");
+                    logger.info("├── ✅ Total processing time: " + (System.currentTimeMillis() - processingTime)
+                            + "ms");
                 }
-
-                ItemCollection embeddingData = new ItemCollection();
-                embeddingData.setItemValue("embeddings", embeddings);
-                embeddingData.setItemValue("categories", categories);
-                embeddingData.setItemValue("modelGroups", modelGroups);
-                embeddingData.setItemValue("tasks", tasks);
-
-                // search index
-                try {
-                    IndexClient indexClient = new IndexClient(embeddingsEndpoint, embeddingToken.orElse(null));
-                    List<ItemCollection> matches = indexClient.search(embeddings, maxResults, categories, modelGroups,
-                            tasks);
-                    List<String> listOfIds = matches.stream().map(m -> m.getItemValueString("id"))
-                            .collect(Collectors.toList());
-                    workitem.setItemValue(itemRef, listOfIds);
-                    if (llmAPIDebug) {
-                        logger.info(
-                                "├── found " + listOfIds.size() + " matches");
-                        logger.info(
-                                "├── ✅ Total processing time: " + (System.currentTimeMillis() - processingTime) + "ms");
-                    }
-                } catch (RestAPIException e) {
-                    throw new AdapterException(RAGRetrievalAdapter.class.getSimpleName(), e.getErrorCode(),
-                            e.getMessage(), e);
-                }
-
             }
         } catch (PluginException e) {
             logger.severe("├── ⚠️ Failed to post embeddings: " + e.getMessage());
             throw e;
+        }
+    }
+
+    /**
+     * Searches the RAG index for documents that are similar to a given text.
+     * <p>
+     * The method computes the embedding of the text (with the optional query
+     * prefix) and sends the vector to the search endpoint of the RAG service. The
+     * result is sorted by similarity. Each match has the items 'id', 'similarity'
+     * and 'contentChunk'.
+     *
+     * @param text               the query text
+     * @param embeddingsEndpoint the embeddings endpoint used to compute the vector
+     * @param embeddingOptions   the options for the embeddings endpoint
+     * @param maxResults         the maximum number of documents
+     * @param filter             optional filter (null = no filter)
+     * @param debug              prints debug information
+     * @return list of matches, empty if nothing was found
+     * @throws PluginException  if the query or the configuration is invalid
+     * @throws AdapterException if the RAG service request failed
+     */
+    public List<ItemCollection> search(String text, String embeddingsEndpoint, LLMOptions embeddingOptions,
+            int maxResults, SearchFilter filter, boolean debug) throws PluginException, AdapterException {
+
+        long processingTime = System.currentTimeMillis();
+
+        if (text == null || text.isBlank()) {
+            throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
+                    "Unable to search the RAG index: query text is empty!");
+        }
+        if (!ragServiceEndpoint.isPresent() || ragServiceEndpoint.get().isBlank()) {
+            throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
+                    "RAG service is not configured - missing " + ENV_RAG_SERVICE_ENDPOINT + "!");
+        }
+
+        // The prefix is only used for the query embedding
+        String embeddingInput = RAGUtil.applyPrefix(prefixQuery.orElse(""), text.trim());
+        List<Float> embeddings = openAIAPIService.postEmbedding(
+                embeddingInput, embeddingsEndpoint, embeddingOptions, debug);
+
+        try {
+            IndexClient indexClient = new IndexClient(ragServiceEndpoint.get(), ragServiceToken.orElse(null));
+            List<ItemCollection> matches = indexClient.search(embeddings, maxResults, filter);
+            if (debug) {
+                logger.info("│   ├── 🔎 RAG search: " + matches.size() + " match(es) in "
+                        + (System.currentTimeMillis() - processingTime) + "ms ("
+                        + (filter != null ? filter : "no filter") + ")");
+            }
+            return matches;
+        } catch (RestAPIException e) {
+            throw new AdapterException(EmbeddingService.class.getSimpleName(), e.getErrorCode(),
+                    e.getMessage(), e);
         }
     }
 
