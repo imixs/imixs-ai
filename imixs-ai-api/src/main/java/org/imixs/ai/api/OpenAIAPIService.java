@@ -219,7 +219,7 @@ public class OpenAIAPIService implements Serializable {
      *                         a handler reports an error
      */
     public ToolCallResult processToolCallResult(String jsonCompletionResult,
-            ImixsAIContextHandler contextHandler, String resultType) throws PluginException {
+            ImixsAIContextHandler contextHandler, String resultType) throws AdapterException {
         boolean taskComplete = false;
         String resultValue = null;
 
@@ -277,7 +277,7 @@ public class OpenAIAPIService implements Serializable {
             // tool name and verify if the handler is allowed.
             ToolCallHandler matchingHandler = resolveHandler(toolName);
             if (matchingHandler == null) {
-                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                throw new AdapterException(OpenAIAPIService.class.getSimpleName(),
                         ERROR_PROMPT_INFERENCE,
                         "No handler registered for tool: " + toolName);
             }
@@ -299,7 +299,7 @@ public class OpenAIAPIService implements Serializable {
             toolCallEventObservers.fire(toolCallEvent);
 
             if (toolCallFunction.hasError()) {
-                throw new PluginException(OpenAIAPIService.class.getSimpleName(),
+                throw new AdapterException(OpenAIAPIService.class.getSimpleName(),
                         "TOOL_CALL_ERROR", toolCallFunction.getError());
             }
 

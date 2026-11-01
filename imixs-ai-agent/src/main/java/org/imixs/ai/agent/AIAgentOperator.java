@@ -112,6 +112,10 @@ public class AIAgentOperator {
     public static final String AGENT_CONFIG_EVENT_ERROR = "agent.event.error";
     public static final String AGENT_CONFIG_EVENT_CALLBACK = "agent.event.callback";
 
+    // Agent Error
+    public static final String AGENT_ERROR_CODE = "agent.error_code";
+    public static final String AGENT_ERROR_MESSAGE = "agent.error_message";
+
     public static final String PROMPT_FILECONTEXT = "\n\n<FILECONTEXT>^.+\\.(pdf|PDF|eml|msg)$</FILECONTEXT>";
 
     public static final int DEFAULT_MAX_ITERATIONS = 10;
@@ -464,6 +468,9 @@ public class AIAgentOperator {
         } catch (AdapterException | ModelException e) {
             logger.log(Level.WARNING, "│   ├── ⚠️ Agent loop failed: {0}", e.getMessage());
             workitem.setItemValue(ITEM_AGENT_STATUS, AGENT_STATUS_ERROR);
+            workitem.setItemValue(AGENT_ERROR_CODE, e.getErrorCode());
+            workitem.setItemValue(AGENT_ERROR_MESSAGE, e.getMessage());
+
             try {
                 triggerWorkflowEvent(workitem, eventError);
             } catch (Exception ex) {

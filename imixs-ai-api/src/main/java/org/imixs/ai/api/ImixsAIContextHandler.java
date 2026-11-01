@@ -252,8 +252,7 @@ public class ImixsAIContextHandler implements Serializable {
      * Add a tool result message to the conversation. The toolCallId must match the
      * id from the assistant's tool_call response.
      */
-    public ImixsAIContextHandler addToolResult(String toolCallId, String content)
-            throws PluginException {
+    public ImixsAIContextHandler addToolResult(String toolCallId, String content) {
         ItemCollection message = new ItemCollection();
         message.setItemValue(ITEM_ROLE, ROLE_TOOL);
         message.setItemValue(ITEM_MESSAGE, content);
@@ -266,8 +265,7 @@ public class ImixsAIContextHandler implements Serializable {
      * Adds the raw assistant tool_call message to the context. This is required so
      * the LLM knows what it requested in the next round.
      */
-    public ImixsAIContextHandler addToolCallAssistantMessage(String rawMessageJson)
-            throws PluginException {
+    public ImixsAIContextHandler addToolCallAssistantMessage(String rawMessageJson) {
         ItemCollection message = new ItemCollection();
         message.setItemValue(ITEM_ROLE, ROLE_ASSISTANT);
         message.setItemValue(ITEM_MESSAGE, rawMessageJson);
