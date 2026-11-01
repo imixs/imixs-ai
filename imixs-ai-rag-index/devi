@@ -61,7 +61,7 @@ if [[ "$(strip_dash $1)" == "docker-debug" ]]; then
     echo " Build Docker Debug Image..."
     VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
     mvn clean install -DskipTests
-    docker build -f ./docker/Dockerfile-debug -t imixs/imixs-ai-rag-index .
+    docker build -f ./Dockerfile-debug -t imixs/imixs-ai-rag-index .
     docker tag imixs/imixs-ai-rag-index imixs/imixs-ai-rag-index
 fi
 
@@ -69,7 +69,7 @@ if [[ "$(strip_dash $1)" == "docker" ]]; then
     echo " Build Docker Image..."
     mvn clean install
     VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-    docker build -f ./docker/Dockerfile -t imixs/imixs-ai-rag-index .
+    docker build -f ./Dockerfile -t imixs/imixs-ai-rag-index .
     docker tag imixs/imixs-ai-rag-index imixs/imixs-ai-rag-index
 fi
 
