@@ -24,6 +24,8 @@ public class ToolCallFunction {
     // Business result value for the application layer
     private String resultValue = null;
     private boolean taskCompleted = false; // indicates that a task is marked as completed.
+    // Optional short summary for the comment log.
+    private String logMessage = null;
 
     /**
      * Constructor with contextHandler. Provides observers with access to the
@@ -90,6 +92,18 @@ public class ToolCallFunction {
 
     public void setTaskCompleted(boolean taskCompleted) {
         this.taskCompleted = taskCompleted;
+    }
+
+    /**
+     * Sets an optional short summary of the tool call result. Can be evaluated by
+     * CDI observes for logging
+     */
+    public void setLogMessage(String logMessage) {
+        this.logMessage = logMessage;
+    }
+
+    public String getLogMessage() {
+        return logMessage;
     }
 
 }
