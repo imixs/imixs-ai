@@ -30,10 +30,7 @@ import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.json.Json;
-import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObject;
-import jakarta.json.JsonObjectBuilder;
 
 /**
  * Handles the "rag_retrieval" tool call.
@@ -64,9 +61,6 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
 
     // Workitem item holding the uniqueids of the last retrieval (position = number)
     public static final String ITEM_CANDIDATES = "rag.candidates";
-
-    // Workitem item holding the text of a candidate returned to the LLM
-    public static final String ITEM_SUMMARY = "offer.summary";
 
     private static final int DEFAULT_MAX_RESULTS = 5;
     private static final int MAX_RESULTS_LIMIT = 10;
@@ -118,6 +112,10 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
                                 "maxResults": {
                                     "type": "integer",
                                     "description": "Optional. Maximum number of candidates (default 5, maximum 10)."
+                                },
+                                "items": {
+                                    "type": "string",
+                                    "description": "Optional. Comma separated list of item names. The content of these items is returned for each candidate, exactly as given in the task instructions."
                                 }
                             },
                             "required": ["query", "modelgroups", "tasks"]
@@ -133,6 +131,10 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
         String query = args.containsKey("query") ? args.getString("query") : null;
         String modelGroups = args.containsKey("modelgroups") ? args.getString("modelgroups") : null;
         String tasks = args.containsKey("tasks") ? args.getString("tasks") : null;
+
+        // read optional item list:
+        String itemNames = args.containsKey("items") ? args.getString("items") : null;
+        List<String> itemList = parseItemNames(itemNames);
 
         if (query == null || query.isBlank()) {
             _function.setError("Missing or empty 'query' argument!");
@@ -177,11 +179,9 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
 
             // The candidate number is the position in this list (starting with 1)
             List<String> candidateIds = new ArrayList<>();
-            JsonArrayBuilder candidatesArray = Json.createArrayBuilder();
+            List<String> candidateBlocks = new ArrayList<>();
 
             for (ItemCollection match : matches) {
-                // The index may be out of date, so always load the current workitem.
-                // A workitem that is missing or not readable is skipped.
                 String matchId = match.getItemValueString("id");
                 ItemCollection candidate = documentService.load(matchId);
                 if (candidate == null) {
@@ -191,45 +191,95 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
                     continue;
                 }
                 candidateIds.add(candidate.getUniqueID());
+                int nr = candidateIds.size();
+                float score = match.getItemValueFloat("similarity");
 
                 if (contextHandler.isDebug()) {
-                    logger.info("│   ├── candidate " + candidateIds.size() + ": score="
-                            + match.getItemValueFloat("similarity") + " id=" + candidate.getUniqueID() + " '"
-                            + candidate.getItemValueString("$workflowsummary") + "'");
+                    logger.info("│   ├── candidate " + nr + ": score=" + score + " id=" + candidate.getUniqueID()
+                            + " '" + candidate.getItemValueString("$workflowsummary") + "'");
                 }
-
-                JsonObjectBuilder entry = Json.createObjectBuilder()
-                        .add("nr", candidateIds.size())
-                        .add("score", (double) match.getItemValueFloat("similarity"))
-                        .add("workflowgroup", candidate.getItemValueString("$workflowgroup"))
-                        .add("workflowstatus", candidate.getItemValueString("$workflowstatus"))
-                        .add("workflowsummary", candidate.getItemValueString("$workflowsummary"))
-                        .add("summary", candidate.getItemValueString(ITEM_SUMMARY));
-                Date created = candidate.getItemValueDate("$created");
-                if (created != null) {
-                    entry.add("created", created.toInstant().toString());
-                }
-                candidatesArray.add(entry);
+                candidateBlocks.add(buildCandidateText(nr, score, candidate, itemList));
             }
 
             // Replace (not append): the numbers always refer to the last retrieval
             workitem.replaceItemValue(ITEM_CANDIDATES, candidateIds);
 
-            String resultJson = Json.createObjectBuilder()
-                    .add("candidateCount", candidateIds.size())
-                    .add("candidates", candidatesArray)
-                    .build().toString();
-            _function.setResultValue(resultJson);
+            // The tool message is the text that is sent back to the LLM as the tool result.
+            StringBuilder result = new StringBuilder();
+            result.append("candidateCount: ").append(candidateIds.size()).append("\n");
+            for (String block : candidateBlocks) {
+                result.append("\n").append(block);
+            }
+            _function.setToolMessage(result.toString());
+            // short summary for the comment log
+            _function.setLogMessage(candidateIds.size() + " candidate(s) found");
 
-            String message = "rag_retrieval: " + candidateIds.size() + " candidate(s) found";
-            _function.setToolMessage(message);
             if (contextHandler.isDebug()) {
-                logger.info("│   └── ✅ " + message);
+                logger.info("│   └── ✅ rag_retrieval: " + candidateIds.size() + " candidate(s) found");
             }
 
         } catch (PluginException | AdapterException e) {
             logger.warning("│   └── ⚠️ rag_retrieval failed: " + e.getMessage());
             _function.setError(e.getMessage());
         }
+    }
+
+    /**
+     * Splits a comma separated list of item names into a clean list.
+     */
+    private List<String> parseItemNames(String itemNames) {
+        List<String> result = new ArrayList<>();
+        if (itemNames == null || itemNames.isBlank()) {
+            return result;
+        }
+        for (String name : itemNames.split(",")) {
+            if (!name.isBlank()) {
+                result.add(name.trim());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Builds the text block for a single candidate. The block starts with a header
+     * (number, score), followed by the creation date and the workflow summary.
+     * After
+     * that the content of each requested item is added, separated by an empty line.
+     * Items without a value are skipped.
+     */
+    private String buildCandidateText(int nr, float score, ItemCollection candidate, List<String> itemList) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== Candidate ").append(nr).append(" (score ").append(score).append(") ===\n");
+
+        Date created = candidate.getItemValueDate("$created");
+        if (created != null) {
+            sb.append("created: ").append(created.toInstant().toString()).append("\n");
+        }
+
+        // Add workflow group and status to help the LLM classify the candidate
+        sb.append("workflowgroup: ").append(candidate.getItemValueString("$workflowgroup")).append("\n");
+        sb.append("workflowstatus: ").append(candidate.getItemValueString("$workflowstatus")).append("\n");
+
+        String summary = candidate.getItemValueString("$workflowsummary");
+        if (!summary.isBlank()) {
+            sb.append("workflowsummary: ").append(summary).append("\n");
+        }
+
+        for (String itemName : itemList) {
+            // join all values of a multi-value item
+            StringBuilder value = new StringBuilder();
+            for (Object o : candidate.getItemValue(itemName)) {
+                if (o != null && !o.toString().isBlank()) {
+                    if (value.length() > 0) {
+                        value.append("\n");
+                    }
+                    value.append(o.toString().trim());
+                }
+            }
+            if (value.length() > 0) {
+                sb.append("\n").append(value).append("\n");
+            }
+        }
+        return sb.toString();
     }
 }
