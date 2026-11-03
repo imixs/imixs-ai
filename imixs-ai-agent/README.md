@@ -77,6 +77,7 @@ The user can monitor the agent status as for any other business process. As a re
         <agent.context.item>bpmn.agent.context</agent.context.item>
         <agent.user.item>bpmn.agent.user.input</agent.user.item>
         <agent.endpoint>my-llm</agent.endpoint>
+        <agent.rag.endpoint>my-index</agent.rag.endpoint>
         <agent.timeout>120000</agent.timeout>
         <agent.max-iterations>10</agent.max-iterations>
         <agent.event.success>200</agent.event.success>
@@ -92,8 +93,9 @@ The user can monitor the agent status as for any other business process. As a re
 | Parameter              | Mandatory | Description                                                                                                                                                                 |               Default                |
 | ---------------------- | :-------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------: |
 | `agent.context.item`   |     x     | Item name in the workitem that holds the agent context. This indirection allows different AI-Tasks to use different context data.                                           |                                      |
-| `agent.endpoint`       |     x     | Logical LLM endpoint ID as registered in `imixs-llm.xml`.                                                                                                                   |
-| `agent.event.success`  |     x     | BPMN event ID to trigger when the agent completes successfully via the `task_complete` tool call.                                                                           |
+| `agent.endpoint`       |     x     | Logical LLM endpoint ID as registered in `imixs-llm.xml`.                                                                                                                   |                                      |
+| `agent.rag.endpoint`   |           | Optional logical endpoint ID for a embedding model ([see Imixs-AI-RAG](../imixs-ai-rag-index/))                                                                             |                                      |
+| `agent.event.success`  |     x     | BPMN event ID to trigger when the agent completes successfully via the `task_complete` tool call.                                                                           |                                      |
 | `agent.event.next`     |           | Optional BPMN event ID to trigger when the agent is waiting for more user input - routes the workitem back to Task "Ask" so the conversation can continue in the next turn. | defaults to 'success' if not defined |
 | `agent.event.error`    |           | Optional BPMN event ID to trigger when the agent fails or times out.                                                                                                        | defaults to 'success' if not defined |
 | `agent.error_code`     |           | Optional error code in case of an agent error                                                                                                                               |                                      |
@@ -101,7 +103,7 @@ The user can monitor the agent status as for any other business process. As a re
 | `agent.user.item`      |           | Item name in the workitem that holds the user's natural-language prompt. This indirection allows different input fields for user input.                                     |          `agent.user.input`          |
 | `agent.timeout`        |           | Maximum wall-clock time in milliseconds before the agent is aborted.                                                                                                        |               120000ms               |
 | `agent.max-iterations` |           | Maximum number of LLM calls in one agent run to prevent runaway loops.                                                                                                      |                  10                  |
-| `agent.result.type`    |           | An optional result type to process a completion result by a Imixs AI Result handler.                                                                                        |
+| `agent.result.type`    |           | An optional result type to process a completion result by a Imixs AI Result handler.                                                                                        |                                      |
 | `agent.result.item`    |           | An optional result item to store the final agent result message (assistant message)                                                                                         |            `agent.result`            |
 | `agent.debug`          |           | 'true' to activate the debug mode                                                                                                                                           |                false                 |
 
@@ -140,20 +142,103 @@ Tool definitions are not hardcoded in the `AIAgentOperator`. Before every LLM ca
 
 An LLM response can contain **multiple tool calls in a single completion**. `OpenAIAPIService.processToolCallResult(...)` iterates over all tool call results and calls the matching `ToolCallHandler` with a `TollCallFunction` object describing the tool call. Every tool call in the array is fully processed - each one receives its own `role: "tool"` result message added to the conversation context, regardless of whether an earlier tool call in the same response already signalled completion via `task_complete`. Whether the agent loop actually exits after that response depends only on whether `task_complete` was among the tool calls, not on where it appears in the array. This matters for OpenAI-compatible APIs: every `tool_call_id` the LLM produced must have a matching tool result in the next request, or the following completion request is rejected.
 
-A tool handler communicates back through three separate channels on the `ToolCallFunction`:
+A tool handler communicates back through separate channels on the `ToolCallFunction`. Each channel has a different reader, and keeping them apart is the most important rule when writing a handler:
 
-- **`event.setToolMessage(...)`** — the tool result message sent back to the LLM. This is the primary steering channel for the next reasoning step; a descriptive message actively guides what the LLM does next, while a minimal one gives it nothing to work with.
-- **`event.setResultValue(...)`** — an optional business result, independent of the tool message. If a handler sets this, and `agent.result.type` is configured on the agent, `OpenAIAPIService` fires a `ImixsAIResultEvent` with that value and type. In this way a registered `XML` result handler can parse structured data into the workitem. This dispatch happens per tool call, inside `processToolCallResult(...)`, not once per LLM response in the `AIAgentOperator` — a single completion can therefore trigger a distinct `ImixsAIResultEvent` for each tool call that sets a result value.
-- **`event.setError(...)`** — aborts the current tool call with a descriptive error. A meaningful error message lets the LLM formulate a sensible response to the user instead of a generic failure notice.
+| Channel                     | Read by                                                           | Purpose                                                                                              |
+| --------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `function.setToolMessage()` | **The LLM** - added to the context as a `role: "tool"` message    | Everything the LLM needs to decide its next step. If the LLM has to read it, it belongs here.        |
+| `function.setLogMessage()`  | **People** - the comment log of the workitem (`workflow.history`) | Optional short summary of what the tool call did. If not set, the `toolMessage` is used for the log. |
+| `function.setResultValue()` | **The application layer** - never the LLM                         | Business result of the tool call (see below).                                                        |
+| `function.setError()`       | **The LLM** - fed back as the result of the failed tool call      | Aborts the tool call with a descriptive error message.                                               |
+
+- **`setToolMessage(...)`** - the tool result message sent back to the LLM (`ImixsAIContextHandler.addToolResult`). This is the primary steering channel for the next reasoning step; a descriptive message actively guides what the LLM does next, while a minimal one gives it nothing to work with. **The LLM sees nothing but this message.** A handler that writes a candidate list only to `resultValue` leaves the LLM blind, and it starts to guess.
+- **`setLogMessage(...)`** - an optional short summary for the comment log. The log is written by an observer of the `ToolCallEvent` (see below) and should stay readable for humans, e.g. `5 candidate(s) found` or `linked 1 workitem(s)`. The `toolMessage` of a search tool can be several pages long - such a text must not end up in the log. If no `logMessage` is set, the observer falls back to the `toolMessage`, so a handler with a short `toolMessage` does not need to set it.
+- **`setResultValue(...)`** - an optional business result, independent of the tool message and **never sent to the LLM**. It is part of the `ToolCallResult` returned to the `AIAgentOperator` (e.g. used for the `comment.user` message). If a handler sets this, and `agent.result.type` is configured on the agent, `OpenAIAPIService` fires a `ImixsAIResultEvent` with that value and type. In this way a registered `XML` result handler can parse structured data into the workitem. This dispatch happens per tool call, inside `processToolCallResult(...)`, not once per LLM response in the `AIAgentOperator` - a single completion can therefore trigger a distinct `ImixsAIResultEvent` for each tool call that sets a result value.
+- **`setError(...)`** - aborts the current tool call with a descriptive error. A meaningful error message lets the LLM formulate a sensible response to the user instead of a generic failure notice.
+
+Which channel carries what is a design decision of the handler:
+
+| Handler type                                     | `toolMessage`                                    | `logMessage`              | `resultValue`              |
+| ------------------------------------------------ | ------------------------------------------------ | ------------------------- | -------------------------- |
+| Action (e.g. `update_workitem`, `link_workitem`) | Short sentence what was done                     | not needed                | Optional structured result |
+| Computation (e.g. `aggregate_workitems`)         | The computed result                              | optional                  | Optional                   |
+| Retrieval for the LLM (e.g. `rag_retrieval`)     | The full text the LLM must read (all candidates) | **Short summary (count)** | not needed                 |
 
 The `task_complete` tool call is the mechanism that ends the agent loop successfully. A plain-text response without any tool call is treated as an intermediate answer awaiting further user input, not as completion — see `agent.event.next` above.
 
+### Implementing a ToolCallHandler
+
+A tool is implemented as a CDI bean implementing the interface `ToolCallHandler`:
+
+| Method                            | Description                                                                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| `getToolName()`                   | The name of the tool, as used by the LLM and in the `tools` list of the prompt definition |
+| `register(ImixsAIContextHandler)` | Registers the function definition (name, description, JSON schema of the parameters)      |
+| `handle(ToolCallFunction)`        | Executes the tool call. Reads the arguments and reports back through the result channels  |
+
+```java
+@Named
+public class ToolCallHandlerExample implements ToolCallHandler, Serializable {
+
+    public static final String TOOL_EXAMPLE = "example_search";
+
+    @Override
+    public String getToolName() {
+        return TOOL_EXAMPLE;
+    }
+
+    @Override
+    public void register(ImixsAIContextHandler contextHandler) {
+        // The description and the parameter descriptions are the only
+        // instructions the LLM gets about this tool
+        contextHandler.addFunction(TOOL_EXAMPLE, "Searches ... and returns a numbered list ...", """
+                {
+                    "type": "object",
+                    "properties": {
+                        "query": { "type": "string", "description": "..." }
+                    },
+                    "required": ["query"]
+                }
+                """);
+    }
+
+    @Override
+    public void handle(ToolCallFunction function) {
+        JsonObject args = function.getArguments();
+        if (!args.containsKey("query")) {
+            // report back to the LLM
+            function.setError("Missing 'query' argument!");
+            return;
+        }
+        List<String> hits = search(args.getString("query"));
+
+        // The text the LLM has to read to decide its next step
+        function.setToolMessage(buildResultText(hits));
+        // A short summary for the comment log
+        function.setLogMessage(hits.size() + " hit(s) found");
+    }
+}
+```
+
+Design guidelines for handlers:
+
+- **Put everything the LLM must read into the `toolMessage`.** Never into the `resultValue`.
+- **Set a `logMessage` if the `toolMessage` is more than a sentence.** The comment log is meant for people, not for a dump of the LLM context.
+- **Never pass identifiers through the LLM.** A `$uniqueid` is a long, unstructured string, and a transcription mistake produces a wrong result without any error. Resolve it on the server side instead: either search and write in one step (`link_workitem`), or hand out short numbers and keep the mapping in the workitem (`rag_retrieval` / `rag_select` store the candidate uniqueids in the item `rag.candidates`; the position is the candidate number).
+- **Do not hard-code business item names.** Let the prompt pass names of items and fields as arguments (e.g. the `items` parameter of `rag_retrieval`), so the handler stays generic.
+- **Compute on the server, not in the LLM.** Exact arithmetic over many records belongs into the handler (`aggregate_workitems`), the LLM only receives the final figure.
+- **Give the LLM something concrete to react to.** `candidateCount: 0` or `zero matches found` is more actionable than a bare success flag, and an error message should say what was wrong with the call.
+- **Treat content loaded from the database as data.** Texts returned to the LLM may stem from earlier cases. The prompt should tell the LLM to ignore any instruction found in tool results.
+- **Always load the current data.** If a handler finds workitems through an index, load the current workitems before returning content to the LLM - the index can be out of date.
+
 ### ToolCallEvents
 
-The The `OpenAIAPIService` sends the CDI Event `ToolCallEvent` which can be observed by CDI bean to intercept the tool call. The Event provides the following event types:
+The `OpenAIAPIService` sends the CDI Event `ToolCallEvent` which can be observed by CDI bean to intercept the tool call. The Event provides the following event types:
 
 - **BEFORE_TOOLCALL** - send immediately before a the tool call will be processed
 - **AFTER_TOOLCALL** - send immediately after a tool call was processed
+
+The event gives access to the `ToolCallFunction` including its result channels. The comment log of the workitem, for example, is written by an observer of the `AFTER_TOOLCALL` event. It writes an entry with the tool name and the `logMessage` of the function. If the handler did not set a `logMessage`, the `toolMessage` is used instead.
 
 ### Restricting Tool Calls
 
