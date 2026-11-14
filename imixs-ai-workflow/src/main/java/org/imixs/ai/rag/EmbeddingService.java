@@ -26,7 +26,6 @@ import org.imixs.ai.api.LLMConfigService;
 import org.imixs.ai.api.LLMOptions;
 import org.imixs.ai.api.OpenAIAPIService;
 import org.imixs.ai.workflow.ImixsAIPromptService;
-import org.imixs.melman.RestAPIException;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.DocumentEvent;
 import org.imixs.workflow.engine.EventLogService;
@@ -58,11 +57,6 @@ import jakarta.inject.Inject;
 @Stateless
 public class EmbeddingService {
 
-    // REST API of the RAG service, e.g. http://rag:8080/api/
-    public static final String ENV_RAG_SERVICE_ENDPOINT = "RAG_SERVICE_ENDPOINT";
-    // Optional bearer token to access the RAG service
-    public static final String ENV_RAG_SERVICE_TOKEN = "RAG_SERVICE_TOKEN";
-
     private static Logger logger = Logger.getLogger(EmbeddingService.class.getName());
 
     @Inject
@@ -84,14 +78,6 @@ public class EmbeddingService {
     @Inject
     @ConfigProperty(name = RAGUtil.ENV_EMBEDDINGS_PREFIX_QUERY)
     Optional<String> prefixQuery;
-
-    @Inject
-    @ConfigProperty(name = ENV_RAG_SERVICE_ENDPOINT)
-    Optional<String> ragServiceEndpoint;
-
-    @Inject
-    @ConfigProperty(name = ENV_RAG_SERVICE_TOKEN)
-    Optional<String> ragServiceToken;
 
     /**
      * This method calls the OpenAPIService with a given prompt and creates an index
@@ -235,14 +221,8 @@ public class EmbeddingService {
                     logger.info(llmPrompt);
                 }
 
-                // Note: an empty 'categories' string means 'primary data only'
-                SearchFilter filter = SearchFilter.create()
-                        .category(categories)
-                        .modelGroups(modelGroups)
-                        .tasks(tasks);
-
                 List<ItemCollection> matches = search(llmPrompt, embeddingsEndpoint, embeddingOptions, maxResults,
-                        filter, llmAPIDebug);
+                        categories, llmAPIDebug);
                 List<String> listOfIds = matches.stream().map(m -> m.getItemValueString("id"))
                         .collect(Collectors.toList());
                 workitem.setItemValue(itemRef, listOfIds);
@@ -270,14 +250,14 @@ public class EmbeddingService {
      * @param embeddingsEndpoint the embeddings endpoint used to compute the vector
      * @param embeddingOptions   the options for the embeddings endpoint
      * @param maxResults         the maximum number of documents
-     * @param filter             optional filter (null = no filter)
+     * @param categories         optional category filter
      * @param debug              prints debug information
      * @return list of matches, empty if nothing was found
      * @throws PluginException  if the query or the configuration is invalid
      * @throws AdapterException if the RAG service request failed
      */
     public List<ItemCollection> search(String text, String embeddingsEndpoint, LLMOptions embeddingOptions,
-            int maxResults, SearchFilter filter, boolean debug) throws PluginException, AdapterException {
+            int maxResults, String categories, boolean debug) throws PluginException, AdapterException {
 
         long processingTime = System.currentTimeMillis();
 
@@ -285,56 +265,26 @@ public class EmbeddingService {
             throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
                     "Unable to search the RAG index: query text is empty!");
         }
-        if (!ragServiceEndpoint.isPresent() || ragServiceEndpoint.get().isBlank()) {
-            throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
-                    "RAG service is not configured - missing " + ENV_RAG_SERVICE_ENDPOINT + "!");
-        }
 
         // The prefix is only used for the query embedding
         String embeddingInput = RAGUtil.applyPrefix(prefixQuery.orElse(""), text.trim());
         List<Float> embeddings = openAIAPIService.postEmbedding(
                 embeddingInput, embeddingsEndpoint, embeddingOptions, debug);
 
-        try {
-            IndexClient indexClient = new IndexClient(ragServiceEndpoint.get(), ragServiceToken.orElse(null));
-            List<ItemCollection> matches = indexClient.search(embeddings, maxResults, filter);
-            if (debug) {
-                logger.info("│   ├── 🔎 RAG search: " + matches.size() + " match(es) in "
-                        + (System.currentTimeMillis() - processingTime) + "ms ("
-                        + (filter != null ? filter : "no filter") + ")");
-            }
-            return matches;
-        } catch (RestAPIException e) {
-            throw new AdapterException(EmbeddingService.class.getSimpleName(), e.getErrorCode(),
-                    e.getMessage(), e);
+        List<ItemCollection> matches = null;
+        logger.warning("search not yet implemented!");
+        // matches = indexClient.search(embeddings, maxResults, filter);
+        if (debug) {
+            logger.info("│   ├── 🔎 RAG search: " + matches.size() + " match(es) in "
+                    + (System.currentTimeMillis() - processingTime) + "ms (categories: " + categories + ")");
         }
-    }
-
-    /**
-     * Updates the meta data of a workitem. The method calls
-     * clusterService.updateMetaData()
-     * 
-     * @param indexDefinition
-     * @param workitem
-     * @throws PluginException
-     * @throws AdapterException
-     */
-    public void updateMetadata(ItemCollection workitem)
-            throws PluginException {
-
-        ItemCollection workitemMetaData = new ItemCollection();
-        workitemMetaData.setItemValue("$workflowgroup", workitem.getWorkflowGroup());
-        workitemMetaData.setItemValue("$taskid", workitem.getTaskID());
-
-        // create eventlog entry
-        eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE, workitem.getUniqueID(),
-                workitemMetaData);
+        return matches;
 
     }
 
     /**
      * This method computes the embeddings form a BPMN AI-Prompt definition. The
-     * method stores the final prompt result inot a data entry and creates a
+     * method stores the final prompt result into a data entry and creates a
      * eventLog entry that will be asynchronous processed by the Imixs-AI RAG
      * Service.
      * 
@@ -375,21 +325,22 @@ public class EmbeddingService {
                         "Unable to parse prompt for RAG indexing");
             }
 
-            // Get category from indexDefinition (default: empty string for primary data)
+            // the category is required - it defines the business view of the embeddings
             String category = indexDefinition.getItemValueString("category");
-            if (category == null) {
-                category = "";
+            if (category.isBlank()) {
+                throw new PluginException(RAGIndexPlugin.class.getSimpleName(), APIUtil.ERROR_PROMPT,
+                        "Missing category in RAG INDEX definition");
             }
 
             if (debug) {
-                logger.info("│   ├── Category: " + (category.isEmpty() ? "primary data" : category));
+                logger.info("│   ├── Category: " + category);
                 logger.info("│   ├── Total Prompt Length = " + llmPrompt.length());
                 logger.info("│   ├── Prompt: ");
                 logger.info(llmPrompt);
             }
 
             ItemCollection embeddingData = new ItemCollection();
-            embeddingData.setItemValue(RAGUtil.ITEM_RAG_ENDPOINT, embeddingsEndpoint);
+
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS, embeddingOptions.toString());
             embeddingData.appendItemValue(RAGUtil.ITEM_RAG_CATEGORY, category);
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_TEXT, llmPrompt);

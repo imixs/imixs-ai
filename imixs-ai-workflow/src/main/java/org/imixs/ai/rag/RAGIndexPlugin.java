@@ -21,7 +21,6 @@ import org.imixs.ai.api.APIUtil;
 import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.EventLogService;
-import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.engine.plugins.AbstractPlugin;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
@@ -29,34 +28,37 @@ import org.imixs.workflow.exceptions.PluginException;
 import jakarta.inject.Inject;
 
 /**
- * The RAGIndexPlugin automatically index, updates or remove the workflow meta
- * data as embeddings. Embeddings are stored in a remote Imixs-AI RAG Service.
+ * The RAGIndexPlugin automatically index, updates or remove the workflow
+ * data as embeddings. Embeddings are stored as vectors by the
+ * imixs-workflow-index (Apache Lucene).
  * <p>
- * The plugin can be controlled by an `<imixs-ai>` definition in the following
+ * The plugin can be controlled by an `<imixs-rag>` definition in the following
  * modes.
  * <ul>
  * <li>INDEX - index a workitem</li>
- * <li>UPDATE - default: update the workflow metadata only for a indexed
- * workitem</li>
  * <li>PROMPT - send an LLM completion request and index the result</li>
  * <li>DELETE - remove the workitem from the index</li>
- * <li>DISABLED - no action</li>
  * </ul>
- * Note, the UPDATE mode is the default mode. It can be deactivated with the
- * option 'DISABLED'.
  * <p>
  * The plugin is mainly responsible to load the prompt definition optional from
- * the
- * event. In case the prompt definition is defined only by a BPMN Data object,
- * the plugin stores the prompt template into definition.
+ * the event. In case the prompt definition is defined only by a BPMN Data
+ * object, the plugin stores the prompt template into definition.
  * After resolving the prompt definition the plugin generates a event log entry
  * which is processed assynchounsly by the remote RAG Service.
  * 
  * <pre>
   {@code
-   <imixs-ai name="INDEX">
+   <imixs-rag name="INDEX">
+      <category>summary</category>
       <debug>false</debug>  
-   </imixs-ai>
+   </imixs-rag>
+
+	<imixs-rag name="RETRIEVAL">
+      <category>risk</category>
+	  <query>($workflowgroup:"Claim") AND (type:workitem)</query>
+	  <max-results>5</max-results>
+      <debug>false</debug>  
+   </imixs-rag>
     }
  * </pre>
  * <p>
@@ -71,16 +73,13 @@ public class RAGIndexPlugin extends AbstractPlugin {
 	private static final Logger logger = Logger.getLogger(RAGIndexPlugin.class.getName());
 
 	@Inject
-	private WorkflowService workflowService;
-
-	@Inject
 	private EventLogService eventLogService;
 
 	@Inject
 	protected ImixsAIPromptService imixsAIPromptService;
 
 	@Inject
-	EmbeddingService embeddingService;
+	protected EmbeddingService embeddingService;
 
 	@Override
 	public ItemCollection run(ItemCollection workitem, ItemCollection event) throws PluginException {
@@ -94,20 +93,13 @@ public class RAGIndexPlugin extends AbstractPlugin {
 		logger.finest("running RAGPlugin");
 
 		// read optional configuration form the model or imixs.properties....
-		List<ItemCollection> ragIndexDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+		List<ItemCollection> ragIndexDefinitions = this.getWorkflowService().evalWorkflowResultXML(event, "imixs-rag",
 				RAGUtil.RAG_INDEX, workitem, false);
-		List<ItemCollection> ragDisabledDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
-				RAGUtil.RAG_DISABLED, workitem, false);
-		List<ItemCollection> ragDeleteDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
+		List<ItemCollection> ragDeleteDefinitions = this.getWorkflowService().evalWorkflowResultXML(event, "imixs-rag",
 				RAGUtil.RAG_DELETE, workitem, false);
-		List<ItemCollection> ragPromptDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
-				RAGUtil.RAG_PROMPT, workitem, false);
-
-		// disabled?
-		if (ragDisabledDefinitions != null && ragDisabledDefinitions.size() > 0) {
-			// Plugin is disabled
-			return workitem;
-		}
+		List<ItemCollection> ragRetrievalDefinitions = this.getWorkflowService().evalWorkflowResultXML(event,
+				"imixs-rag",
+				RAGUtil.RAG_RETRIEVAL, workitem, false);
 
 		// INDEX Mode?
 		if (ragIndexDefinitions != null) {
@@ -118,15 +110,14 @@ public class RAGIndexPlugin extends AbstractPlugin {
 				} catch (AdapterException e) {
 					throw new PluginException(e);
 				}
-
 			}
 		}
 
-		// PROMPT mode?
-		if (ragPromptDefinitions != null) {
-			for (ItemCollection ragPromptDefinition : ragPromptDefinitions) {
+		// RETRIEVAL mode?
+		if (ragRetrievalDefinitions != null) {
+			for (ItemCollection ragPromptDefinition : ragRetrievalDefinitions) {
 				loadPromptDefinition(ragPromptDefinition, event);
-				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_PROMPT, workitem.getUniqueID(),
+				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL, workitem.getUniqueID(),
 						ragPromptDefinition);
 			}
 		}
@@ -138,9 +129,6 @@ public class RAGIndexPlugin extends AbstractPlugin {
 						radDeleteDefinition);
 			}
 		}
-
-		// Default: UPDATE meta information
-		embeddingService.updateMetadata(workitem);
 
 		return workitem;
 
