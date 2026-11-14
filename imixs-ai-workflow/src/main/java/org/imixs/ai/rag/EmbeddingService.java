@@ -38,17 +38,28 @@ import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
 /**
- * The EmbeddingService is responsible to create embeddings of a BPMN prompt
- * template and send the result via EventLog Entries to the RAG Service. RAG
- * Events are handled by the IndexOperator remotely.
+ * The EmbeddingService prepares the text of a business document to be indexed
+ * in the RAG index. The text is built from a BPMN prompt template and the data
+ * of the workitem. The result is written into an EventLog entry with the topic
+ * 'rag.event.index'.
  * <p>
- * The service also provides the search method for the RAG index. The query
- * embedding is computed here and the search itself is sent to the REST API of
- * the RAG service.
- * 
- * @see IndexOperator
+ * The embeddings themselves are not computed here. The EventLog entry is
+ * processed asynchronously, so the processing cycle never waits for an LLM
+ * call. The embedding endpoint and its options are defined centrally - one
+ * embedding setup per workflow instance - so all vectors are comparable.
+ * <p>
+ * The event data of a 'rag.event.index' entry contains:
+ * <ul>
+ * <li>{@link RAGUtil#ITEM_RAG_CATEGORY} - the business view of the
+ * embeddings</li>
+ * <li>{@link RAGUtil#ITEM_RAG_TEXT} - the text to be embedded</li>
+ * <li>{@link RAGUtil#ITEM_DEBUG} - optional debug flag</li>
+ * </ul>
+ * <p>
+ * The service also provides the search method for the RAG index.
+ *
  * @see DocumentEvent
- * @version 1.0
+ * @version 2.0
  * @author rsoika
  *
  */
@@ -80,15 +91,15 @@ public class EmbeddingService {
     Optional<String> prefixQuery;
 
     /**
-     * This method calls the OpenAPIService with a given prompt and creates an index
-     * event with the result
+     * This method sends a LLM completion request based on the prompt definition
+     * and indexes the result.
      * <p>
-     * The method is triggered by the IndexOperator processing a event topic
-     * 'rag.event.prompt'.The method initiates a LLM completion request and send the
-     * result in a new rag.event.index event to be indexed in a isolated
-     * 'rag.event.index'.
+     * The method is triggered asynchronously by processing an event with the topic
+     * 'rag.event.prompt'. The completion result replaces the prompt template of
+     * the definition, and a regular 'rag.event.index' entry is created by
+     * {@link #indexWorkitem}. So both modes create the same event format.
      * <p>
-     * The prompt definition is must be defined in the index definition
+     * The prompt definition must be defined in the index definition.
      * 
      * @param indexDefinition
      * @param workitem
@@ -134,14 +145,13 @@ public class EmbeddingService {
                 String completionResult = openAIAPIService.postPromptCompletion(imixsAIContextHandler,
                         llmAPIEndpointCompletion, llmAPIDebug);
                 String resultMessage = openAIAPIService.processPromptResult(completionResult, "", workitem);
+                // a ']]>' in the result would terminate the CDATA section - split it
+                String cdataSafeResult = resultMessage.replace("]]>", "]]]]><![CDATA[>");
                 indexDefinition.setItemValue(APIUtil.ITEM_PROMPT_TEMPLATE,
-                        "<PromptDefinition><prompt><![CDATA[" + resultMessage + "]]></prompt></PromptDefinition>");
+                        "<PromptDefinition><prompt><![CDATA[" + cdataSafeResult + "]]></prompt></PromptDefinition>");
 
-                // now create a new index eventLog entry
-                eventLogService.createEvent(
-                        RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                        workitem.getUniqueID(),
-                        indexDefinition);
+                // create a regular index event - same format as the INDEX mode
+                indexWorkitem(indexDefinition, workitem);
 
             } else {
                 logger.finest(
@@ -283,32 +293,29 @@ public class EmbeddingService {
     }
 
     /**
-     * This method computes the embeddings form a BPMN AI-Prompt definition. The
-     * method stores the final prompt result into a data entry and creates a
-     * eventLog entry that will be asynchronous processed by the Imixs-AI RAG
-     * Service.
-     * 
-     * @param llmIndexDefinitions
-     * @param workitem
-     * @param event
-     * @throws PluginException
-     * @throws AdapterException
+     * This method builds the text to be indexed from a BPMN prompt definition and
+     * creates an EventLog entry with the topic 'rag.event.index'. The embeddings
+     * are computed asynchronously when the event is processed.
+     * <p>
+     * The index definition must provide a category. The category defines the
+     * business view of the embeddings (e.g. 'risk', 'contract').
+     *
+     * @param indexDefinition - the RAG index definition
+     * @param workitem        - the workitem to be indexed
+     * @throws PluginException  if the definition is invalid
+     * @throws AdapterException if the prompt can not be built
      */
     public void indexWorkitem(ItemCollection indexDefinition, ItemCollection workitem)
             throws PluginException, AdapterException {
         long processingTime = System.currentTimeMillis();
-        String embeddingsEndpoint = null;
-        boolean debug = false;
+        boolean debug = indexDefinition.getItemValueBoolean("debug");
         try {
-            embeddingsEndpoint = imixsAIPromptService.parseEndpointByBPMN(indexDefinition, "embeddings");
-            debug = indexDefinition.getItemValueBoolean("debug");
-
-            logger.info("├── post RAG index request: " + embeddingsEndpoint);
-
-            // Resolve embedding options: Layer 1 (endpoint defaults) + Layer 2 (BPMN
-            // override)
-            LLMOptions embeddingOptions = llmConfigService.getOptions(embeddingsEndpoint);
-            embeddingOptions.merge(indexDefinition.getItemValueString("options"));
+            // the category is required - it defines the business view of the embeddings
+            String category = indexDefinition.getItemValueString("category");
+            if (category.isBlank()) {
+                throw new PluginException(EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,
+                        "imixs-ai configuration error: missing category in RAG INDEX definition!");
+            }
 
             // load the prompt template from the index definition!
             String promptTemplate = imixsAIPromptService.loadPromptTemplateByDefinition(indexDefinition);
@@ -325,14 +332,8 @@ public class EmbeddingService {
                         "Unable to parse prompt for RAG indexing");
             }
 
-            // the category is required - it defines the business view of the embeddings
-            String category = indexDefinition.getItemValueString("category");
-            if (category.isBlank()) {
-                throw new PluginException(RAGIndexPlugin.class.getSimpleName(), APIUtil.ERROR_PROMPT,
-                        "Missing category in RAG INDEX definition");
-            }
-
             if (debug) {
+                logger.info("├── 🔃 RAG index request for " + workitem.getUniqueID());
                 logger.info("│   ├── Category: " + category);
                 logger.info("│   ├── Total Prompt Length = " + llmPrompt.length());
                 logger.info("│   ├── Prompt: ");
@@ -340,9 +341,7 @@ public class EmbeddingService {
             }
 
             ItemCollection embeddingData = new ItemCollection();
-
-            embeddingData.setItemValue(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS, embeddingOptions.toString());
-            embeddingData.appendItemValue(RAGUtil.ITEM_RAG_CATEGORY, category);
+            embeddingData.setItemValue(RAGUtil.ITEM_RAG_CATEGORY, category);
             embeddingData.setItemValue(RAGUtil.ITEM_RAG_TEXT, llmPrompt);
             embeddingData.setItemValue(RAGUtil.ITEM_DEBUG, debug);
             // create eventLog entry
