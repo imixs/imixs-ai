@@ -29,20 +29,14 @@ import java.util.regex.Pattern;
 public class RAGUtil {
 
     public static final String RAG_INDEX = "INDEX";
-    public static final String RAG_UPDATE = "UPDATE";
     public static final String RAG_DELETE = "DELETE";
-    public static final String RAG_PROMPT = "PROMPT";
     public static final String RAG_RETRIEVAL = "RETRIEVAL";
-    public static final String RAG_DISABLED = "DISABLED";
 
     // Event Log Entries
     public static final String EVENTLOG_TOPIC_RAG_EVENT_INDEX = "rag.event.index";
-    public static final String EVENTLOG_TOPIC_RAG_EVENT_UPDATE = "rag.event.update";
-    public static final String EVENTLOG_TOPIC_RAG_EVENT_PROMPT = "rag.event.prompt";
+    public static final String EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL = "rag.event.retrieval";
     public static final String EVENTLOG_TOPIC_RAG_EVENT_DELETE = "rag.event.delete";
 
-    public static final String ITEM_RAG_ENDPOINT = "rag.endpoint";
-    public static final String ITEM_RAG_ENDPOINT_TOKEN = "rag.endpoint.token";
     public static final String ITEM_RAG_EMBEDDINGS = "rag.embeddings";
     public static final String ITEM_RAG_EMBEDDINGS_OPTIONS = "rag.embeddings.options";
     public static final String ITEM_RAG_CATEGORY = "rag.category";
