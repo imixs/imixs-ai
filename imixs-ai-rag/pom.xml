@@ -178,6 +178,11 @@
 			<artifactId>imixs-ai-api</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.imixs.workflow</groupId>
+			<artifactId>imixs-ai-workflow</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 
 
 		<!-- Imixs Workflow -->
@@ -202,23 +207,6 @@
 			<artifactId>imixs-melman</artifactId>
 			<version>${org.imixs.melman.version}</version>
 			<scope>compile</scope>
-		</dependency>
-
-		<!-- DaraStax Java Driver -->
-		<dependency>
-			<groupId>org.apache.cassandra</groupId>
-			<artifactId>java-driver-core</artifactId>
-			<version>${apache.cassandra.driver.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.cassandra</groupId>
-			<artifactId>java-driver-query-builder</artifactId>
-			<version>${apache.cassandra.driver.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.cassandra</groupId>
-			<artifactId>java-driver-mapper-runtime</artifactId>
-			<version>${apache.cassandra.driver.version}</version>
 		</dependency>
 
 

@@ -10,33 +10,44 @@ The project provides services and adapters to facilitate the interaction of AI i
 
 <img width="800" src="./doc/images/architecture.png" />
 
-## Imixs-AI-API
+## Modules
 
-The module [imixs-ai-api](./imixs-ai-api) provides core classes to access a LLM Server based on the [Open-AI API](https://github.com/openai/openai-openapi) specification.
+Imixs-AI is a multi-module project. For building AI-based workflows you only need the module **imixs-ai-workflow**. The modules **imixs-ai-agent** and **imixs-ai-rag** are optional features which can be added if needed. All other modules are used internally.
 
-## Imixs-AI-Workflow
+```
+imixs-ai-api  ←  imixs-ai-workflow  ←  imixs-ai-agent  (optional)
+                        ↑
+                  imixs-ai-rag  (optional)  →  imixs-workflow-index
+```
 
-The module [imixs-ai-workflow](./imixs-ai-workflow) provides Jakarta EE services and adapter classes to access a LLM Server based on the imixs-ai-api module .
-A prompt can be defined directly in a Imixs BPMN 2.0 model. Prompt-Templates used by the LLMAdapter Class can be defined in a BPMN Data item:
+### Imixs-AI-Workflow
+
+The module [imixs-ai-workflow](./imixs-ai-workflow) is the base module for AI-based workflows. It provides Jakarta EE services and adapter classes to access an LLM server.
+A prompt can be defined directly in an Imixs BPMN 2.0 model. Prompt templates used by the LLMAdapter class can be defined in a BPMN data object:
 
 <img src="./doc/images/imixs-llm-adapter-config.png" />
 
-## Imixs-AI-BPMN
-
-The module [imixs-ai-bpmn](./imixs-ai-bpmn) provides an api to transform BPMN 2.0 Models into a text representation understandable by any LLM.
-
-## Imixs-AI-RAG-Index
-
-The module [imixs-ai-rag-index](./imixs-ai-rag-index) provides a microservice to integrate a RAG index system based on Cassandra 4.0
-
-## Imixs-AI-RAG-Workflow
-
-The module [imixs-ai-rag-workflow](./imixs-ai-rag-workflow) provides services to integrate a RAG system into BPMN
-
-## Imixs-AI-Agent
+### Imixs-AI-Agent (optional)
 
 The module [imixs-ai-agent](./imixs-ai-agent) provides classes for agentic workflow systems.
 
-## Imixs-AI-LLaMAcpp
+### Imixs-AI-RAG (optional)
 
-The module [imixs-ai-llama-cpp](./imixs-ai-llama-cpp/README.md) provides a short introduction how to run a LLaMAc++ server with docker.
+The module [imixs-ai-rag](./imixs-ai-rag) provides Retrieval Augmented Generation (RAG) for business documents. Documents are indexed by BPMN events into the vector index of the [imixs-workflow-index](https://github.com/imixs/imixs-workflow/tree/master/imixs-workflow-index). A retrieval finds similar documents and respects the read access of the current user.
+
+RAG requires:
+
+- the module `imixs-workflow-index` as the index module of the application
+- the vector index enabled (`index.vector.enabled=true`, `index.vector.dimension`)
+- a central embedding endpoint (`rag.embeddings.endpoint`)
+
+### Internal Modules
+
+These modules are used internally and are not added to an application directly.
+
+- [imixs-ai-api](./imixs-ai-api) - core classes to access an LLM server based on the [Open-AI API](https://github.com/openai/openai-openapi) specification.
+- [imixs-ai-bpmn](./imixs-ai-bpmn) - an API to transform BPMN 2.0 models into a text representation understandable by any LLM.
+
+### Imixs-AI-LLaMAcpp
+
+The module [imixs-ai-llama-cpp](./imixs-ai-llama-cpp/README.md) provides a short introduction on how to run a LLaMA.cpp server with Docker.

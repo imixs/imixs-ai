@@ -19,6 +19,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.imixs.ai.rag.RAGService;
 import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.ai.rag.util.LogController;
 import org.imixs.workflow.engine.EventLogService;
@@ -109,12 +110,18 @@ public class IndexScheduler {
     @Inject
     LuceneVectorIndexManager vectorIndexManager;
 
+    @Inject
+    RAGService ragService;
+
     @PostConstruct
     public void init() {
         if (!vectorIndexManager.isEnabled()) {
             logger.log(Level.INFO, "├── RAG index scheduler not started - vector index is disabled");
             return;
         }
+        // a missing embedding configuration aborts the deployment
+        ragService.verifyConfiguration();
+
         metricService.init();
         try {
             startScheduler(true);

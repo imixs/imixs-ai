@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.imixs.ai.rag.RAGService;
 import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.workflow.ItemCollection;
