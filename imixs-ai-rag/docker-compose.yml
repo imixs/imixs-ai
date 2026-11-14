@@ -1,0 +1,22 @@
+version: "3.2"
+services:
+  imixsragservice:
+    image: imixs/imixs-ai-rag-index
+    environment:
+      WILDFLY_PASS: adminadmin
+      ARCHIVE_CLUSTER_CONTACTPOINTS: "cassandra"
+      ARCHIVE_CLUSTER_KEYSPACE: "imixsdev"
+      WORKFLOW_SERVICE_ENDPOINT: http://imixs-workflow:8080/api
+      WORKFLOW_SERVICE_USER: "admin"
+      WORKFLOW_SERVICE_PASSWORD: "adminadmin"
+      WORKFLOW_SERVICE_AUTHMETHOD: "form"
+      # ARCHIVE_CLUSTER_REPLICATION_FACTOR: "1"
+      # ARCHIVE_CLUSTER_REPLICATION_CLASS: "SimpleStrategy"
+      TZ: "Europe/Berlin"
+    ports:
+      - "8080:8080"
+
+  cassandra:
+    image: cassandra:4.0.6
+    environment:
+      TZ: "Europe/Berlin"

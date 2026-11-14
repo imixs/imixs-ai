@@ -1,0 +1,15 @@
+# Maven
+target/
+
+# Eclipse
+.settings/
+.classpath/
+.classpath
+.project
+
+
+# ignore docker deployments
+docker/.env
+docker/deployments/
+docker/keys
+docker/docker-compose-imixs.yaml
