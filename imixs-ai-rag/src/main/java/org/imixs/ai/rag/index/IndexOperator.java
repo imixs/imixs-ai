@@ -14,184 +14,206 @@
 
 package org.imixs.ai.rag.index;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.imixs.ai.rag.RAGUtil;
-import org.imixs.ai.rag.cluster.ClusterException;
-import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.metrics.MetricService;
-import org.imixs.melman.RestAPIException;
 import org.imixs.workflow.ItemCollection;
-import org.imixs.workflow.engine.AsyncEventScheduler;
 import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.engine.jpa.EventLog;
+import org.imixs.workflow.exceptions.AdapterException;
+import org.imixs.workflow.exceptions.IndexException;
 import org.imixs.workflow.exceptions.PluginException;
+import org.imixs.workflow.index.vectors.LuceneVectorIndexService;
 
 import jakarta.ejb.LocalBean;
 import jakarta.ejb.Stateless;
 import jakarta.ejb.TransactionAttribute;
 import jakarta.ejb.TransactionAttributeType;
 import jakarta.inject.Inject;
-import jakarta.persistence.OptimisticLockException;
 
 /**
- * The IndexOperator is responsible to process Imixs-AI RAG events in an
- * asynchronous batch process. The IndexOperator automatically lookup eventLog
- * entries of the topic "rag.event.*". The IndexOperator is called only by the
- * IndexScheduler.
+ * The IndexOperator processes RAG events from the EventLog. It is called by the
+ * IndexScheduler only.
  * <p>
- * The IndexOperator reacts on events from the following types:
+ * The operator reacts on the following topics:
  * <ul>
- * <li>rag.event.index - index a new workitem</li>
- * <li>rag.event.update - update the meta data only</li>
- * <li>rag.event.prompt - call a llm completion process</li>
- * <li>rag.event.delete - delete an entry</li>
+ * <li>rag.event.index - compute the embeddings and store them in the vector
+ * index</li>
+ * <li>rag.event.delete - remove all vectors of a document</li>
  * </ul>
  * <p>
- * To prevent concurrent processes to handle the same workitems the batch
- * process uses a Optimistic lock strategy. After fetching new event log entries
- * the operator locks the eventLog entry. After that update we can be sure that
- * no other process is dealing with these entries. After completing the
- * processing step the eventlog entry will be removed.
- * <p>
- * To avoid a deadlock the processor set an expiration time on the lock, so the
- * lock will be auto-released after 1 minute (batch.processor.deadlock).
- * 
- * 
- * 
- * @see AsyncEventScheduler
- * @version 1.0
- * @author rsoika
+ * Computing embeddings requires LLM calls, which can take several seconds. To
+ * avoid long running database transactions, an event is processed in three
+ * steps:
+ * <ol>
+ * <li>{@link #lockEvent} - locks the EventLog entry in a short transaction. The
+ * topic is suffixed with '.lock', so the event is not processed twice.</li>
+ * <li>{@link #processEvent} - computes the embeddings and updates the vector
+ * index - <b>without</b> a database transaction.</li>
+ * <li>{@link #removeEvent} - removes the EventLog entry in a short
+ * transaction.</li>
+ * </ol>
+ * If the processing fails temporarily (e.g. the LLM endpoint is not reachable),
+ * the event stays locked. The deadlock release of the IndexScheduler unlocks it
+ * after the deadlock interval, so the event is retried automatically.
  *
+ * @see IndexScheduler
+ * @version 2.0
+ * @author rsoika
  */
 @Stateless
 @LocalBean
 public class IndexOperator {
 
+    /**
+     * Result of processing a single event.
+     */
+    public enum Result {
+        /** the event was processed - remove the EventLog entry */
+        DONE,
+        /** the event is invalid and can never be processed - remove the entry */
+        FAILED,
+        /** a temporary error occurred - keep the lock, the event is retried */
+        RETRY
+    }
+
     private static final Logger logger = Logger.getLogger(IndexOperator.class.getName());
 
     @Inject
-    private ClusterService clusterService;
+    private EventLogService eventLogService;
 
     @Inject
     private RAGService ragService;
 
     @Inject
-    private MetricService metricService;
+    private LuceneVectorIndexService vectorIndexService;
 
     @Inject
-    private EventLogService eventLogService;
+    private MetricService metricService;
 
     /**
-     * The method lookups for RAG event log entries and updates the RAG index
-     * information. The method reacts on the following event type:
-     * <ul>
-     * <li>'rag.event.index'</li>
-     * <li>'rag.event.update'</li>
-     * <li>'rag.event.prompt'</li>
-     * <li>'rag.event.delete'</li>
-     * </ul>
-     * <p>
-     * Each eventLogEntry provides optional a prompt template.
-     * <p>
-     * The event 'rag.event.prompt' first calls the llm service and than creats an
-     * index event
-     * 
-     * @throws RestAPIException
-     * 
+     * Returns the ids of the next unprocessed RAG events, ordered by creation date.
+     *
+     * @param maxCount - maximum number of events
+     * @return list of EventLog ids
      */
-    @TransactionAttribute(value = TransactionAttributeType.REQUIRES_NEW)
-    public void processEventLog() throws RestAPIException {
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public List<String> findEvents(int maxCount) {
+        List<String> result = new ArrayList<>();
+        List<EventLog> events = eventLogService.findEventsByTopic(maxCount, getTopics());
+        for (EventLog event : events) {
+            result.add(event.getId());
+        }
+        return result;
+    }
+
+    /**
+     * Locks an EventLog entry and returns a detached copy of its data. Returns
+     * null if the entry no longer exists or is already locked by another process.
+     *
+     * @param id - the EventLog id
+     * @return the locked event or null
+     */
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public RAGEvent lockEvent(String id) {
+        EventLog eventLog;
+        try {
+            eventLog = eventLogService.getEvent(id);
+        } catch (IllegalArgumentException e) {
+            // getEvent() fails on detach if the entry no longer exists
+            return null;
+        }
+        if (eventLog == null || eventLog.getTopic().endsWith(".lock")) {
+            // already processed or locked by another process
+            return null;
+        }
+        // read the data before locking - the topic changes with the lock
+        RAGEvent ragEvent = new RAGEvent(eventLog.getId(), eventLog.getTopic(), eventLog.getRef(),
+                new ItemCollection(eventLog.getData()));
+        if (!eventLogService.lock(eventLog)) {
+            return null;
+        }
+        return ragEvent;
+    }
+
+    /**
+     * Removes an EventLog entry.
+     *
+     * @param id - the EventLog id
+     */
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void removeEvent(String id) {
+        eventLogService.removeEvent(id);
+    }
+
+    /**
+     * Processes a locked event. The method runs without a database transaction,
+     * because computing embeddings can take several seconds.
+     *
+     * @param event - the locked event
+     * @return the result of the processing
+     */
+    @TransactionAttribute(TransactionAttributeType.NOT_SUPPORTED)
+    public Result processEvent(RAGEvent event) {
         long l = System.currentTimeMillis();
-
-        // test for new event log entries by timeout...
-
-                    List<EventLog> events = eventLogService.findEventsByTopic(100,RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
-
-
-        if (events.size() > 0) {
-            logger.log(Level.INFO, "├── 🔃 processing {0} RAG events....", events.size());
-
-            for (EventLog eventLogEntry : events) {
-                String eventTopic = eventLogEntry.getItemValueString("topic");
-                String eventId = eventLogEntry.getItemValueString("id");
-                String eventRef = eventLogEntry.getItemValueString("ref");
-                ItemCollection workitem = null;
-
-                if (eventLogEntry.hasItem("data")) {
-                    List<?> dataList = eventLogEntry.getItemValue("data");
-                    if (dataList != null && dataList.size() > 0) {
-                        workitem = new ItemCollection((Map<String, List<Object>>) dataList.get(0));
-                        // workitem.setItemValue(WorkflowKernel.UNIQUEID, eventRef);
-                    }
-                }
-
-                try {
-
-                    logger.log(Level.INFO,
-                            "│   ├── Event: " + eventTopic + " - " + eventRef);
-                    // first try to lock the eventLog entry....
-                    eventLogService.lock(event)
-                  
-                    // Delete Event?
-                    if (eventTopic.equals(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE)) {
-                        // remove embeddings
-                        clusterService.removeAllEmbeddings(eventRef);
-                        // remove the event log entry...
-                        eventLogService.removeEvent(eventLogEntry);
-                        
-                        continue;
-                    }
-
-                    // Index / Update event?
-                    if (workitem == null) {
-                        logger.log(Level.WARNING, "│   ├── ⚠️ unable to read workitem: " + eventRef);
-                          eventLogService.removeEvent(eventLogEntry);
-                        continue;
-                    }
-
-                    // handle event types
-                    switch (eventTopic) {
-
-                        case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
-                            ragService.indexWorkitem(eventRef, workitem);
-                            break;
-
-                        default:
-                            // no op
-                    }
-
-                    // finally remove the event log entry...
-                      eventLogService.removeEvent(eventLogEntry);
-            
-                    metricService.countMetric(MetricService.METRIC_EVENTS_PROCESSED);
-
-                } catch (OptimisticLockException e) {
-                    // lock was not possible - continue....
-                    logger.log(Level.INFO, "│   ├── ⚠️ unable to lock AsyncEvent: {0}", e.getMessage());
-                } catch (ClusterException e) {
-                    logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
-                    // remove the event log entry...
-                     eventLogService.removeEvent(eventLogEntry);
-                    metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
-                } catch (PluginException e) {
-                    logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
-                    // remove the event log entry...
-                     eventLogService.removeEvent(eventLogEntry);
-                    metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
-                }
-
+        logger.log(Level.FINE, "│   ├── {0} ⇢ {1}", new Object[] { event.topic(), event.ref() });
+        try {
+            switch (event.topic()) {
+                case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
+                    indexDocument(event);
+                    break;
+                case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE:
+                    vectorIndexService.removeVectors(event.ref());
+                    break;
+                default:
+                    logger.log(Level.WARNING, "│   ├── ⚠️ unsupported topic ''{0}'' - event removed", event.topic());
+                    return Result.FAILED;
             }
+            metricService.countMetric(MetricService.METRIC_EVENTS_PROCESSED);
+            logger.log(Level.FINE, "│   ├── ✅ {0} processed in {1}ms",
+                    new Object[] { event.ref(), System.currentTimeMillis() - l });
+            return Result.DONE;
 
-            logger.log(Level.INFO, "├── ✅ {0} RAGEvents processed in {1}ms",
-                    new Object[] { events.size(), System.currentTimeMillis() - l });
+        } catch (AdapterException | IndexException e) {
+            // temporary error (LLM endpoint or index not available) - retry later
+            logger.log(Level.WARNING, "│   ├── ⚠️ processing {0} failed - will be retried: {1}",
+                    new Object[] { event.ref(), e.getMessage() });
+            metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
+            return Result.RETRY;
 
+        } catch (PluginException | IllegalArgumentException e) {
+            // permanent error (invalid event data) - the event can never be processed
+            logger.log(Level.WARNING, "│   ├── ⚠️ invalid event for {0} - event removed: {1}",
+                    new Object[] { event.ref(), e.getMessage() });
+            metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
+            return Result.FAILED;
         }
     }
 
+    /**
+     * Computes the embeddings of the event text and replaces the vectors of the
+     * category in the vector index.
+     */
+    private void indexDocument(RAGEvent event) throws PluginException, AdapterException {
+        ItemCollection data = event.data();
+        String category = data.getItemValueString(RAGUtil.ITEM_RAG_CATEGORY);
+        String text = data.getItemValueString(RAGUtil.ITEM_RAG_TEXT);
+        boolean debug = data.getItemValueBoolean(RAGUtil.ITEM_DEBUG);
+
+        // compute one embedding per chunk
+        List<float[]> vectors = ragService.createEmbeddings(text, debug);
+        // replace the vectors of this category
+        vectorIndexService.indexVectors(event.ref(), category, vectors);
+    }
+
+    /**
+     * Returns the topics processed by the operator.
+     */
+    public static String[] getTopics() {
+        return new String[] { RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX, RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE };
+    }
 }

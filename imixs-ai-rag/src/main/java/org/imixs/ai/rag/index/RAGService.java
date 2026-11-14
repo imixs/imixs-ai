@@ -102,7 +102,6 @@ public class RAGService {
         boolean debug = workitem.getItemValueBoolean(RAGUtil.ITEM_DEBUG);
         String category = workitem.getItemValueString(RAGUtil.ITEM_RAG_CATEGORY);
         String llmPrompt = workitem.getItemValueString(RAGUtil.ITEM_RAG_TEXT);
-        embeddingsEndpoint = workitem.getItemValueString(RAGUtil.ITEM_RAG_ENDPOINT);
 
         String sEmbeddingOptions = workitem.getItemValueString(RAGUtil.ITEM_RAG_EMBEDDINGS_OPTIONS);
         LLMOptions embeddingOptions = new LLMOptions(sEmbeddingOptions);
