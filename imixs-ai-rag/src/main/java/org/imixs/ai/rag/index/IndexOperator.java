@@ -23,9 +23,11 @@ import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.cluster.ClusterException;
 import org.imixs.ai.rag.cluster.ClusterService;
 import org.imixs.ai.rag.metrics.MetricService;
-import org.imixs.melman.EventLogClient;
 import org.imixs.melman.RestAPIException;
 import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.engine.AsyncEventScheduler;
+import org.imixs.workflow.engine.EventLogService;
+import org.imixs.workflow.engine.jpa.EventLog;
 import org.imixs.workflow.exceptions.PluginException;
 
 import jakarta.ejb.LocalBean;
@@ -80,6 +82,9 @@ public class IndexOperator {
     @Inject
     private MetricService metricService;
 
+    @Inject
+    private EventLogService eventLogService;
+
     /**
      * The method lookups for RAG event log entries and updates the RAG index
      * information. The method reacts on the following event type:
@@ -99,21 +104,20 @@ public class IndexOperator {
      * 
      */
     @TransactionAttribute(value = TransactionAttributeType.REQUIRES_NEW)
-    public void processEventLog(EventLogClient eventLogClient) throws RestAPIException {
+    public void processEventLog() throws RestAPIException {
         long l = System.currentTimeMillis();
 
         // test for new event log entries by timeout...
 
-        eventLogClient.setPageSize(100);
-        List<ItemCollection> events = eventLogClient.searchEventLog(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_PROMPT,
+                    List<EventLog> events = eventLogService.findEventsByTopic(100,RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
+                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL,
                 RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE);
+
 
         if (events.size() > 0) {
             logger.log(Level.INFO, "├── 🔃 processing {0} RAG events....", events.size());
 
-            for (ItemCollection eventLogEntry : events) {
+            for (EventLog eventLogEntry : events) {
                 String eventTopic = eventLogEntry.getItemValueString("topic");
                 String eventId = eventLogEntry.getItemValueString("id");
                 String eventRef = eventLogEntry.getItemValueString("ref");
@@ -132,42 +136,39 @@ public class IndexOperator {
                     logger.log(Level.INFO,
                             "│   ├── Event: " + eventTopic + " - " + eventRef);
                     // first try to lock the eventLog entry....
-
-                    eventLogClient.lockEventLogEntry(eventId);
-
+                    eventLogService.lock(event)
+                  
                     // Delete Event?
                     if (eventTopic.equals(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE)) {
                         // remove embeddings
                         clusterService.removeAllEmbeddings(eventRef);
                         // remove the event log entry...
-                        eventLogClient.deleteEventLogEntry(eventRef);
+                        eventLogService.removeEvent(eventLogEntry);
+                        
                         continue;
                     }
 
                     // Index / Update event?
                     if (workitem == null) {
                         logger.log(Level.WARNING, "│   ├── ⚠️ unable to read workitem: " + eventRef);
-                        eventLogClient.deleteEventLogEntry(eventId);
+                          eventLogService.removeEvent(eventLogEntry);
                         continue;
                     }
 
                     // handle event types
                     switch (eventTopic) {
-                    case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE:
-                        // update workflow status
-                        ragService.updateMetadata(eventRef, workitem);
-                        break;
-                    case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
-                        ragService.indexWorkitem(eventRef, workitem);
-                        break;
 
-                    default:
-                        // no op
+                        case RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX:
+                            ragService.indexWorkitem(eventRef, workitem);
+                            break;
+
+                        default:
+                            // no op
                     }
 
                     // finally remove the event log entry...
-                    eventLogClient.deleteEventLogEntry(eventId);
-
+                      eventLogService.removeEvent(eventLogEntry);
+            
                     metricService.countMetric(MetricService.METRIC_EVENTS_PROCESSED);
 
                 } catch (OptimisticLockException e) {
@@ -176,12 +177,12 @@ public class IndexOperator {
                 } catch (ClusterException e) {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
-                    eventLogClient.deleteEventLogEntry(eventId);
+                     eventLogService.removeEvent(eventLogEntry);
                     metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
                 } catch (PluginException e) {
                     logger.log(Level.WARNING, e.getErrorCode() + " - " + e.getMessage());
                     // remove the event log entry...
-                    eventLogClient.deleteEventLogEntry(eventId);
+                     eventLogService.removeEvent(eventLogEntry);
                     metricService.countMetric(MetricService.METRIC_EVENTS_ERRORS);
                 }
 

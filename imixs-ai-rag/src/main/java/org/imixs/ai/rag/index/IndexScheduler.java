@@ -23,18 +23,18 @@
 package org.imixs.ai.rag.index;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.ai.rag.util.LogController;
-import org.imixs.ai.rag.util.RestClientHelper;
 import org.imixs.melman.DocumentClient;
 import org.imixs.melman.EventLogClient;
 import org.imixs.melman.RestAPIException;
 import org.imixs.workflow.ItemCollection;
+import org.imixs.workflow.engine.EventLogService;
+import org.imixs.workflow.engine.jpa.EventLog;
 import org.imixs.workflow.exceptions.InvalidAccessException;
 
 import jakarta.annotation.PostConstruct;
@@ -67,22 +67,9 @@ public class IndexScheduler {
 
     private static Logger logger = Logger.getLogger(IndexScheduler.class.getName());
 
-    public static final String ENV_WORKFLOW_SERVICE_ENDPOINT = "workflow.service.endpoint";
-    public static final String ENV_WORKFLOW_SERVICE_USER = "workflow.service.user";
-    public static final String ENV_WORKFLOW_SERVICE_PASSWORD = "workflow.service.password";
-    public static final String ENV_WORKFLOW_SERVICE_AUTHMETHOD = "workflow.service.authmethod";
     public static final String ENV_WORKFLOW_SYNC_INTERVAL = "workflow.sync.interval";
     public static final String ENV_WORKFLOW_SYNC_INITIALDELAY = "workflow.sync.initialdelay";
     public static final String ENV_WORKFLOW_SYNC_DEADLOCK = "workflow.sync.deadlock";
-
-    // REST client
-    public static final String ENV_WORKFLOW_REST_CONNECT_TIMEOUT = "workflow.rest.connecttimeout";
-    public static final String ENV_WORKFLOW_REST_READ_TIMEOUT = "workflow.rest.readtimeout";
-
-    // OIDC
-    public static final String ENV_OIDC_AUTH_ENDPOINT = "oidc.auth.endpoint";
-    public static final String ENV_OIDC_AUTH_CLIENT_ID = "oidc.auth.client.id";
-    public static final String ENV_OIDC_AUTH_CLIENT_SECRET = "oidc.auth.client.secret";
 
     public static final String EVENTLOG_TOPIC_INDEX = "imix.ai.rag.index";
     public static final String INDEX_INDEX_DEADLOCK = "imixs.ai.rag.index.deadlock";
@@ -104,22 +91,6 @@ public class IndexScheduler {
     @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SYNC_INITIALDELAY, defaultValue = "30000")
     long initialDelay;
 
-    @Inject
-    @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_ENDPOINT)
-    Optional<String> workflowServiceEndpoint;
-
-    @Inject
-    @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_AUTHMETHOD)
-    Optional<String> workflowServiceAuthMethod;
-
-    @Inject
-    @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_USER)
-    Optional<String> workflowServiceUser;
-
-    @Inject
-    @ConfigProperty(name = IndexScheduler.ENV_WORKFLOW_SERVICE_PASSWORD)
-    Optional<String> workflowServicePassword;
-
     // deadlock timeout interval in ms
     @Inject
     @ConfigProperty(name = INDEX_INDEX_DEADLOCK, defaultValue = "60000")
@@ -127,9 +98,6 @@ public class IndexScheduler {
 
     @Resource
     TimerService timerService;
-
-    @Inject
-    RestClientHelper restClientHelper;
 
     @Inject
     IndexStatusHandler indexStatusHandler;
@@ -140,27 +108,21 @@ public class IndexScheduler {
     @Inject
     IndexOperator indexOperator;
 
-    DocumentClient documentClient = null;
-    EventLogClient eventLogClient = null;
+    @Inject
+    private EventLogService eventLogService;
 
     @PostConstruct
     public void init() {
 
         metricService.init();
 
-        // init timer....
-        if (workflowServiceEndpoint.isPresent()) {
-            logger.info("init workflow instance endpoint: " + workflowServiceEndpoint.get().toString());
-            // Registering a non-persistent Timer Service.
-            try {
-                startScheduler(true);
-            } catch (IndexException e) {
-                logController.warning(TOPIC_INDEX, "Failed to init scheduler: " + e.getMessage());
-            }
-        } else {
-            logController.warning(TOPIC_INDEX,
-                    "Missing environment param 'WORKFLOW_SERVICE_ENDPOINT' - please verify configuration!");
+        // Registering a non-persistent Timer Service.
+        try {
+            startScheduler(true);
+        } catch (IndexException e) {
+            logController.warning(TOPIC_INDEX, "Failed to init scheduler: " + e.getMessage());
         }
+
     }
 
     /**
@@ -185,40 +147,26 @@ public class IndexScheduler {
         try {
             indexStatusHandler.setTimer(_timer);
             logger.fine("├── Processing RAG index events...");
-            // init rest clients....
-            DocumentClient documentClient = restClientHelper.createDocumentClient();
-
-            EventLogClient eventLogClient = restClientHelper.createEventLogClient(documentClient);
-            if (documentClient == null || eventLogClient == null) {
-                logController.warning(TOPIC_INDEX,
-                        "├── Unable to connect to workflow instance endpoint - verify configuration!");
-                try {
-                    stopScheduler();
-                } catch (IndexException e) {
-                }
-                return;
-            }
 
             indexStatusHandler.setStatus(IndexStatusHandler.STATUS_RUNNING);
 
             logger.finest("......release dead locks....");
             // release dead locks...
-            releaseDeadLocks(eventLogClient);
+            eventLogService.releaseDeadLocks(deadLockInterval, getEventLogTopic());
 
             // total unprocessed metrics
-            long totalUnprocessed = eventLogClient.countEventLogEntries(getEventLogTopic());
+            long totalUnprocessed = eventLogService.countEventsByTopic(getEventLogTopic());
             metricService.setUnprocessedEventLogEntries(totalUnprocessed);
 
             // max 100 entries per iteration
-            eventLogClient.setPageSize(100);
-            List<ItemCollection> events = eventLogClient.searchEventLog(getEventLogTopic());
+            List<EventLog> events = eventLogService.findEventsByTopic(100, getEventLogTopic());
 
-            indexOperator.processEventLog(eventLogClient);
+            indexOperator.processEventLog();
 
             indexStatusHandler.setStatus(IndexStatusHandler.STATUS_SCHEDULED);
 
             // Update metrics
-            totalUnprocessed = eventLogClient.countEventLogEntries(getEventLogTopic());
+            totalUnprocessed = eventLogService.countEventsByTopic(getEventLogTopic());
             metricService.setUnprocessedEventLogEntries(totalUnprocessed);
         } catch (InvalidAccessException | EJBException | RestAPIException e) {
             // In case of a exception during processing the event log
@@ -238,10 +186,8 @@ public class IndexScheduler {
 
         long result = -1;
         try {
-            DocumentClient documentClient = restClientHelper.createDocumentClient();
-            EventLogClient eventLogClient = restClientHelper.createEventLogClient(documentClient);
             logger.info("count event log entries: " + getEventLogTopic());
-            result = eventLogClient.countEventLogEntries(getEventLogTopic());
+            result = eventLogService.countEventsByTopic(getEventLogTopic());
 
         } catch (RestAPIException e) {
             logController.warning(TOPIC_INDEX, "Failed to count unprocessed event log: " + e.getMessage());
@@ -277,8 +223,7 @@ public class IndexScheduler {
      */
     public String[] getEventLogTopic() {
         return new String[] { RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_UPDATE,
-                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_PROMPT,
+                RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL,
                 RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE };
     }
 
@@ -362,7 +307,7 @@ public class IndexScheduler {
      */
     public void startScheduler(boolean clearLog) throws IndexException {
         try {
-            restClientHelper.reset();
+
             if (clearLog) {
                 // clear log in case of a normal start
                 logController.reset(TOPIC_INDEX);
