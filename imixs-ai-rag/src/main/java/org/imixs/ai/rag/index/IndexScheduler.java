@@ -174,7 +174,7 @@ public class IndexScheduler {
                             break;
                     }
                 }
-                logger.log(Level.INFO, "│   └── ✅ {0} processed, {1} failed, {2} retry in {3}ms",
+                logger.log(Level.INFO, "└── ✅ {0} processed, {1} failed, {2} retry in {3}ms",
                         new Object[] { done, failed, retry, System.currentTimeMillis() - l });
             }
 
