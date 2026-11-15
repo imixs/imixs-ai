@@ -20,6 +20,7 @@ import java.util.logging.Logger;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.imixs.ai.rag.RAGService;
+import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.metrics.MetricService;
 import org.imixs.ai.rag.util.LogController;
 import org.imixs.workflow.engine.EventLogService;
@@ -146,7 +147,7 @@ public class IndexScheduler {
             indexStatusHandler.setStatus(IndexStatusHandler.STATUS_RUNNING);
 
             // unlock events of a crashed run or a temporary error
-            eventLogService.releaseDeadLocks(deadLockInterval, IndexOperator.getTopics());
+            eventLogService.releaseDeadLocks(deadLockInterval, RAGUtil.getTopics());
 
             List<String> ids = indexOperator.findEvents(MAX_EVENTS_PER_RUN);
             if (!ids.isEmpty()) {
@@ -196,7 +197,7 @@ public class IndexScheduler {
      * Returns the number of unprocessed RAG events.
      */
     public long getUnprocessedEventLogEntries() {
-        return eventLogService.countEventsByTopic(IndexOperator.getTopics());
+        return eventLogService.countEventsByTopic(RAGUtil.getTopics());
     }
 
     /**

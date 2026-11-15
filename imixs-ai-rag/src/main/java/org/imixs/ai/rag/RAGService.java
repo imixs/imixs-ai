@@ -64,8 +64,6 @@ public class RAGService {
     @ConfigProperty(name = RAGUtil.CONFIG_EMBEDDINGS_PREFIX_QUERY)
     Optional<String> prefixQuery;
 
-    private static final int MAX_CHUNK_SIZE = 1200;
-
     /**
      * Verifies that the central embedding endpoint is configured. Called on startup
      * by the IndexScheduler - a missing configuration aborts the deployment.
@@ -106,7 +104,7 @@ public class RAGService {
                         "Missing RAG configuration '" + RAGUtil.CONFIG_EMBEDDINGS_ENDPOINT + "'"));
         LLMOptions options = llmConfigService.getOptions(endpoint);
 
-        List<String> chunks = RAGUtil.chunkMarkdownDocument(text, MAX_CHUNK_SIZE);
+        List<String> chunks = RAGUtil.chunkMarkdownDocumentWithTitle(text, RAGUtil.MAX_CHUNK_SIZE);
         if (debug) {
             logger.info("├── 🔃 create embeddings: " + chunks.size() + " chunk(s), " + text.length()
                     + " characters, endpoint: " + endpoint);

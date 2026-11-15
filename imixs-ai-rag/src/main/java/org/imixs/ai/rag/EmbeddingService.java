@@ -16,6 +16,7 @@ package org.imixs.ai.rag;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -326,6 +327,18 @@ public class EmbeddingService {
 
             // Build the prompt template...
             String llmPrompt = openAIAPIService.buildEmbeddingsPrompt(promptTemplate, workitem);
+            // the title is repeated in each chunk - without a title the retrieval quality
+            // degrades silently, so the modeler must be warned
+            String title = RAGUtil.extractTitle(llmPrompt);
+            if (title.isEmpty() || title.length() > RAGUtil.MAX_CHUNK_SIZE / 4) {
+                logger.log(Level.WARNING,
+                        "├── ⚠️ RAG text of ''{0}'' has no valid title (category ''{1}'', model ''{2}'', task {3}"
+                                + ", event {4}) - the text should start with a short H1 heading ('# ...')"
+                                + " identifying the document, otherwise the retrieval quality may be poor!",
+                        new Object[] { workitem.getUniqueID(), category, workitem.getModelVersion(),
+                                "" + workitem.getTaskID(), "" + workitem.getEventID() });
+            }
+
             if (llmPrompt.isBlank()) {
                 throw new PluginException(
                         EmbeddingService.class.getSimpleName(), APIUtil.ERROR_API,

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import org.imixs.ai.api.ImixsAIContextHandler;
+import org.imixs.ai.rag.RAGUtil;
 import org.imixs.ai.rag.RetrievalService;
 import org.imixs.ai.toolcall.ToolCallFunction;
 import org.imixs.ai.toolcall.ToolCallHandler;
@@ -169,7 +170,7 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
             logger.info("│   ├── query: " + query.trim().replace("\n", " | "));
         }
         try {
-            List<VectorMatch> matches = retrievalService.search(query, RetrievalService.parseCategories(categories),
+            List<VectorMatch> matches = retrievalService.search(query, RAGUtil.parseCategories(categories),
                     filterQuery, maxResults, contextHandler.isDebug());
             if (contextHandler.isDebug()) {
                 logger.info("│   ├── vector search returned " + matches.size() + " match(es)");

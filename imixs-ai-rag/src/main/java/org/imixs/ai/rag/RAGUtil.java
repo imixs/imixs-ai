@@ -15,6 +15,7 @@
 package org.imixs.ai.rag;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -27,6 +28,8 @@ import java.util.regex.Pattern;
  *
  */
 public class RAGUtil {
+
+    private static Logger logger = Logger.getLogger(RAGUtil.class.getName());
 
     public static final String RAG_INDEX = "INDEX";
     public static final String RAG_DELETE = "DELETE";
@@ -52,9 +55,96 @@ public class RAGUtil {
     // A heading is either a markdown heading (# .. ######) or a line that is
     // completely bold. Lines like "- **Price:** 50" or "**Artikel** text..." are
     // NOT headings.
-    private static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6} .+|\\*\\*[^*]+\\*\\*)$");
+    public static final Pattern HEADER_PATTERN = Pattern.compile("^(#{1,6} .+|\\*\\*[^*]+\\*\\*)$");
 
-    private static Logger logger = Logger.getLogger(RAGUtil.class.getName());
+    /**
+     * Returns the topics processed by the operator.
+     */
+    public static String[] getTopics() {
+        return new String[] { RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX, RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE };
+    }
+
+    /**
+     * Prepends an optional prefix to the given text. The prefix is separated by a
+     * single space. If the prefix is null or blank, the text is returned unchanged.
+     * <p>
+     * The separating space is added here, because trailing spaces in environment
+     * variables are easily lost (e.g. in Kubernetes manifests).
+     *
+     * @param prefix the optional prefix, e.g. 'search_document:'
+     * @param text   the text to be embedded
+     * @return the text with the prefix
+     */
+    public static String applyPrefix(String prefix, String text) {
+        if (prefix == null || prefix.isBlank()) {
+            return text;
+        }
+        return prefix.trim() + " " + text;
+    }
+
+    /**
+     * Parses a comma separated list of categories. Returns an empty list for all
+     * categories.
+     */
+    public static List<String> parseCategories(String categories) {
+        if (categories == null || categories.isBlank()) {
+            return new ArrayList<>();
+        }
+        return Arrays.stream(categories.split(",")).map(String::trim).filter(c -> !c.isEmpty()).toList();
+    }
+
+    // maximum size of a chunk in characters
+    public static final int MAX_CHUNK_SIZE = 1200;
+
+    /**
+     * Creates text chunks from a markdown text and repeats the title of the
+     * document at the start of each chunk. Without the title a chunk often lacks
+     * the identity of the document (e.g. order number, customer), so its
+     * embedding matches similar sections of all other documents.
+     * <p>
+     * The title is the H1 heading in the first line of the text (see
+     * {@link #extractTitle}). If the text has no title, or the title is longer
+     * than a quarter of maxChunkSize, the chunks are created without a title.
+     * Each chunk incl. the title stays within maxChunkSize.
+     *
+     * @param markdownText the markdown text to chunk
+     * @param maxChunkSize the maximum size of a single chunk in characters
+     */
+    public static List<String> chunkMarkdownDocumentWithTitle(String markdownText, int maxChunkSize) {
+        String title = extractTitle(markdownText);
+        if (title.isEmpty() || title.length() > maxChunkSize / 4) {
+            return chunkMarkdownDocument(markdownText, maxChunkSize);
+        }
+        // reserve space for the title in each chunk
+        List<String> chunks = chunkMarkdownDocument(markdownText, maxChunkSize - title.length() - 1);
+        List<String> result = new ArrayList<>();
+        for (String chunk : chunks) {
+            result.add(chunk.startsWith(title) ? chunk : title + "\n" + chunk);
+        }
+        return result;
+    }
+
+    /**
+     * Returns the title of a markdown document. The title is the first non-empty
+     * line of the text, if it is a H1 heading (e.g. '# Order 10200602 Karl Späh').
+     * Otherwise an empty string is returned.
+     *
+     * @param markdownText the markdown text
+     * @return the trimmed H1 heading or an empty string
+     */
+    public static String extractTitle(String markdownText) {
+        if (markdownText == null) {
+            return "";
+        }
+        for (String rawLine : markdownText.split("\n")) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            return line.startsWith("# ") ? line : "";
+        }
+        return "";
+    }
 
     /**
      * Creates smaller text chunks from a markdown text. The text is split into
@@ -222,21 +312,4 @@ public class RAGUtil {
         }
     }
 
-    /**
-     * Prepends an optional prefix to the given text. The prefix is separated by a
-     * single space. If the prefix is null or blank, the text is returned unchanged.
-     * <p>
-     * The separating space is added here, because trailing spaces in environment
-     * variables are easily lost (e.g. in Kubernetes manifests).
-     *
-     * @param prefix the optional prefix, e.g. 'search_document:'
-     * @param text   the text to be embedded
-     * @return the text with the prefix
-     */
-    public static String applyPrefix(String prefix, String text) {
-        if (prefix == null || prefix.isBlank()) {
-            return text;
-        }
-        return prefix.trim() + " " + text;
-    }
 }

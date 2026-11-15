@@ -15,7 +15,6 @@
 package org.imixs.ai.rag;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -107,7 +106,7 @@ public class RetrievalService {
                 throw new PluginException(RetrievalService.class.getSimpleName(), APIUtil.ERROR_API,
                         "imixs-ai configuration error: missing reference-item in RAG RETRIEVAL definition!");
             }
-            List<String> categories = parseCategories(definition.getItemValueString("categories"));
+            List<String> categories = RAGUtil.parseCategories(definition.getItemValueString("categories"));
             String query = definition.getItemValueString("query");
             int maxResults = definition.getItemValueInteger("max-results");
             if (maxResults <= 0) {
@@ -184,14 +183,4 @@ public class RetrievalService {
         }
     }
 
-    /**
-     * Parses a comma separated list of categories. Returns an empty list for all
-     * categories.
-     */
-    public static List<String> parseCategories(String categories) {
-        if (categories == null || categories.isBlank()) {
-            return new ArrayList<>();
-        }
-        return Arrays.stream(categories.split(",")).map(String::trim).filter(c -> !c.isEmpty()).toList();
-    }
 }

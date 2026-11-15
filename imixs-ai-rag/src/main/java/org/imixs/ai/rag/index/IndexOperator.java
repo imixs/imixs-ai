@@ -105,7 +105,7 @@ public class IndexOperator {
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public List<String> findEvents(int maxCount) {
         List<String> result = new ArrayList<>();
-        List<EventLog> events = eventLogService.findEventsByTopic(maxCount, getTopics());
+        List<EventLog> events = eventLogService.findEventsByTopic(maxCount, RAGUtil.getTopics());
         for (EventLog event : events) {
             result.add(event.getId());
         }
@@ -211,10 +211,4 @@ public class IndexOperator {
         vectorIndexService.indexVectors(event.ref(), category, vectors);
     }
 
-    /**
-     * Returns the topics processed by the operator.
-     */
-    public static String[] getTopics() {
-        return new String[] { RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_INDEX, RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE };
-    }
 }

@@ -66,7 +66,7 @@ The module requires the `imixs-workflow-index` as the index module of the applic
 | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `INDEX_DIRECTORY`                | yes      | Location of the index on a persistent volume, e.g. `/opt/jboss/lucene/imixs-workflow-index`. The vector index is stored in `<INDEX_DIRECTORY>_vector`. |
 | `INDEX_VECTOR_ENABLED`           | yes      | Must be `true` to enable the vector index.                                                                                                             |
-| `INDEX_VECTOR_DIMENSION`         | yes      | Dimension of the embedding model, e.g. `768`.                                                                                                          |
+| `INDEX_VECTOR_DIMENSION`         | yes      | Dimension of the embedding model, (default 768)                                                                                                        |
 | `RAG_EMBEDDINGS_ENDPOINT`        | yes      | Logical id of the embedding endpoint in `imixs-llm.xml`.                                                                                               |
 | `LLM_CONFIG_FILE`                | yes      | Path to the `imixs-llm.xml` file.                                                                                                                      |
 | `RAG_EMBEDDINGS_PREFIX_DOCUMENT` | no       | Task prefix for indexed text. See [Task Prefixes](#task-prefixes).                                                                                     |
