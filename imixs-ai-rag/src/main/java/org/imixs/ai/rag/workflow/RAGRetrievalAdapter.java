@@ -17,11 +17,10 @@ package org.imixs.ai.rag.workflow;
 import java.util.List;
 import java.util.logging.Logger;
 
-import org.imixs.ai.rag.EmbeddingService;
 import org.imixs.ai.rag.RAGUtil;
+import org.imixs.ai.rag.RetrievalService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.SignalAdapter;
-import org.imixs.workflow.engine.EventLogService;
 import org.imixs.workflow.engine.WorkflowService;
 import org.imixs.workflow.exceptions.AdapterException;
 import org.imixs.workflow.exceptions.PluginException;
@@ -29,52 +28,31 @@ import org.imixs.workflow.exceptions.PluginException;
 import jakarta.inject.Inject;
 
 /**
- * The RAGAdapter is used for Retrieval-Augmented Generation workflows.
+ * The RAGRetrievalAdapter finds documents similar to the current workitem in
+ * the RAG index. The retrieval runs synchronously within the processing cycle,
+ * so the result is available in the same workflow step.
  * <p>
- * The adapter operates in tue so called 'RETRIEVAL' mode.
- * <p>
- * In the 'RETRIEVAL' mode, the adapter evaluates an associated imixs-ai prompt
- * definition to get retrieval embeddings from the RAG database. The parameters
- * models and tasks are optional.
- * 
- * <pre>
- * {@code
-<imixs-ai name="RETRIEVAL">
-  <endpoint><propertyvalue>llm.service.endpoint</propertyvalue></endpoint>
-  <reference-item>customer.ref</reference-item>
-  <max-results>3</max-results>
-  <models>customer*, rechnung-1.0</models>
-  <tasks>1400, 1410, 1420, 1000:1300</tasks>
-  <debug>true</debug>
-
-</imixs-ai>
- * }
- * </pre>
- * 
- * The Endpoint defines the Rest API endpoint of the llama-cpp http server or
- * any compatible OpenAI / Open API rest service endpoint.
- * <p>
- * The Prompt Template is based on the concepts of Imixs-AI:
- * 
- * <pre>
- * {@code
-<?xml version="1.0" encoding="UTF-8"?>
-<IndexDefinition>
-    < index_options>{"n_predict": 4096, "temperature": 0}< /index_options>
-    <![CDATA[<text><itemvalue>$workflowgroup</itemvalue>: <itemvalue>$workflowstatus</itemvalue>
-        # Summary
-        <itemvalue>$workflowsummary</itemvalue>
-        <itemvalue>offer.summary</itemvalue>
-    ]]></text>
-</IndexDefinition> 
- * }
- * </pre>
- * 
- * The index Process is
- * 
- * @author Ralph Soika
- * @version 1.0
+ * The adapter is configured by one or many RETRIEVAL definitions:
  *
+ * <pre>
+ * {@code
+ * <imixs-rag name="RETRIEVAL">
+ *    <reference-item>similar.orders</reference-item>
+ *    <categories>order.summary</categories>
+ *    <query>($workflowgroup:"Auftrag")</query>
+ *    <max-results>5</max-results>
+ *    <debug>true</debug>
+ * </imixs-rag>
+ * }
+ * </pre>
+ *
+ * The query text is defined by a PromptDefinition in a BPMN DataObject
+ * associated with the event. The ids of the matching documents are stored in
+ * the reference-item. The retrieval runs with the rights of the current user.
+ *
+ * @see RetrievalService#createRetrieval
+ * @author Ralph Soika
+ * @version 2.0
  */
 public class RAGRetrievalAdapter implements SignalAdapter {
 
@@ -84,10 +62,7 @@ public class RAGRetrievalAdapter implements SignalAdapter {
     private WorkflowService workflowService;
 
     @Inject
-    EventLogService eventLogService;
-
-    @Inject
-    private EmbeddingService embeddingService;
+    private RetrievalService retrievalService;
 
     /**
      * Default Constructor
@@ -98,7 +73,7 @@ public class RAGRetrievalAdapter implements SignalAdapter {
 
     /**
      * CDI Constructor to inject WorkflowService
-     * 
+     *
      * @param workflowService
      */
     @Inject
@@ -112,26 +87,19 @@ public class RAGRetrievalAdapter implements SignalAdapter {
     }
 
     /**
-     * This method parses the LLM Event definitions.
-     * 
-     * For each PROMPT the method posts a context data (e.g text from an attachment)
-     * to the Imixs-AI Analyse service endpoint
-     * 
-     * @throws PluginException
+     * Executes all RETRIEVAL definitions of the current event.
      */
+    @Override
     public ItemCollection execute(ItemCollection workitem, ItemCollection event)
             throws AdapterException, PluginException {
 
-        logger.finest("...running rag adapter...");
-
-        // read optional configuration form the model or imixs.properties....
+        logger.finest("...running rag retrieval adapter...");
 
         List<ItemCollection> ragRetrievalDefinitions = workflowService.evalWorkflowResultXML(event, "imixs-rag",
                 RAGUtil.RAG_RETRIEVAL, workitem, false);
 
-        // verify if we have an RETRIEVAL configuration
-        if (ragRetrievalDefinitions != null && ragRetrievalDefinitions.size() > 0) {
-            embeddingService.createRetrieval(ragRetrievalDefinitions, workitem, event);
+        if (ragRetrievalDefinitions != null && !ragRetrievalDefinitions.isEmpty()) {
+            retrievalService.createRetrieval(ragRetrievalDefinitions, workitem, event);
         }
 
         return workitem;

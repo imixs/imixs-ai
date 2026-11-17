@@ -20,6 +20,7 @@ import java.util.logging.Logger;
 import org.imixs.ai.api.APIUtil;
 import org.imixs.ai.rag.EmbeddingService;
 import org.imixs.ai.rag.RAGUtil;
+import org.imixs.ai.rag.RetrievalService;
 import org.imixs.ai.workflow.ImixsAIPromptService;
 import org.imixs.workflow.ItemCollection;
 import org.imixs.workflow.engine.EventLogService;
@@ -30,45 +31,45 @@ import org.imixs.workflow.exceptions.PluginException;
 import jakarta.inject.Inject;
 
 /**
- * The RAGIndexPlugin automatically index, updates or remove the workflow
- * data as embeddings. Embeddings are stored as vectors by the
- * imixs-workflow-index (Apache Lucene).
+ * The RAGIndexPlugin maintains the RAG index of a workitem and executes
+ * retrievals. Embeddings are stored as vectors by the imixs-workflow-index
+ * (Apache Lucene).
  * <p>
- * The plugin can be controlled by an `<imixs-rag>` definition in the following
- * modes.
+ * The plugin is controlled by an {@code <imixs-rag>} definition in the
+ * following modes:
  * <ul>
- * <li>INDEX - index a workitem</li>
- * <li>PROMPT - send an LLM completion request and index the result</li>
- * <li>DELETE - remove the workitem from the index</li>
+ * <li>INDEX - index the text of the workitem in a category</li>
+ * <li>RETRIEVAL - find similar documents</li>
+ * <li>DELETE - remove all vectors of the workitem</li>
  * </ul>
  * <p>
- * The plugin is mainly responsible to load the prompt definition optional from
- * the event. In case the prompt definition is defined only by a BPMN Data
- * object, the plugin stores the prompt template into definition.
- * After resolving the prompt definition the plugin generates a event log entry
- * which is processed assynchounsly by the remote RAG Service.
- * 
- * <pre>
-  {@code
-   <imixs-rag name="INDEX">
-      <category>summary</category>
-      <debug>false</debug>  
-   </imixs-rag>
-
-	<imixs-rag name="RETRIEVAL">
-      <category>risk</category>
-	  <query>($workflowgroup:"Claim") AND (type:workitem)</query>
-	  <max-results>5</max-results>
-      <debug>false</debug>  
-   </imixs-rag>
-    }
- * </pre>
+ * For INDEX the plugin builds the text from the PromptDefinition and creates an
+ * EventLog entry. The embeddings are computed asynchronously, so the processing
+ * cycle never waits for an LLM call.
  * <p>
- * The tag 'debug' is optional
- * 
- * 
+ * A RETRIEVAL runs synchronously, so the result is available in the same
+ * workflow step. The plugin uses the same implementation as the
+ * {@link RAGRetrievalAdapter} - the modeler decides which one to use.
+ *
+ * <pre>
+ * {@code
+ * <imixs-rag name="INDEX">
+ *    <category>order.summary</category>
+ *    <debug>false</debug>
+ * </imixs-rag>
+ *
+ * <imixs-rag name="RETRIEVAL">
+ *    <reference-item>similar.orders</reference-item>
+ *    <categories>order.summary</categories>
+ *    <query>($workflowgroup:"Auftrag")</query>
+ *    <max-results>5</max-results>
+ * </imixs-rag>
+ *
+ * <imixs-rag name="DELETE"></imixs-rag>
+ * }
+ * </pre>
+ *
  * @author rsoika
- * 
  */
 public class RAGIndexPlugin extends AbstractPlugin {
 
@@ -83,6 +84,9 @@ public class RAGIndexPlugin extends AbstractPlugin {
 	@Inject
 	protected EmbeddingService embeddingService;
 
+	@Inject
+	protected RetrievalService retrievalService;
+
 	@Override
 	public ItemCollection run(ItemCollection workitem, ItemCollection event) throws PluginException {
 
@@ -94,14 +98,12 @@ public class RAGIndexPlugin extends AbstractPlugin {
 
 		logger.finest("running RAGPlugin");
 
-		// read optional configuration form the model or imixs.properties....
 		List<ItemCollection> ragIndexDefinitions = this.getWorkflowService().evalWorkflowResultXML(event, "imixs-rag",
 				RAGUtil.RAG_INDEX, workitem, false);
+		List<ItemCollection> ragRetrievalDefinitions = this.getWorkflowService().evalWorkflowResultXML(event,
+				"imixs-rag", RAGUtil.RAG_RETRIEVAL, workitem, false);
 		List<ItemCollection> ragDeleteDefinitions = this.getWorkflowService().evalWorkflowResultXML(event, "imixs-rag",
 				RAGUtil.RAG_DELETE, workitem, false);
-		List<ItemCollection> ragRetrievalDefinitions = this.getWorkflowService().evalWorkflowResultXML(event,
-				"imixs-rag",
-				RAGUtil.RAG_RETRIEVAL, workitem, false);
 
 		// INDEX Mode?
 		if (ragIndexDefinitions != null) {
@@ -115,34 +117,34 @@ public class RAGIndexPlugin extends AbstractPlugin {
 			}
 		}
 
-		// RETRIEVAL mode?
-		if (ragRetrievalDefinitions != null) {
-			for (ItemCollection ragPromptDefinition : ragRetrievalDefinitions) {
-				loadPromptDefinition(ragPromptDefinition, event);
-				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_RETRIEVAL, workitem.getUniqueID(),
-						ragPromptDefinition);
+		// RETRIEVAL mode? - runs synchronously, the result is stored in the
+		// reference-item of each definition
+		if (ragRetrievalDefinitions != null && !ragRetrievalDefinitions.isEmpty()) {
+			try {
+				retrievalService.createRetrieval(ragRetrievalDefinitions, workitem, event);
+			} catch (AdapterException e) {
+				throw new PluginException(e);
 			}
 		}
 
 		// DELETE mode?
 		if (ragDeleteDefinitions != null) {
-			for (ItemCollection radDeleteDefinition : ragDeleteDefinitions) {
+			for (ItemCollection ragDeleteDefinition : ragDeleteDefinitions) {
 				eventLogService.createEvent(RAGUtil.EVENTLOG_TOPIC_RAG_EVENT_DELETE, workitem.getUniqueID(),
-						radDeleteDefinition);
+						ragDeleteDefinition);
 			}
 		}
 
 		return workitem;
-
 	}
 
 	/**
 	 * This helper method verifies if the indexDefinition contains a prompt
 	 * definition. If not the method loads the prompt definition from the dataObject
 	 * associated with the event.
-	 * 
+	 *
 	 * @param indexDefinition
-	 * @return
+	 * @param event
 	 * @throws PluginException
 	 */
 	public void loadPromptDefinition(ItemCollection indexDefinition, ItemCollection event) throws PluginException {
@@ -150,7 +152,6 @@ public class RAGIndexPlugin extends AbstractPlugin {
 		String promptDefinition = imixsAIPromptService.loadPromptTemplate(indexDefinition, event);
 		// update the prompt-template in the definition object!
 		indexDefinition.setItemValue(APIUtil.ITEM_PROMPT_TEMPLATE, promptDefinition);
-
 	}
 
 }
