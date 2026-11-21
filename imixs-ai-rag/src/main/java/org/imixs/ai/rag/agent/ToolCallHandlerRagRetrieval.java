@@ -44,11 +44,12 @@ import jakarta.json.JsonObject;
  * The LLM evaluates the candidates and selects the best match with the tool
  * "rag_select", which resolves the number back into the uniqueid.
  * <p>
- * The search is always restricted by model group and task id. Both values are
- * translated into a full-text filter of the vector search. The values are
- * validated, so the LLM can not inject an arbitrary search term. The optional
- * categories restrict the search to specific business views of the
- * embeddings.
+ * The search is always restricted by a full-text filter (Lucene syntax), e.g.
+ * {@code ($workflowgroup:Auftrag) AND ($taskid:2900)}. The filter is defined by
+ * the modeler in the task instructions and passed by the LLM - the same filter
+ * as the 'query' of a RETRIEVAL definition. An invalid filter is returned as an
+ * error to the LLM. The optional categories restrict the search to specific
+ * business views of the embeddings.
  * <p>
  * The search runs with the rights of the current user. The embedding endpoint
  * is defined centrally by the RAG configuration.
@@ -91,8 +92,8 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
                         + "indicates a rough match, it does not prove that a candidate is the right one - you "
                         + "must read each candidate and decide yourself. Every candidate has a number. To select "
                         + "a candidate use the tool rag_select with that number. Always restrict the search with "
-                        + "'modelgroups' and 'tasks' exactly as given in the task instructions - never invent "
-                        + "these values. The query text must follow the form given in the task instructions.",
+                        + "the 'filter' exactly as given in the task instructions - never invent or change it. "
+                        + "The query text must follow the form given in the task instructions.",
                 """
                         {
                             "type": "object",
@@ -101,13 +102,9 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
                                     "type": "string",
                                     "description": "The query text, formatted exactly as described in the task instructions."
                                 },
-                                "modelgroups": {
+                                "filter": {
                                     "type": "string",
-                                    "description": "Workflow model group(s) to search in, exactly as given in the task instructions."
-                                },
-                                "tasks": {
-                                    "type": "string",
-                                    "description": "Task id(s) to search in, exactly as given in the task instructions."
+                                    "description": "Search filter restricting the documents, copied exactly as given in the task instructions."
                                 },
                                 "categories": {
                                     "type": "string",
@@ -122,7 +119,7 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
                                     "description": "Optional. Comma separated list of item names. The content of these items is returned for each candidate, exactly as given in the task instructions."
                                 }
                             },
-                            "required": ["query", "modelgroups", "tasks"]
+                            "required": ["query", "filter"]
                         }
                         """);
     }
@@ -133,8 +130,7 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
         ImixsAIContextHandler contextHandler = _function.getContextHandler();
 
         String query = args.containsKey("query") ? args.getString("query") : null;
-        String modelGroups = args.containsKey("modelgroups") ? args.getString("modelgroups") : null;
-        String tasks = args.containsKey("tasks") ? args.getString("tasks") : null;
+        String filter = args.containsKey("filter") ? args.getString("filter") : null;
         String categories = args.containsKey("categories") ? args.getString("categories") : null;
 
         // read optional item list:
@@ -146,24 +142,16 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
             return;
         }
         // The search must never run unfiltered
-        if (modelGroups == null || modelGroups.isBlank() || tasks == null || tasks.isBlank()) {
-            _function.setError("The arguments 'modelgroups' and 'tasks' are mandatory!");
+        if (filter == null || filter.isBlank()) {
+            _function.setError("The argument 'filter' is mandatory - use the filter given in the task instructions!");
             return;
         }
-        // translate model groups and task ids into a full-text filter
-        String filterQuery;
-        try {
-            filterQuery = buildFilterQuery(modelGroups, tasks);
-        } catch (IllegalArgumentException e) {
-            _function.setError(e.getMessage());
-            return;
-        }
+        String filterQuery = filter.trim();
 
         int maxResults = Math.min(Math.max(args.getInt("maxResults", DEFAULT_MAX_RESULTS), 1), MAX_RESULTS_LIMIT);
 
         if (contextHandler.isDebug()) {
-            logger.info("├── ToolCallHandlerRagRetrieval: rag_retrieval modelgroups='" + modelGroups + "' tasks='"
-                    + tasks + "' maxResults=" + maxResults);
+            logger.info("├── ToolCallHandlerRagRetrieval: rag_retrieval maxResults=" + maxResults);
             logger.info("│   ├── categories: " + (categories == null || categories.isBlank() ? "all" : categories));
             logger.info("│   ├── filter: " + filterQuery);
             // the query may span several lines - log it in a single line
@@ -226,40 +214,6 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
     }
 
     /**
-     * Builds the full-text filter for the vector search from the given model
-     * groups and task ids. Both values are comma separated lists. The values are
-     * validated and quoted, so the LLM can not inject an arbitrary search term.
-     *
-     * @return the filter query, e.g. ($workflowgroup:"Claim") AND ($taskid:1000)
-     * @throws IllegalArgumentException if a value is invalid
-     */
-    static String buildFilterQuery(String modelGroups, String tasks) {
-        List<String> groupTerms = new ArrayList<>();
-        for (String group : modelGroups.split(",")) {
-            if (!group.isBlank()) {
-                // quote the value - escape backslashes and quotes
-                String value = group.trim().replace("\\", "\\\\").replace("\"", "\\\"");
-                groupTerms.add("$workflowgroup:\"" + value + "\"");
-            }
-        }
-        List<String> taskTerms = new ArrayList<>();
-        for (String task : tasks.split(",")) {
-            String value = task.trim();
-            if (value.isEmpty()) {
-                continue;
-            }
-            if (!value.matches("\\d+")) {
-                throw new IllegalArgumentException("Invalid task id '" + value + "' - expected a number!");
-            }
-            taskTerms.add("$taskid:" + value);
-        }
-        if (groupTerms.isEmpty() || taskTerms.isEmpty()) {
-            throw new IllegalArgumentException("The arguments 'modelgroups' and 'tasks' are mandatory!");
-        }
-        return "(" + String.join(" OR ", groupTerms) + ") AND (" + String.join(" OR ", taskTerms) + ")";
-    }
-
-    /**
      * Splits a comma separated list of item names into a clean list.
      */
     private List<String> parseItemNames(String itemNames) {
@@ -278,9 +232,8 @@ public class ToolCallHandlerRagRetrieval implements ToolCallHandler, Serializabl
     /**
      * Builds the text block for a single candidate. The block starts with a header
      * (number, score), followed by the creation date and the workflow summary.
-     * After
-     * that the content of each requested item is added, separated by an empty line.
-     * Items without a value are skipped.
+     * After that the content of each requested item is added, separated by an empty
+     * line. Items without a value are skipped.
      */
     private String buildCandidateText(int nr, float score, ItemCollection candidate, List<String> itemList) {
         StringBuilder sb = new StringBuilder();
